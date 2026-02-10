@@ -2,8 +2,15 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { clients, ExtractedBrandData } from "@/data/clients";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ShieldCheck, Palette, FileCheck, Sparkles } from "lucide-react";
+import { ArrowRight, ShieldCheck, Palette, FileCheck, Sparkles, User } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import BrandAssets from "@/components/BrandAssets";
 import GuidelineChecker from "@/components/GuidelineChecker";
 import NanoBananaGenerator from "@/components/NanoBananaGenerator";
@@ -14,6 +21,7 @@ const ClientGuideline = () => {
   const navigate = useNavigate();
   const client = clients.find((c) => c.id === clientId);
   const [extractedData, setExtractedData] = useState<ExtractedBrandData | null>(null);
+  const [role, setRole] = useState<"admin" | "employee">("admin");
 
   if (!client) {
     return (
@@ -32,10 +40,36 @@ const ClientGuideline = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        <Button variant="ghost" className="mb-4" onClick={() => navigate("/clients")}>
-          <ArrowRight className="h-4 w-4 ml-2" />
-          חזרה למאגר לקוחות
-        </Button>
+        <div className="flex items-center justify-between mb-4">
+          <Button variant="ghost" onClick={() => navigate("/clients")}>
+            <ArrowRight className="h-4 w-4 ml-2" />
+            חזרה למאגר לקוחות
+          </Button>
+
+          {/* Role Toggle */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">הצגה בתור:</span>
+            <Select value={role} onValueChange={(v) => setRole(v as "admin" | "employee")}>
+              <SelectTrigger className="w-36 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">
+                  <span className="flex items-center gap-2">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    מנהל
+                  </span>
+                </SelectItem>
+                <SelectItem value="employee">
+                  <span className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5" />
+                    עובד
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         {/* Header */}
         <div className="h-2 rounded-t-lg bg-gradient-to-l from-brand-pink to-brand-purple" />
@@ -72,7 +106,7 @@ const ClientGuideline = () => {
 
           <TabsContent value="brand">
             <section className="mb-8">
-              <PdfBrandScanner client={client} onExtracted={setExtractedData} />
+              <PdfBrandScanner client={client} onExtracted={setExtractedData} role={role} />
             </section>
             <BrandAssets
               brandColors={client.brandColors}
