@@ -1,7 +1,6 @@
-import { Home, Users, Building2, Sparkles, UserCircle, ShieldCheck, User, LogOut, ArrowLeftRight } from "lucide-react";
+import { Home, Users, Building2, Sparkles, ArrowLeftRight, ShieldCheck, User } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAdminMode, useIsAuthAdmin } from "@/contexts/AdminModeContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 
@@ -11,14 +10,12 @@ const navItems = [
   { title: "לקוחות", url: "/clients", icon: Building2 },
   { title: "סטודיו AI", url: "/ai-studio", icon: Sparkles },
   { title: "פיינלים", url: "/finals-audit", icon: ArrowLeftRight },
-  { title: "פרופיל", url: "/profile", icon: UserCircle },
 ];
 
 export function FloatingNav() {
   const location = useLocation();
   const { role, setRole, isAdmin } = useAdminMode();
   const isAuthAdmin = useIsAuthAdmin();
-  const { signOut } = useAuth();
 
   const isActive = (url: string) => {
     if (url === "/") return location.pathname === "/";
@@ -71,15 +68,6 @@ export function FloatingNav() {
             </NavLink>
           );
         })}
-
-        {/* Sign out */}
-        <button
-          onClick={() => signOut()}
-          className="flex flex-col items-center gap-0.5 rounded-xl px-3 py-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200 border-r border-border/50 mr-1"
-        >
-          <LogOut className="h-5 w-5" />
-          <span className="text-[10px] font-medium leading-none">יציאה</span>
-        </button>
       </div>
     </nav>
   );
