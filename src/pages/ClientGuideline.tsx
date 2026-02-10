@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { clients, ExtractedBrandData } from "@/data/clients";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import BrandAssets from "@/components/BrandAssets";
+import FindingsTable from "@/components/FindingsTable";
 import GuidelineChecker from "@/components/GuidelineChecker";
 import NanoBananaGenerator from "@/components/NanoBananaGenerator";
 import PdfBrandScanner from "@/components/PdfBrandScanner";
@@ -22,6 +23,31 @@ const ClientGuideline = () => {
   const client = clients.find((c) => c.id === clientId);
   const [extractedData, setExtractedData] = useState<ExtractedBrandData | null>(null);
   const [role, setRole] = useState<"admin" | "employee">("admin");
+
+  const handleOverride = useCallback((id: string, newValue: string) => {
+    if (!extractedData) return;
+    setExtractedData((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev };
+      // Parse the id to find which category and index
+      const [category, indexStr] = id.split("-");
+      const index = parseInt(indexStr, 10);
+      if (category === "color" && !isNaN(index) && updated.colors[index]) {
+        updated.colors = [...updated.colors];
+        // Try to extract hex from override
+        const hexMatch = newValue.match(/#[0-9a-fA-F]{6}/);
+        if (hexMatch) updated.colors[index] = { ...updated.colors[index], hex: hexMatch[0] };
+        updated.colors[index] = { ...updated.colors[index], name: newValue.split("|")[0]?.replace("HEX:", "").trim() || updated.colors[index].name, confidence: "exact" };
+      } else if (category === "font" && !isNaN(index) && updated.fonts[index]) {
+        updated.fonts = [...updated.fonts];
+        updated.fonts[index] = { ...updated.fonts[index], name: newValue.split("•")[0]?.trim() || newValue, confidence: "exact" };
+      } else if (category === "logo" && !isNaN(index) && updated.logoRules[index]) {
+        updated.logoRules = [...updated.logoRules];
+        updated.logoRules[index] = { ...updated.logoRules[index], rule: newValue, confidence: "exact" };
+      }
+      return updated;
+    });
+  }, [extractedData]);
 
   if (!client) {
     return (
@@ -108,6 +134,15 @@ const ClientGuideline = () => {
             <section className="mb-8">
               <PdfBrandScanner client={client} onExtracted={setExtractedData} role={role} />
             </section>
+            {extractedData && (
+              <section className="mb-8">
+                <FindingsTable
+                  extracted={extractedData}
+                  role={role}
+                  onOverride={handleOverride}
+                />
+              </section>
+            )}
             <BrandAssets
               brandColors={client.brandColors}
               fonts={client.fonts}

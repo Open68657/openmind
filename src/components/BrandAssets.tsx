@@ -1,4 +1,4 @@
-import { BrandColor, ExtractedBrandData, SubBrand } from "@/data/clients";
+import { BrandColor, ExtractedBrandData, ExtractedFont, SubBrand } from "@/data/clients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Palette, Type, Image, CheckCircle, XCircle, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ interface BrandAssetsProps {
 
 const BrandAssets = ({ brandColors, fonts, extracted, subBrands }: BrandAssetsProps) => {
   const displayColors = extracted ? extracted.colors : brandColors;
-  const displayFonts = extracted
+  const displayFonts: ExtractedFont[] = extracted
     ? extracted.fonts
     : fonts.map((f, i) => ({
         name: f,

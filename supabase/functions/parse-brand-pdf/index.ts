@@ -44,32 +44,45 @@ serve(async (req) => {
     }
     const base64Pdf = btoa(binary);
 
-    const systemPrompt = `You are a brand guideline analyzer. You extract ONLY factual data from uploaded brand books/PDFs. 
-You MUST return a JSON object with the following structure. If a value cannot be found in the document, use null or an empty array - NEVER invent or hallucinate data.
+    const systemPrompt = `You are a strict brand guideline data extractor. You extract ONLY factual data visible in uploaded brand book PDFs.
 
-Return ONLY valid JSON, no markdown fences, no extra text:
+EXTRACTION RULES:
+1. COLORS: Search for keywords "HEX", "RGB", "CMYK", "Pantone", "#" followed by 6 chars, or color swatches with labeled values. Extract the EXACT values written. If only CMYK is given, provide it as-is and set hex to null. Do NOT convert or guess hex values.
+2. TYPOGRAPHY: Search for font family names (e.g. Almoni, Assistant, Heebo, Open Sans, Montserrat). Look for weight keywords (Light, Regular, Bold, Black). Extract exact names as written.
+3. LOGO RULES: Find sections about logo usage, do's and don'ts, clear space, minimum size. Extract the exact rule text.
+4. SUB-BRANDS: Find variant names like "BIG CENTERS", "BIG FASHION", etc.
+
+For EVERY extracted item, you MUST note which page number it was found on.
+
+CONFIDENCE LEVELS:
+- "exact": The value is explicitly written in the document (e.g. "CMYK: C100 M70")
+- "inferred": The value was derived from context but not explicitly stated
+- "not_found": Could not locate this type of data in the document
+
+Return ONLY valid JSON, no markdown fences:
 {
   "colors": [
-    { "name": "string (color name from document)", "hex": "string or null", "cmyk": "string (e.g. 'C100 M70') or null", "rgb": "string or null" }
+    { "name": "string", "hex": "string or null", "cmyk": "string or null", "rgb": "string or null", "pantone": "string or null", "page": number, "confidence": "exact"|"inferred" }
   ],
   "fonts": [
-    { "name": "string (exact font name from document)", "size": "string or null", "usage": "string (e.g. headlines, body) or null" }
+    { "name": "string", "weight": "string or null", "size": "string or null", "usage": "string or null", "page": number, "confidence": "exact"|"inferred" }
   ],
   "logoRules": [
-    { "rule": "string (exact rule from document)", "type": "do" or "dont" }
+    { "rule": "string", "type": "do"|"dont", "page": number, "confidence": "exact"|"inferred" }
   ],
   "subBrands": [
-    { "name": "string (sub-brand name, e.g. BIG CENTERS)", "nameHe": "string (Hebrew name) or null" }
+    { "name": "string", "nameHe": "string or null", "page": number }
   ],
-  "sourceFileName": "string (the filename)"
+  "summary": {
+    "totalPages": number,
+    "colorsFound": boolean,
+    "fontsFound": boolean,
+    "logoRulesFound": boolean,
+    "subBrandsFound": boolean
+  }
 }
 
-CRITICAL RULES:
-- Extract ONLY values explicitly stated in the document
-- For colors: look for CMYK, RGB, HEX values. Convert CMYK to approximate HEX if HEX is not given
-- For fonts: extract exact font family names
-- For sub-brands: extract any variant names (e.g. BIG CENTERS, BIG FASHION)
-- If you cannot find specific data, return null or empty array - NEVER guess`;
+CRITICAL: If you CANNOT find a specific data type, return an empty array for it and set the corresponding "Found" flag to false. NEVER invent values. If unsure about a value, set confidence to "inferred".`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -86,7 +99,7 @@ CRITICAL RULES:
             content: [
               {
                 type: "text",
-                text: `Analyze this brand guideline PDF for the brand "${clientName}". Extract all colors (with CMYK/RGB/HEX values), fonts, logo usage rules, and sub-brand names. Return ONLY the JSON object.`,
+                text: `Analyze this brand guideline PDF for "${clientName}". Extract all colors with their EXACT CMYK/RGB/HEX/Pantone codes as printed, all font names with weights, logo usage rules, and sub-brand names. For each item note the page number. Return ONLY the JSON object.`,
               },
               {
                 type: "image_url",
@@ -124,7 +137,6 @@ CRITICAL RULES:
     const aiData = await response.json();
     const content = aiData.choices?.[0]?.message?.content || "";
 
-    // Parse JSON from response, stripping markdown fences if present
     let cleaned = content.trim();
     if (cleaned.startsWith("```")) {
       cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
