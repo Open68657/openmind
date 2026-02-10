@@ -1,6 +1,7 @@
 export interface BrandColor {
   name: string;
   hex: string;
+  cmyk?: string;
 }
 
 export interface LogoRule {
@@ -14,12 +15,23 @@ export interface ExtractedBrandData {
   logoRules: LogoRule[];
 }
 
+export interface SubBrand {
+  name: string;
+  nameHe: string;
+}
+
 export interface Client {
   id: string;
   name: string;
   industry: string;
   brandColors: BrandColor[];
   fonts: string[];
+  subBrands?: SubBrand[];
+  adLayout?: {
+    logoPosition: string;
+    colorBlocks: boolean;
+    stampa?: { text: string };
+  };
 }
 
 export const clients: Client[] = [
@@ -28,12 +40,21 @@ export const clients: Client[] = [
     name: "BIG",
     industry: "מרכזי קניות",
     brandColors: [
-      { name: "כחול BIG", hex: "#003DA5" },
+      { name: "אדום BIG", hex: "#E30613", cmyk: "M100 Y100" },
+      { name: "כחול BIG", hex: "#0054A6", cmyk: "C100 M70" },
+      { name: "צהוב BIG", hex: "#FFED00", cmyk: "Y100" },
       { name: "לבן", hex: "#FFFFFF" },
-      { name: "אפור כהה", hex: "#333333" },
-      { name: "אפור בהיר", hex: "#F0F0F0" },
     ],
     fonts: ["Heebo", "Open Sans"],
+    subBrands: [
+      { name: "BIG CENTERS", nameHe: "ביג סנטרס" },
+      { name: "BIG FASHION", nameHe: "ביג פאשן" },
+    ],
+    adLayout: {
+      logoPosition: "bottom-center",
+      colorBlocks: true,
+      stampa: { text: "הכניסה חופשית" },
+    },
   },
   {
     id: "yale",
@@ -137,12 +158,11 @@ export const clients: Client[] = [
 export const simulatedExtractions: Record<string, ExtractedBrandData> = {
   big: {
     colors: [
-      { name: "כחול BIG ראשי", hex: "#003DA5" },
-      { name: "כחול בהיר", hex: "#4D9DE0" },
+      { name: "אדום BIG ראשי", hex: "#E30613", cmyk: "M100 Y100" },
+      { name: "כחול BIG", hex: "#0054A6", cmyk: "C100 M70" },
+      { name: "צהוב BIG", hex: "#FFED00", cmyk: "Y100" },
       { name: "לבן", hex: "#FFFFFF" },
-      { name: "אפור ניטרלי", hex: "#E5E5E5" },
       { name: "שחור", hex: "#1A1A1A" },
-      { name: "אדום מבצעים", hex: "#E63946" },
     ],
     fonts: [
       { name: "Heebo Bold", size: "32-48px", usage: "כותרות ראשיות" },
@@ -151,7 +171,9 @@ export const simulatedExtractions: Record<string, ExtractedBrandData> = {
       { name: "Open Sans Bold", size: "14px", usage: "הדגשות וכפתורים" },
     ],
     logoRules: [
-      { rule: "שימוש בלוגו על רקע לבן או כחול כהה בלבד", type: "do" },
+      { rule: "לוגו ממוקם תמיד במרכז-תחתון של הפרסום", type: "do" },
+      { rule: "שימוש בבלוקים מלבניים צבעוניים למבצעים", type: "do" },
+      { rule: "הוספת סטמפת 'הכניסה חופשית' בכל פרסום", type: "do" },
       { rule: "שמירה על מרווח מינימלי סביב הלוגו", type: "do" },
       { rule: "אין לשנות את יחס הגובה-רוחב של הלוגו", type: "dont" },
       { rule: "אין להוסיף אפקטים כמו צל או שיפוע", type: "dont" },

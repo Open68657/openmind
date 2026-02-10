@@ -1,15 +1,16 @@
-import { BrandColor, ExtractedBrandData } from "@/data/clients";
+import { BrandColor, ExtractedBrandData, SubBrand } from "@/data/clients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Palette, Type, Image, CheckCircle, XCircle } from "lucide-react";
+import { Palette, Type, Image, CheckCircle, XCircle, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface BrandAssetsProps {
   brandColors: BrandColor[];
   fonts: string[];
   extracted?: ExtractedBrandData | null;
+  subBrands?: SubBrand[];
 }
 
-const BrandAssets = ({ brandColors, fonts, extracted }: BrandAssetsProps) => {
+const BrandAssets = ({ brandColors, fonts, extracted, subBrands }: BrandAssetsProps) => {
   const displayColors = extracted ? extracted.colors : brandColors;
   const displayFonts = extracted
     ? extracted.fonts
@@ -53,6 +54,11 @@ const BrandAssets = ({ brandColors, fonts, extracted }: BrandAssetsProps) => {
                     <p className="text-xs font-mono text-muted-foreground" dir="ltr">
                       {color.hex}
                     </p>
+                    {color.cmyk && (
+                      <p className="text-[10px] font-mono text-brand-purple/70" dir="ltr">
+                        CMYK: {color.cmyk}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -95,6 +101,31 @@ const BrandAssets = ({ brandColors, fonts, extracted }: BrandAssetsProps) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sub-Brands */}
+      {subBrands && subBrands.length > 0 && (
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Tag className="h-5 w-5 text-accent" />
+              תת-מותגים
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {subBrands.map((sb) => (
+                <div
+                  key={sb.name}
+                  className="flex items-center gap-3 rounded-lg border border-border p-4"
+                >
+                  <p className="text-sm font-bold text-foreground" dir="ltr">{sb.name}</p>
+                  <span className="text-xs text-muted-foreground">{sb.nameHe}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Logo Rules - only show when extracted */}
       {extracted && extracted.logoRules.length > 0 && (

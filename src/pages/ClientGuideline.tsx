@@ -78,6 +78,7 @@ const ClientGuideline = () => {
               brandColors={client.brandColors}
               fonts={client.fonts}
               extracted={extractedData}
+              subBrands={client.subBrands}
             />
           </TabsContent>
 
