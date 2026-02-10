@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { sketchBase64, finalBase64, sketchName, finalName, clientBrandData } = await req.json();
+    const { sketchBase64, finalBase64, sketchName, finalName, sketchMimeType, finalMimeType, clientBrandData } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
@@ -54,11 +54,11 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
           },
           {
             type: "image_url",
-            image_url: { url: `data:image/png;base64,${sketchBase64}` },
+            image_url: { url: `data:${sketchMimeType || "image/png"};base64,${sketchBase64}` },
           },
           {
             type: "image_url",
-            image_url: { url: `data:image/png;base64,${finalBase64}` },
+            image_url: { url: `data:${finalMimeType || "image/png"};base64,${finalBase64}` },
           },
         ],
       },

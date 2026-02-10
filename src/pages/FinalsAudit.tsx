@@ -125,6 +125,8 @@ const FinalsAudit = () => {
           finalBase64,
           sketchName: sketchFile.name,
           finalName: finalFile.name,
+          sketchMimeType: sketchFile.type || "image/png",
+          finalMimeType: finalFile.type || "image/png",
         },
       });
 
