@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, DragEvent } from "react";
 import { CheckCircle2, FileUp, ArrowLeftRight, Loader2, AlertTriangle, Info, XCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,6 +43,9 @@ const typeLabels: Record<string, string> = {
   specs: "מפרט מותג",
 };
 
+const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"];
+const ACCEPT_STRING = "image/*,application/pdf";
+
 const FinalsAudit = () => {
   const [sketchFile, setSketchFile] = useState<File | null>(null);
   const [finalFile, setFinalFile] = useState<File | null>(null);
@@ -50,26 +53,56 @@ const FinalsAudit = () => {
   const [finalPreview, setFinalPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ComparisonResult | null>(null);
+  const [dragOver, setDragOver] = useState<"sketch" | "final" | null>(null);
   const sketchRef = useRef<HTMLInputElement>(null);
   const finalRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const processFile = useCallback((file: File, type: "sketch" | "final") => {
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      toast({ title: "סוג קובץ לא נתמך", description: "יש להעלות תמונה או PDF", variant: "destructive" });
+      return;
+    }
+    const url = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
+    if (type === "sketch") {
+      setSketchFile(file);
+      setSketchPreview(url);
+    } else {
+      setFinalFile(file);
+      setFinalPreview(url);
+    }
+    setResult(null);
+  }, [toast]);
 
   const handleFile = useCallback(
     (type: "sketch" | "final") => (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      const url = URL.createObjectURL(file);
-      if (type === "sketch") {
-        setSketchFile(file);
-        setSketchPreview(url);
-      } else {
-        setFinalFile(file);
-        setFinalPreview(url);
-      }
-      setResult(null);
+      processFile(file, type);
+    },
+    [processFile]
+  );
+
+  const handleDrop = useCallback(
+    (type: "sketch" | "final") => (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setDragOver(null);
+      const file = e.dataTransfer.files?.[0];
+      if (!file) return;
+      processFile(file, type);
+    },
+    [processFile]
+  );
+
+  const handleDragOver = useCallback(
+    (type: "sketch" | "final") => (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setDragOver(type);
     },
     []
   );
+
+  const handleDragLeave = useCallback(() => setDragOver(null), []);
 
   const handleCompare = async () => {
     if (!sketchFile || !finalFile) {
@@ -142,29 +175,37 @@ const FinalsAudit = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Sketch Upload */}
           <Card
-            className="border-2 border-dashed border-border hover:border-brand-purple/40 transition-colors cursor-pointer group"
+            className={`border-2 border-dashed transition-colors cursor-pointer group ${
+              dragOver === "sketch"
+                ? "border-green-500 bg-green-50/50 dark:bg-green-900/10"
+                : "border-border hover:border-brand-purple/40"
+            }`}
             onClick={() => sketchRef.current?.click()}
+            onDrop={handleDrop("sketch")}
+            onDragOver={handleDragOver("sketch")}
+            onDragLeave={handleDragLeave}
           >
             <CardContent className="flex flex-col items-center justify-center py-10 min-h-[260px]">
               <input
                 ref={sketchRef}
                 type="file"
-                accept="image/*"
+                accept={ACCEPT_STRING}
                 className="hidden"
                 onChange={handleFile("sketch")}
               />
-              {sketchPreview ? (
+              {sketchFile ? (
                 <div className="w-full space-y-3">
-                  <img
-                    src={sketchPreview}
-                    alt="sketch preview"
-                    className="w-full h-40 object-contain rounded-lg"
-                  />
+                  {sketchPreview ? (
+                    <img src={sketchPreview} alt="sketch preview" className="w-full h-40 object-contain rounded-lg" />
+                  ) : (
+                    <div className="w-full h-40 flex flex-col items-center justify-center rounded-lg bg-muted/50">
+                      <FileUp className="h-10 w-10 text-muted-foreground mb-2" />
+                      <span className="text-xs text-muted-foreground">PDF</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium text-foreground truncate">
-                      {sketchFile?.name}
-                    </span>
+                    <span className="text-sm font-medium text-foreground truncate">{sketchFile.name}</span>
                   </div>
                 </div>
               ) : (
@@ -173,7 +214,8 @@ const FinalsAudit = () => {
                     <CheckCircle2 className="h-8 w-8 text-green-600" />
                   </div>
                   <h3 className="text-base font-bold text-foreground mb-1">סקיצה מאושרת</h3>
-                  <p className="text-sm text-muted-foreground">לחצ/י להעלאת הסקיצה</p>
+                  <p className="text-sm text-muted-foreground">לחצ/י להעלאת הסקיצה או גרור/י לכאן</p>
+                  <p className="text-xs text-muted-foreground mt-1">תמונות ו-PDF</p>
                 </>
               )}
             </CardContent>
@@ -181,29 +223,37 @@ const FinalsAudit = () => {
 
           {/* Final Upload */}
           <Card
-            className="border-2 border-dashed border-border hover:border-brand-purple/40 transition-colors cursor-pointer group"
+            className={`border-2 border-dashed transition-colors cursor-pointer group ${
+              dragOver === "final"
+                ? "border-brand-purple bg-brand-purple/5"
+                : "border-border hover:border-brand-purple/40"
+            }`}
             onClick={() => finalRef.current?.click()}
+            onDrop={handleDrop("final")}
+            onDragOver={handleDragOver("final")}
+            onDragLeave={handleDragLeave}
           >
             <CardContent className="flex flex-col items-center justify-center py-10 min-h-[260px]">
               <input
                 ref={finalRef}
                 type="file"
-                accept="image/*"
+                accept={ACCEPT_STRING}
                 className="hidden"
                 onChange={handleFile("final")}
               />
-              {finalPreview ? (
+              {finalFile ? (
                 <div className="w-full space-y-3">
-                  <img
-                    src={finalPreview}
-                    alt="final preview"
-                    className="w-full h-40 object-contain rounded-lg"
-                  />
+                  {finalPreview ? (
+                    <img src={finalPreview} alt="final preview" className="w-full h-40 object-contain rounded-lg" />
+                  ) : (
+                    <div className="w-full h-40 flex flex-col items-center justify-center rounded-lg bg-muted/50">
+                      <FileUp className="h-10 w-10 text-muted-foreground mb-2" />
+                      <span className="text-xs text-muted-foreground">PDF</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-center gap-2">
                     <FileUp className="h-4 w-4 text-brand-purple" />
-                    <span className="text-sm font-medium text-foreground truncate">
-                      {finalFile?.name}
-                    </span>
+                    <span className="text-sm font-medium text-foreground truncate">{finalFile.name}</span>
                   </div>
                 </div>
               ) : (
@@ -212,7 +262,8 @@ const FinalsAudit = () => {
                     <FileUp className="h-8 w-8 text-brand-purple" />
                   </div>
                   <h3 className="text-base font-bold text-foreground mb-1">קובץ פיינל</h3>
-                  <p className="text-sm text-muted-foreground">לחצ/י להעלאת הקובץ הסופי</p>
+                  <p className="text-sm text-muted-foreground">לחצ/י להעלאת הקובץ הסופי או גרור/י לכאן</p>
+                  <p className="text-xs text-muted-foreground mt-1">תמונות ו-PDF</p>
                 </>
               )}
             </CardContent>
