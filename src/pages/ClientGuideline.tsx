@@ -1,7 +1,10 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { clients } from "@/data/clients";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, FileText } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
+import BrandAssets from "@/components/BrandAssets";
+import GuidelineChecker from "@/components/GuidelineChecker";
+import NanoBananaGenerator from "@/components/NanoBananaGenerator";
 
 const ClientGuideline = () => {
   const { clientId } = useParams();
@@ -24,33 +27,38 @@ const ClientGuideline = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-        <Button variant="ghost" className="mb-6" onClick={() => navigate("/clients")}>
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+        <Button variant="ghost" className="mb-4" onClick={() => navigate("/clients")}>
           <ArrowRight className="h-4 w-4 ml-2" />
           חזרה למאגר לקוחות
         </Button>
 
+        {/* Header */}
         <div className="h-2 rounded-t-lg bg-gradient-to-l from-brand-pink to-brand-purple" />
-        <div className="rounded-b-lg border border-t-0 bg-card p-8 shadow-md">
-          <div className="flex items-center gap-4 mb-6">
+        <div className="rounded-b-lg border border-t-0 bg-card p-6 shadow-md mb-8">
+          <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-brand-pink/10 to-brand-purple/10">
-              <FileText className="h-7 w-7 text-brand-purple" />
+              <ShieldCheck className="h-7 w-7 text-brand-purple" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">{client.name}</h1>
-              <p className="text-muted-foreground">{client.industry} • גיידליין מותג</p>
+              <h1 className="text-2xl font-bold text-foreground">
+                גיידליין - {client.name}
+              </h1>
+              <p className="text-muted-foreground">{client.industry} • Brand Guard</p>
             </div>
           </div>
+        </div>
 
-          <div className="rounded-lg border border-dashed border-border p-12 text-center">
-            <FileText className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-            <p className="text-lg font-medium text-muted-foreground">
-              גיידליין המותג של {client.name} יופיע כאן
-            </p>
-            <p className="text-sm text-muted-foreground/70 mt-1">
-              עמוד זה ישמש להצגת הנחיות המותג, צבעים, טיפוגרפיה ועוד
-            </p>
-          </div>
+        {/* Brand Assets */}
+        <section className="mb-8">
+          <h2 className="text-xl font-bold text-foreground mb-4">נכסי מותג</h2>
+          <BrandAssets client={client} />
+        </section>
+
+        {/* Tools */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <GuidelineChecker client={client} />
+          <NanoBananaGenerator client={client} />
         </div>
       </div>
     </div>
