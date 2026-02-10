@@ -56,6 +56,10 @@ export default {
           foreground: "hsl(var(--celebration-foreground))",
           soft: "hsl(var(--celebration-soft))",
         },
+        brand: {
+          pink: "hsl(var(--brand-pink))",
+          purple: "hsl(var(--brand-purple))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
