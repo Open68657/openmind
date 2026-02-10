@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { FloatingNav } from "@/components/FloatingNav";
+import { TopHeader } from "@/components/TopHeader";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminModeProvider } from "@/contexts/AdminModeContext";
 import HomeRouter from "./pages/HomeRouter";
@@ -36,7 +37,8 @@ function ProtectedRoutes() {
 
   return (
     <AdminModeProvider>
-      <div className="min-h-screen w-full pb-24">
+      <div className="min-h-screen w-full pt-12 pb-24">
+        <TopHeader />
         <Routes>
           <Route path="/" element={<HomeRouter />} />
           <Route path="/team" element={<Index />} />
