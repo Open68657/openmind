@@ -8,6 +8,7 @@ export interface TeamMember {
   birthday: string;
   birthdayDisplay: string;
   avatar: string;
+  avatarUrl?: string;
 }
 
 const currentYear = new Date().getFullYear();
@@ -32,7 +33,7 @@ tomorrowDate.setDate(tomorrowDate.getDate() + 1);
 const tmrMonth = tomorrowDate.getMonth();
 const tmrDay = tomorrowDate.getDate();
 
-export const teamMembers: TeamMember[] = [
+export const initialTeamMembers: TeamMember[] = [
   {
     id: 1,
     name: "נועה לוי",
@@ -106,6 +107,9 @@ export const teamMembers: TeamMember[] = [
     avatar: "עש",
   },
 ];
+
+// Keep backward compat
+export const teamMembers = initialTeamMembers;
 
 export function getBirthdayCelebrations(members: TeamMember[]) {
   return members.filter((m) => {
