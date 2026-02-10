@@ -29,7 +29,7 @@ import { format } from "date-fns";
 const Index = () => {
   const [members, setMembers] = useState<TeamMember[]>(initialTeamMembers);
   const [role, setRole] = useState<"admin" | "employee">("admin");
-  const [simulatedUserId] = useState(1); // Simulated as "נועה לוי"
+  const [simulatedUserId] = useState(9); // Simulated as "ליבי ג׳רבי"
   const [editMember, setEditMember] = useState<TeamMember | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
