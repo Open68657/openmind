@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, DragEvent } from "react";
-import { CheckCircle2, FileUp, ArrowLeftRight, Loader2, AlertTriangle, Info, XCircle, Sparkles } from "lucide-react";
+import { CheckCircle2, FileUp, ArrowLeftRight, Loader2, AlertTriangle, Info, XCircle, Sparkles, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -101,6 +101,14 @@ const FinalsAudit = () => {
   );
 
   const handleDragLeave = useCallback(() => setDragOver(null), []);
+
+  const handleReset = useCallback(() => {
+    setSketchFile(null);
+    setFinalFile(null);
+    setSketchPreview(null);
+    setFinalPreview(null);
+    setResult(null);
+  }, []);
 
   const handleCompare = async () => {
     if (!sketchFile || !finalFile) {
@@ -296,6 +304,18 @@ const FinalsAudit = () => {
         {/* Results */}
         {result && (
           <div className="space-y-6 animate-fade-in">
+            {/* New Comparison Button */}
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleReset}
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                השוואה חדשה
+              </Button>
+            </div>
             {/* Match Score */}
             <Card className="border-0 shadow-md overflow-hidden">
               <div className="h-1.5 bg-gradient-to-l from-brand-pink to-brand-purple" />
