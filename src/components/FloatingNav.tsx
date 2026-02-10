@@ -24,18 +24,18 @@ export function FloatingNav() {
 
   return (
     <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-      <div className="flex items-center gap-1 rounded-2xl border border-white/20 bg-card/70 backdrop-blur-xl shadow-lg shadow-black/10 px-2 py-2">
-        {/* Admin Toggle - only visible to real admins */}
+      <div className="flex items-center gap-1 rounded-2xl glass px-2.5 py-2.5" style={{ boxShadow: 'var(--shadow-float)' }}>
+        {/* Admin Toggle */}
         {isAuthAdmin && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 border-l border-border/50 ml-1">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 border-l border-border/30 ml-1">
             <Switch
               checked={isAdmin}
               onCheckedChange={(checked) => setRole(checked ? "admin" : "employee")}
-              className="h-5 w-9 data-[state=checked]:bg-brand-purple"
+              className="h-5 w-9 data-[state=checked]:bg-brand-purple transition-all duration-300"
             />
             <Badge
               variant="secondary"
-              className={`text-[10px] px-1.5 py-0 leading-relaxed transition-colors ${
+              className={`text-[10px] px-1.5 py-0 leading-relaxed transition-all duration-300 ${
                 isAdmin
                   ? "bg-brand-purple/15 text-brand-purple border-brand-purple/20"
                   : "bg-muted text-muted-foreground"
@@ -57,10 +57,10 @@ export function FloatingNav() {
               key={item.title}
               to={item.url}
               end={item.url === "/"}
-              className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-2 transition-all duration-200 ${
+              className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3.5 py-2.5 transition-all duration-300 ${
                 active
-                  ? "bg-gradient-to-br from-brand-pink to-brand-purple text-white shadow-md shadow-brand-purple/30"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  ? "bg-gradient-to-br from-brand-pink to-brand-purple text-white shadow-lg shadow-brand-purple/25"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
               }`}
             >
               <item.icon className="h-5 w-5" />
