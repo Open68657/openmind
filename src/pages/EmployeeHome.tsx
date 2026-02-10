@@ -1,5 +1,8 @@
 import { Building2, Sparkles, Users, Brain, ArrowLeftRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const quickLinks = [
   { title: "לקוחות", desc: "צפייה בגיידליינס של לקוחות", href: "/clients", icon: Building2, color: "text-area-clients", hoverBg: "group-hover:bg-area-clients-soft" },
@@ -10,6 +13,22 @@ const quickLinks = [
 
 const EmployeeHome = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const { data: profile } = useQuery({
+    queryKey: ["profile", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const displayName = profile?.display_name || user?.email?.split("@")[0] || "";
 
   return (
     <div className="min-h-screen">
@@ -21,7 +40,7 @@ const EmployeeHome = () => {
               OPENMind
             </span>
           </div>
-          <h1 className="text-3xl font-extrabold text-foreground mt-5">שלום 👋</h1>
+          <h1 className="text-3xl font-extrabold text-foreground mt-5">שלום{displayName ? ` ${displayName}` : ""} 👋</h1>
           <p className="text-muted-foreground mt-2 text-sm">מה תרצה לעשות היום?</p>
         </div>
 
