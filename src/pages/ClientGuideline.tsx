@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { clients, ExtractedBrandData } from "@/data/clients";
+import { clients } from "@/data/clients";
 import { Button } from "@/components/ui/button";
+import { useBrandGuidelines } from "@/hooks/useBrandGuidelines";
 import { ArrowRight, ShieldCheck, Palette, FileCheck, Sparkles, User } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -21,33 +22,28 @@ const ClientGuideline = () => {
   const { clientId } = useParams();
   const navigate = useNavigate();
   const client = clients.find((c) => c.id === clientId);
-  const [extractedData, setExtractedData] = useState<ExtractedBrandData | null>(null);
+  const { extractedData, setExtractedData, isLoading } = useBrandGuidelines(clientId);
   const [role, setRole] = useState<"admin" | "employee">("admin");
 
   const handleOverride = useCallback((id: string, newValue: string) => {
     if (!extractedData) return;
-    setExtractedData((prev) => {
-      if (!prev) return prev;
-      const updated = { ...prev };
-      // Parse the id to find which category and index
-      const [category, indexStr] = id.split("-");
-      const index = parseInt(indexStr, 10);
-      if (category === "color" && !isNaN(index) && updated.colors[index]) {
-        updated.colors = [...updated.colors];
-        // Try to extract hex from override
-        const hexMatch = newValue.match(/#[0-9a-fA-F]{6}/);
-        if (hexMatch) updated.colors[index] = { ...updated.colors[index], hex: hexMatch[0] };
-        updated.colors[index] = { ...updated.colors[index], name: newValue.split("|")[0]?.replace("HEX:", "").trim() || updated.colors[index].name, confidence: "exact" };
-      } else if (category === "font" && !isNaN(index) && updated.fonts[index]) {
-        updated.fonts = [...updated.fonts];
-        updated.fonts[index] = { ...updated.fonts[index], name: newValue.split("•")[0]?.trim() || newValue, confidence: "exact" };
-      } else if (category === "logo" && !isNaN(index) && updated.logoRules[index]) {
-        updated.logoRules = [...updated.logoRules];
-        updated.logoRules[index] = { ...updated.logoRules[index], rule: newValue, confidence: "exact" };
-      }
-      return updated;
-    });
-  }, [extractedData]);
+    const updated = { ...extractedData };
+    const [category, indexStr] = id.split("-");
+    const index = parseInt(indexStr, 10);
+    if (category === "color" && !isNaN(index) && updated.colors[index]) {
+      updated.colors = [...updated.colors];
+      const hexMatch = newValue.match(/#[0-9a-fA-F]{6}/);
+      if (hexMatch) updated.colors[index] = { ...updated.colors[index], hex: hexMatch[0] };
+      updated.colors[index] = { ...updated.colors[index], name: newValue.split("|")[0]?.replace("HEX:", "").trim() || updated.colors[index].name, confidence: "exact" };
+    } else if (category === "font" && !isNaN(index) && updated.fonts[index]) {
+      updated.fonts = [...updated.fonts];
+      updated.fonts[index] = { ...updated.fonts[index], name: newValue.split("•")[0]?.trim() || newValue, confidence: "exact" };
+    } else if (category === "logo" && !isNaN(index) && updated.logoRules[index]) {
+      updated.logoRules = [...updated.logoRules];
+      updated.logoRules[index] = { ...updated.logoRules[index], rule: newValue, confidence: "exact" };
+    }
+    setExtractedData(updated);
+  }, [extractedData, setExtractedData]);
 
   if (!client) {
     return (
