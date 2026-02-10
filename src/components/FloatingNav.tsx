@@ -1,4 +1,4 @@
-import { Home, Users, Building2, Sparkles, UserCircle, ShieldCheck, User, LogOut } from "lucide-react";
+import { Home, Users, Building2, Sparkles, UserCircle, ShieldCheck, User, LogOut, ArrowLeftRight } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAdminMode, useIsAuthAdmin } from "@/contexts/AdminModeContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,6 +10,7 @@ const navItems = [
   { title: "הצוות", url: "/team", icon: Users },
   { title: "לקוחות", url: "/clients", icon: Building2 },
   { title: "סטודיו AI", url: "/ai-studio", icon: Sparkles },
+  { title: "פיינלים", url: "/finals-audit", icon: ArrowLeftRight },
   { title: "פרופיל", url: "/profile", icon: UserCircle },
 ];
 
@@ -59,7 +60,7 @@ export function FloatingNav() {
               key={item.title}
               to={item.url}
               end={item.url === "/"}
-              className={`relative flex flex-col items-center gap-0.5 rounded-xl px-4 py-2 transition-all duration-200 ${
+              className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3 py-2 transition-all duration-200 ${
                 active
                   ? "bg-gradient-to-br from-brand-pink to-brand-purple text-white shadow-md shadow-brand-purple/30"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
