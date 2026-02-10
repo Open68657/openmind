@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,7 +83,7 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
       // Download the file and send as base64 for PDF support
       const fileResp = await fetch(sketchUrl);
       const fileBytes = new Uint8Array(await fileResp.arrayBuffer());
-      const base64 = btoa(String.fromCharCode(...fileBytes));
+      const base64 = base64Encode(fileBytes);
       contentParts.push({
         type: "image_url",
         image_url: { url: `data:${sketchMimeType};base64,${base64}` },
@@ -97,7 +98,7 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
     } else {
       const fileResp = await fetch(finalUrl);
       const fileBytes = new Uint8Array(await fileResp.arrayBuffer());
-      const base64 = btoa(String.fromCharCode(...fileBytes));
+      const base64 = base64Encode(fileBytes);
       contentParts.push({
         type: "image_url",
         image_url: { url: `data:${finalMimeType};base64,${base64}` },
