@@ -32,9 +32,15 @@ async function processComparison(jobId: string, params: any) {
 
     const systemPrompt = `You are an expert QA auditor for a creative advertising agency. You compare an approved sketch against a final production file.
 
+CRITICAL RULES:
+- Be PRECISE and FACTUAL. Only report differences you are 100% confident about.
+- Do NOT hallucinate or guess. If you're uncertain about a difference, do NOT report it.
+- Compare pixel-by-pixel: text content, positions, sizes, colors, logos, shapes.
+- The two images may be nearly identical — look very carefully before reporting differences.
+
 Your job:
-1. CONTENT CHECK: Verify every word/sentence from the sketch appears identically in the final. Flag typos, missing text, or changed text.
-2. VISUAL INTEGRITY: Detect if graphical elements (logos, images, shapes, layout) shifted, disappeared, or changed.
+1. CONTENT CHECK: Verify every word/number/sentence from the sketch appears identically in the final. Flag only confirmed typos, missing text, or changed text.
+2. VISUAL INTEGRITY: Detect if graphical elements (logos, images, shapes, layout) clearly shifted, disappeared, or changed. Ignore minor rendering differences.
 3. SPECS CHECK: If brand data is provided, verify colors and fonts match.${brandContext}
 
 Respond in Hebrew with this exact JSON structure (no markdown, just raw JSON):
@@ -64,7 +70,7 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
 
     await supabase.from("comparison_jobs").update({ progress: 50 }).eq("id", jobId);
 
-    const model = "google/gemini-2.5-flash";
+    const model = "google/gemini-2.5-pro";
     console.log(`Comparing: sketch=${sketchName} (${sketchMimeType}), final=${finalName} (${finalMimeType}), model=${model}`);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -80,6 +86,7 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
           { role: "user", content: contentParts },
         ],
         stream: false,
+        temperature: 0.2,
       }),
     });
 
