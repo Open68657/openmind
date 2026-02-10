@@ -72,26 +72,28 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
     const sketchIsImage = (sketchMimeType || "").startsWith("image/");
     const finalIsImage = (finalMimeType || "").startsWith("image/");
 
-    // For images, use image_url with the signed URL
-    // For PDFs, download and send as base64 inline_data
-    // Images: pass URL directly. PDFs: must be base64 encoded.
-    // Process sequentially to reduce peak memory usage.
+    // Helper: download PDF and encode to base64 data URL
+    async function pdfToDataUrl(url: string, mimeType: string): Promise<string> {
+      const resp = await fetch(url);
+      const buf = await resp.arrayBuffer();
+      const b64 = base64Encode(new Uint8Array(buf));
+      return `data:${mimeType};base64,${b64}`;
+    }
+
+    // Process sketch first
     if (sketchIsImage) {
       contentParts.push({ type: "image_url", image_url: { url: sketchUrl } });
     } else {
-      const resp = await fetch(sketchUrl);
-      const bytes = new Uint8Array(await resp.arrayBuffer());
-      const b64 = base64Encode(bytes);
-      contentParts.push({ type: "image_url", image_url: { url: `data:${sketchMimeType};base64,${b64}` } });
+      const dataUrl = await pdfToDataUrl(sketchUrl, sketchMimeType);
+      contentParts.push({ type: "image_url", image_url: { url: dataUrl } });
     }
 
+    // Then process final
     if (finalIsImage) {
       contentParts.push({ type: "image_url", image_url: { url: finalUrl } });
     } else {
-      const resp = await fetch(finalUrl);
-      const bytes = new Uint8Array(await resp.arrayBuffer());
-      const b64 = base64Encode(bytes);
-      contentParts.push({ type: "image_url", image_url: { url: `data:${finalMimeType};base64,${b64}` } });
+      const dataUrl = await pdfToDataUrl(finalUrl, finalMimeType);
+      contentParts.push({ type: "image_url", image_url: { url: dataUrl } });
     }
 
     // Use pro for PDFs since they need better document understanding

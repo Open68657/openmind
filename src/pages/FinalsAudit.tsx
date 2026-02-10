@@ -43,6 +43,8 @@ const typeLabels: Record<string, string> = {
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"];
 const ACCEPT_STRING = "image/*,application/pdf";
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const FinalsAudit = () => {
   const [sketchFile, setSketchFile] = useState<File | null>(null);
@@ -59,6 +61,10 @@ const FinalsAudit = () => {
   const processFile = useCallback((file: File, type: "sketch" | "final") => {
     if (!ACCEPTED_TYPES.includes(file.type)) {
       toast({ title: "סוג קובץ לא נתמך", description: "יש להעלות תמונה או PDF", variant: "destructive" });
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      toast({ title: "קובץ גדול מדי", description: `גודל מקסימלי ${MAX_FILE_SIZE_MB}MB. נסה לכווץ את הקובץ.`, variant: "destructive" });
       return;
     }
     const url = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
