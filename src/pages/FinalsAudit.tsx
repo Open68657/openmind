@@ -253,7 +253,7 @@ const FinalsAudit = () => {
                     </div>
                   )}
                   <div className="flex items-center justify-center gap-2">
-                    <FileUp className="h-4 w-4 text-brand-purple" />
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
                     <span className="text-sm font-medium text-foreground truncate">{finalFile.name}</span>
                   </div>
                 </div>
