@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { FloatingNav } from "@/components/FloatingNav";
+import { AdminModeProvider } from "@/contexts/AdminModeContext";
 import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
 import Clients from "./pages/Clients";
@@ -19,6 +20,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <AdminModeProvider>
       <BrowserRouter>
         <div className="min-h-screen w-full pb-24">
           <Routes>
@@ -33,6 +35,7 @@ const App = () => (
           <FloatingNav />
         </div>
       </BrowserRouter>
+      </AdminModeProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
