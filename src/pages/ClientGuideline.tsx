@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { clients } from "@/data/clients";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useBrandGuidelines } from "@/hooks/useBrandGuidelines";
-import { ArrowRight, ShieldCheck, Palette, FileCheck, Sparkles, User } from "lucide-react";
+import { ArrowRight, ShieldCheck, Palette, FileCheck, Sparkles, User, FileText, Circle } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Select,
@@ -17,13 +18,40 @@ import BrandBook from "@/components/BrandBook";
 import GuidelineChecker from "@/components/GuidelineChecker";
 import NanoBananaGenerator from "@/components/NanoBananaGenerator";
 import PdfBrandScanner from "@/components/PdfBrandScanner";
+import FileHistory, { FileVersion } from "@/components/FileHistory";
+import { format } from "date-fns";
 
 const ClientGuideline = () => {
   const { clientId } = useParams();
   const navigate = useNavigate();
   const client = clients.find((c) => c.id === clientId);
-  const { extractedData, setExtractedData, isLoading } = useBrandGuidelines(clientId);
+  const { extractedData, setExtractedData, isLoading, updatedAt } = useBrandGuidelines(clientId);
   const [role, setRole] = useState<"admin" | "employee">("admin");
+  const [fileVersions, setFileVersions] = useState<FileVersion[]>([]);
+
+  const handleExtracted = useCallback((data: Parameters<typeof setExtractedData>[0]) => {
+    // Add to version history
+    if (data.sourceFileName) {
+      setFileVersions((prev) => {
+        const archived = prev.map((v) => ({ ...v, isActive: false }));
+        return [
+          {
+            id: Date.now().toString(),
+            fileName: data.sourceFileName!,
+            uploadedAt: new Date(),
+            uploadedBy: "ליבי ג׳רבי",
+            isActive: true,
+          },
+          ...archived,
+        ];
+      });
+    }
+    setExtractedData(data);
+  }, [setExtractedData]);
+
+  const handleDeleteVersion = useCallback((id: string) => {
+    setFileVersions((prev) => prev.filter((v) => v.id !== id));
+  }, []);
 
 
 
@@ -109,10 +137,34 @@ const ClientGuideline = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="brand">
-            <section className="mb-8">
-              <PdfBrandScanner client={client} onExtracted={setExtractedData} role={role} />
+          <TabsContent value="brand" className="space-y-6">
+            {/* Active File Indicator */}
+            {extractedData?.sourceFileName && (
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm animate-in fade-in duration-300">
+                <Circle className="h-2.5 w-2.5 fill-green-500 text-green-500 shrink-0" />
+                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="text-sm font-medium text-foreground truncate">
+                    קובץ פעיל: {extractedData.sourceFileName}
+                  </span>
+                  {updatedAt && (
+                    <span className="text-[11px] text-muted-foreground shrink-0">
+                      • {format(new Date(updatedAt), "dd/MM/yy HH:mm")}
+                    </span>
+                  )}
+                </div>
+                <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0 text-[10px] shrink-0">
+                  Active
+                </Badge>
+              </div>
+            )}
+
+            {/* PDF Scanner */}
+            <section>
+              <PdfBrandScanner client={client} onExtracted={handleExtracted} role={role} />
             </section>
+
+            {/* Brand Book or fallback */}
             {extractedData ? (
               <BrandBook extracted={extractedData} />
             ) : (
@@ -121,6 +173,17 @@ const ClientGuideline = () => {
                 fonts={client.fonts}
                 subBrands={client.subBrands}
               />
+            )}
+
+            {/* File History */}
+            {fileVersions.length > 0 && (
+              <section className="pt-2">
+                <FileHistory
+                  versions={fileVersions}
+                  role={role}
+                  onDelete={handleDeleteVersion}
+                />
+              </section>
             )}
           </TabsContent>
 
