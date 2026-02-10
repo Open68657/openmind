@@ -11,22 +11,22 @@ const Dashboard = () => {
   const celebrations = getBirthdayCelebrations(initialTeamMembers);
 
   const stats = [
-    { label: "חברי צוות", value: initialTeamMembers.length, icon: Users, color: "text-brand-purple" },
-    { label: "לקוחות פעילים", value: clients.length, icon: Building2, color: "text-brand-pink" },
-    { label: "גיידליינס", value: clients.length, icon: FileText, color: "text-accent" },
+    { label: "חברי צוות", value: initialTeamMembers.length, icon: Users, color: "text-area-team", bg: "bg-area-team-soft" },
+    { label: "לקוחות פעילים", value: clients.length, icon: Building2, color: "text-area-clients", bg: "bg-area-clients-soft" },
+    { label: "גיידליינס", value: clients.length, icon: FileText, color: "text-area-ai", bg: "bg-area-ai-soft" },
   ];
 
   const quickLinks = [
-    { title: "הצוות", desc: "ניהול חברי הצוות", href: "/team", icon: Users },
-    { title: "לקוחות", desc: "מאגר לקוחות וגיידליינס", href: "/clients", icon: Building2 },
-    { title: "סטודיו AI", desc: "כלי יצירה חכמים", href: "/ai-studio", icon: Sparkles },
+    { title: "הצוות", desc: "ניהול חברי הצוות", href: "/team", icon: Users, color: "text-area-team", hoverBg: "group-hover:bg-area-team-soft" },
+    { title: "לקוחות", desc: "מאגר לקוחות וגיידליינס", href: "/clients", icon: Building2, color: "text-area-clients", hoverBg: "group-hover:bg-area-clients-soft" },
+    { title: "סטודיו AI", desc: "כלי יצירה חכמים", href: "/ai-studio", icon: Sparkles, color: "text-area-ai", hoverBg: "group-hover:bg-area-ai-soft" },
   ];
 
   const recentActivity = [
-    { text: "גיידליין BIG עודכן", time: "לפני שעתיים", user: "ליבי ג׳רבי" },
-    { text: "חבר צוות חדש נוסף", time: "אתמול", user: "ליבי ג׳רבי" },
-    { text: "קובץ PDF הועלה – Yale", time: "לפני 3 ימים", user: "ליבי ג׳רבי" },
-    { text: "גיידליין פאנטה נוצר", time: "לפני שבוע", user: "ליבי ג׳רבי" },
+    { text: "גיידליין BIG עודכן", time: "לפני שעתיים", user: "ליבי ג׳רבי", dot: "bg-area-clients" },
+    { text: "חבר צוות חדש נוסף", time: "אתמול", user: "ליבי ג׳רבי", dot: "bg-area-team" },
+    { text: "קובץ PDF הועלה – Yale", time: "לפני 3 ימים", user: "ליבי ג׳רבי", dot: "bg-area-ai" },
+    { text: "גיידליין פאנטה נוצר", time: "לפני שבוע", user: "ליבי ג׳רבי", dot: "bg-area-clients" },
   ];
 
   return (
@@ -35,8 +35,8 @@ const Dashboard = () => {
         {/* Header */}
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-1">
-            <Brain className="h-5 w-5 text-brand-purple" />
-            <span className="text-xl font-bold bg-gradient-to-l from-brand-pink to-brand-purple bg-clip-text text-transparent tracking-tight">
+            <Brain className="h-5 w-5 text-area-home" />
+            <span className="text-xl font-bold text-area-home tracking-tight">
               OPENMind
             </span>
           </div>
@@ -56,7 +56,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-3 gap-5 mb-10">
           {stats.map((s) => (
             <div key={s.label} className="card-premium p-6 flex items-center gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-muted/60">
+              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${s.bg}`}>
                 <s.icon className={`h-5 w-5 ${s.color}`} />
               </div>
               <div>
@@ -80,7 +80,7 @@ const Dashboard = () => {
               {recentActivity.map((item, i) => (
                 <div key={i} className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
                   <div className="flex items-center gap-3">
-                    <div className="h-2 w-2 rounded-full bg-brand-purple" />
+                    <div className={`h-2 w-2 rounded-full ${item.dot}`} />
                     <div>
                       <p className="text-sm font-medium text-foreground">{item.text}</p>
                       <p className="text-xs text-muted-foreground">{item.user}</p>
@@ -135,11 +135,11 @@ const Dashboard = () => {
               onClick={() => navigate(item.href)}
               className="group card-premium hover-glow flex items-center gap-4 p-6 text-right"
             >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-muted/60 group-hover:bg-brand-purple/10 transition-colors duration-300">
-                <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-brand-purple transition-colors duration-300" />
+              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-muted/60 ${item.hoverBg} transition-colors duration-300`}>
+                <item.icon className={`h-5 w-5 text-muted-foreground group-hover:${item.color} transition-colors duration-300`} />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-foreground group-hover:text-brand-purple transition-colors duration-300">
+                <h3 className={`text-sm font-bold text-foreground group-hover:${item.color} transition-colors duration-300`}>
                   {item.title}
                 </h3>
                 <p className="text-xs text-muted-foreground">{item.desc}</p>
