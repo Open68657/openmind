@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["DM Sans", "system-ui", "sans-serif"],
-        display: ["Fraunces", "serif"],
+        sans: ["Heebo", "system-ui", "sans-serif"],
+        display: ["Heebo", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
