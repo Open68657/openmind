@@ -1,11 +1,35 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { teamMembers } from "@/data/team";
+import BirthdayCelebration from "@/components/BirthdayCelebration";
+import TeamTable from "@/components/TeamTable";
+import { Users } from "lucide-react";
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 text-muted-foreground mb-1">
+            <Users className="h-4 w-4" />
+            <span className="text-sm font-medium tracking-wide uppercase">
+              Open Agency
+            </span>
+          </div>
+          <h1 className="text-3xl font-bold font-display text-foreground">
+            Team
+          </h1>
+          <p className="mt-1 text-muted-foreground">
+            {teamMembers.length} members across the organization
+          </p>
+        </div>
+
+        {/* Birthday Section */}
+        <div className="mb-8">
+          <BirthdayCelebration members={teamMembers} />
+        </div>
+
+        {/* Team Table */}
+        <TeamTable />
       </div>
     </div>
   );
