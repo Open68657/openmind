@@ -30,10 +30,10 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="min-h-screen">
+      <div className="mx-auto max-w-6xl px-6 py-10 sm:px-8 lg:px-10">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-10">
           <div className="flex items-center gap-2 mb-1">
             <Brain className="h-5 w-5 text-brand-purple" />
             <span className="text-xl font-bold bg-gradient-to-l from-brand-pink to-brand-purple bg-clip-text text-transparent tracking-tight">
@@ -43,44 +43,42 @@ const Dashboard = () => {
           <p className="text-xs text-muted-foreground">המוח המשותף של Open</p>
         </div>
 
-        <div className="flex items-baseline justify-between mb-6">
+        <div className="flex items-baseline justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">שלום, ליבי 👋</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-3xl font-extrabold text-foreground">שלום, ליבי 👋</h1>
+            <p className="text-muted-foreground mt-1.5 text-sm">
               {format(new Date(), "EEEE, dd/MM/yyyy")} · דשבורד ניהולי
             </p>
           </div>
         </div>
 
         {/* KPI Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-3 gap-5 mb-10">
           {stats.map((s) => (
-            <Card key={s.label} className="border-0 shadow-sm">
-              <CardContent className="flex items-center gap-4 p-5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted">
-                  <s.icon className={`h-5 w-5 ${s.color}`} />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{s.value}</p>
-                  <p className="text-xs text-muted-foreground">{s.label}</p>
-                </div>
-              </CardContent>
-            </Card>
+            <div key={s.label} className="card-premium p-6 flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-muted/60">
+                <s.icon className={`h-5 w-5 ${s.color}`} />
+              </div>
+              <div>
+                <p className="text-3xl font-extrabold text-foreground">{s.value}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
+              </div>
+            </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-7 mb-10">
           {/* Recent Activity */}
-          <Card className="lg:col-span-2 border-0 shadow-sm">
-            <CardHeader className="pb-3">
+          <Card className="lg:col-span-2 card-premium">
+            <CardHeader className="pb-3 px-7 pt-7">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 פעילות אחרונה
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-1 px-7 pb-7">
               {recentActivity.map((item, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                <div key={i} className="flex items-center justify-between py-3 border-b border-border/50 last:border-0">
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-brand-purple" />
                     <div>
@@ -95,18 +93,18 @@ const Dashboard = () => {
           </Card>
 
           {/* Birthdays */}
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
+          <Card className="card-premium">
+            <CardHeader className="pb-3 px-7 pt-7">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Cake className="h-4 w-4 text-celebration" />
                 ימי הולדת קרובים
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 px-7 pb-7">
               {celebrations.length > 0 ? (
                 celebrations.map((c) => (
                   <div key={c.id} className="flex items-center gap-3 py-2">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-celebration-soft text-sm font-bold text-celebration">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-celebration-soft text-sm font-bold text-celebration">
                       {c.avatar}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -122,31 +120,31 @@ const Dashboard = () => {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">אין ימי הולדת קרובים</p>
+                <p className="text-sm text-muted-foreground text-center py-6">אין ימי הולדת קרובים</p>
               )}
             </CardContent>
           </Card>
         </div>
 
         {/* Quick Links */}
-        <h2 className="text-lg font-bold text-foreground mb-3">גישה מהירה</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <h2 className="text-lg font-bold text-foreground mb-4">גישה מהירה</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {quickLinks.map((item) => (
             <button
               key={item.href}
               onClick={() => navigate(item.href)}
-              className="group flex items-center gap-4 rounded-xl border border-border bg-card p-5 shadow-sm hover:shadow-md hover:border-brand-purple/30 transition-all duration-200 text-right"
+              className="group card-premium hover-glow flex items-center gap-4 p-6 text-right"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted group-hover:bg-brand-purple/10 transition-colors">
-                <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-brand-purple transition-colors" />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-muted/60 group-hover:bg-brand-purple/10 transition-colors duration-300">
+                <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-brand-purple transition-colors duration-300" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-foreground group-hover:text-brand-purple transition-colors">
+                <h3 className="text-sm font-bold text-foreground group-hover:text-brand-purple transition-colors duration-300">
                   {item.title}
                 </h3>
                 <p className="text-xs text-muted-foreground">{item.desc}</p>
               </div>
-              <ArrowLeft className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              <ArrowLeft className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-all duration-300" />
             </button>
           ))}
         </div>
