@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { pdfToImage } from "@/lib/pdfToImage";
 
 interface Discrepancy {
   type: "content" | "visual" | "specs";
@@ -43,7 +44,7 @@ const typeLabels: Record<string, string> = {
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"];
 const ACCEPT_STRING = "image/*,application/pdf";
-const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_MB = 50;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const FinalsAudit = () => {
@@ -161,13 +162,26 @@ const FinalsAudit = () => {
         return;
       }
 
-      // Upload files to storage first
+      // Convert PDFs to images on the client side
       setProgress(5);
+      let sketchUpload = sketchFile;
+      let finalUpload = finalFile;
+
+      if (sketchFile.type === "application/pdf") {
+        sketchUpload = await pdfToImage(sketchFile);
+      }
+      setProgress(15);
+      if (finalFile.type === "application/pdf") {
+        finalUpload = await pdfToImage(finalFile);
+      }
+      setProgress(25);
+
+      // Upload converted images to storage
       const [sketchPath, finalPath] = await Promise.all([
-        uploadToStorage(sketchFile, "sketches"),
-        uploadToStorage(finalFile, "finals"),
+        uploadToStorage(sketchUpload, "sketches"),
+        uploadToStorage(finalUpload, "finals"),
       ]);
-      setProgress(10);
+      setProgress(35);
 
       const { data, error } = await supabase.functions.invoke("compare-finals", {
         body: {
@@ -176,8 +190,8 @@ const FinalsAudit = () => {
           finalPath,
           sketchName: sketchFile.name,
           finalName: finalFile.name,
-          sketchMimeType: sketchFile.type || "image/png",
-          finalMimeType: finalFile.type || "image/png",
+          sketchMimeType: sketchUpload.type,
+          finalMimeType: finalUpload.type,
         },
       });
 

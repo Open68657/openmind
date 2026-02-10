@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,7 +16,6 @@ async function processComparison(jobId: string, params: any) {
   try {
     const { sketchPath, finalPath, sketchName, finalName, sketchMimeType, finalMimeType, clientBrandData } = params;
 
-    // Get signed URLs
     const [sketchUrlResult, finalUrlResult] = await Promise.all([
       supabase.storage.from("finals-audit").createSignedUrl(sketchPath, 3600),
       supabase.storage.from("finals-audit").createSignedUrl(finalPath, 3600),
@@ -26,11 +24,7 @@ async function processComparison(jobId: string, params: any) {
     if (sketchUrlResult.error) throw new Error(`Failed to get sketch URL: ${sketchUrlResult.error.message}`);
     if (finalUrlResult.error) throw new Error(`Failed to get final URL: ${finalUrlResult.error.message}`);
 
-    const sketchUrl = sketchUrlResult.data.signedUrl;
-    const finalUrl = finalUrlResult.data.signedUrl;
-
-    // Update progress
-    await supabase.from("comparison_jobs").update({ progress: 20 }).eq("id", jobId);
+    await supabase.from("comparison_jobs").update({ progress: 30 }).eq("id", jobId);
 
     const brandContext = clientBrandData
       ? `\n\nBrand Assets for this client:\n- Colors: ${JSON.stringify(clientBrandData.colors)}\n- Fonts: ${JSON.stringify(clientBrandData.fonts)}`
@@ -58,39 +52,17 @@ Respond in Hebrew with this exact JSON structure (no markdown, just raw JSON):
 
 If files are identical, return matchScore 100 with empty discrepancies array.`;
 
+    // Files are always images (PDFs converted client-side), so use URLs directly
     const contentParts: any[] = [
       {
         type: "text",
         text: `Compare the approved sketch "${sketchName}" with the final file "${finalName}". Analyze content, visual integrity, and brand specs compliance.`,
       },
+      { type: "image_url", image_url: { url: sketchUrlResult.data.signedUrl } },
+      { type: "image_url", image_url: { url: finalUrlResult.data.signedUrl } },
     ];
 
-    const sketchIsImage = (sketchMimeType || "").startsWith("image/");
-    const finalIsImage = (finalMimeType || "").startsWith("image/");
-
-    // Process sketch
-    if (sketchIsImage) {
-      contentParts.push({ type: "image_url", image_url: { url: sketchUrl } });
-    } else {
-      const resp = await fetch(sketchUrl);
-      const buf = await resp.arrayBuffer();
-      const b64 = base64Encode(new Uint8Array(buf));
-      contentParts.push({ type: "image_url", image_url: { url: `data:${sketchMimeType};base64,${b64}` } });
-    }
-
-    await supabase.from("comparison_jobs").update({ progress: 40 }).eq("id", jobId);
-
-    // Process final
-    if (finalIsImage) {
-      contentParts.push({ type: "image_url", image_url: { url: finalUrl } });
-    } else {
-      const resp = await fetch(finalUrl);
-      const buf = await resp.arrayBuffer();
-      const b64 = base64Encode(new Uint8Array(buf));
-      contentParts.push({ type: "image_url", image_url: { url: `data:${finalMimeType};base64,${b64}` } });
-    }
-
-    await supabase.from("comparison_jobs").update({ progress: 60 }).eq("id", jobId);
+    await supabase.from("comparison_jobs").update({ progress: 50 }).eq("id", jobId);
 
     const model = "google/gemini-2.5-flash";
     console.log(`Comparing: sketch=${sketchName} (${sketchMimeType}), final=${finalName} (${finalMimeType}), model=${model}`);
@@ -121,9 +93,7 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
       if (response.status === 402) errorMsg = "נדרש תשלום. הוסף קרדיטים לחשבון.";
       
       await supabase.from("comparison_jobs").update({
-        status: "failed",
-        error_message: errorMsg,
-        progress: 100,
+        status: "failed", error_message: errorMsg, progress: 100,
       }).eq("id", jobId);
       return;
     }
@@ -140,9 +110,7 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
     }
 
     await supabase.from("comparison_jobs").update({
-      status: "completed",
-      result,
-      progress: 100,
+      status: "completed", result, progress: 100,
     }).eq("id", jobId);
 
     console.log(`Job ${jobId} completed successfully`);
@@ -174,7 +142,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Create a job record
     const { data: job, error: jobError } = await supabase
       .from("comparison_jobs")
       .insert({
@@ -193,7 +160,6 @@ serve(async (req) => {
 
     if (jobError) throw new Error(`Failed to create job: ${jobError.message}`);
 
-    // Start background processing
     EdgeRuntime.waitUntil(processComparison(job.id, params));
 
     return new Response(JSON.stringify({ jobId: job.id }), {
