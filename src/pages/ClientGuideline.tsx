@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { clients, ExtractedBrandData } from "@/data/clients";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ShieldCheck } from "lucide-react";
+import { ArrowRight, ShieldCheck, Palette, FileCheck, Sparkles } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import BrandAssets from "@/components/BrandAssets";
 import GuidelineChecker from "@/components/GuidelineChecker";
 import NanoBananaGenerator from "@/components/NanoBananaGenerator";
@@ -52,26 +53,42 @@ const ClientGuideline = () => {
           </div>
         </div>
 
-        {/* PDF Scanner */}
-        <section className="mb-8">
-          <PdfBrandScanner client={client} onExtracted={setExtractedData} />
-        </section>
+        {/* Tabs */}
+        <Tabs defaultValue="brand" dir="rtl" className="w-full">
+          <TabsList className="w-full grid grid-cols-3 mb-6">
+            <TabsTrigger value="brand" className="gap-2">
+              <Palette className="h-4 w-4" />
+              נכסי מותג
+            </TabsTrigger>
+            <TabsTrigger value="checker" className="gap-2">
+              <FileCheck className="h-4 w-4" />
+              בדיקת תאימות
+            </TabsTrigger>
+            <TabsTrigger value="generator" className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              מחולל סקיצות
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Brand Assets */}
-        <section className="mb-8">
-          <h2 className="text-xl font-bold text-foreground mb-4">נכסי מותג</h2>
-          <BrandAssets
-            brandColors={client.brandColors}
-            fonts={client.fonts}
-            extracted={extractedData}
-          />
-        </section>
+          <TabsContent value="brand">
+            <section className="mb-8">
+              <PdfBrandScanner client={client} onExtracted={setExtractedData} />
+            </section>
+            <BrandAssets
+              brandColors={client.brandColors}
+              fonts={client.fonts}
+              extracted={extractedData}
+            />
+          </TabsContent>
 
-        {/* Tools */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <GuidelineChecker client={client} />
-          <NanoBananaGenerator client={client} />
-        </div>
+          <TabsContent value="checker">
+            <GuidelineChecker client={client} />
+          </TabsContent>
+
+          <TabsContent value="generator">
+            <NanoBananaGenerator client={client} />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
