@@ -8,23 +8,16 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+async function processComparison(jobId: string, params: any) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
   try {
-    const { sketchPath, finalPath, sketchName, finalName, sketchMimeType, finalMimeType, clientBrandData } = await req.json();
+    const { sketchPath, finalPath, sketchName, finalName, sketchMimeType, finalMimeType, clientBrandData } = params;
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
-    // Create Supabase client to get signed URLs
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Get signed URLs for both files (valid for 1 hour)
+    // Get signed URLs
     const [sketchUrlResult, finalUrlResult] = await Promise.all([
       supabase.storage.from("finals-audit").createSignedUrl(sketchPath, 3600),
       supabase.storage.from("finals-audit").createSignedUrl(finalPath, 3600),
@@ -35,6 +28,9 @@ serve(async (req) => {
 
     const sketchUrl = sketchUrlResult.data.signedUrl;
     const finalUrl = finalUrlResult.data.signedUrl;
+
+    // Update progress
+    await supabase.from("comparison_jobs").update({ progress: 20 }).eq("id", jobId);
 
     const brandContext = clientBrandData
       ? `\n\nBrand Assets for this client:\n- Colors: ${JSON.stringify(clientBrandData.colors)}\n- Fonts: ${JSON.stringify(clientBrandData.fonts)}`
@@ -72,76 +68,64 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
     const sketchIsImage = (sketchMimeType || "").startsWith("image/");
     const finalIsImage = (finalMimeType || "").startsWith("image/");
 
-    // Helper: download PDF and encode to base64 data URL
-    async function pdfToDataUrl(url: string, mimeType: string): Promise<string> {
-      const resp = await fetch(url);
-      const buf = await resp.arrayBuffer();
-      const b64 = base64Encode(new Uint8Array(buf));
-      return `data:${mimeType};base64,${b64}`;
-    }
-
-    // Process sketch first
+    // Process sketch
     if (sketchIsImage) {
       contentParts.push({ type: "image_url", image_url: { url: sketchUrl } });
     } else {
-      const dataUrl = await pdfToDataUrl(sketchUrl, sketchMimeType);
-      contentParts.push({ type: "image_url", image_url: { url: dataUrl } });
+      const resp = await fetch(sketchUrl);
+      const buf = await resp.arrayBuffer();
+      const b64 = base64Encode(new Uint8Array(buf));
+      contentParts.push({ type: "image_url", image_url: { url: `data:${sketchMimeType};base64,${b64}` } });
     }
 
-    // Then process final
+    await supabase.from("comparison_jobs").update({ progress: 40 }).eq("id", jobId);
+
+    // Process final
     if (finalIsImage) {
       contentParts.push({ type: "image_url", image_url: { url: finalUrl } });
     } else {
-      const dataUrl = await pdfToDataUrl(finalUrl, finalMimeType);
-      contentParts.push({ type: "image_url", image_url: { url: dataUrl } });
+      const resp = await fetch(finalUrl);
+      const buf = await resp.arrayBuffer();
+      const b64 = base64Encode(new Uint8Array(buf));
+      contentParts.push({ type: "image_url", image_url: { url: `data:${finalMimeType};base64,${b64}` } });
     }
 
-    // Use pro for PDFs since they need better document understanding
+    await supabase.from("comparison_jobs").update({ progress: 60 }).eq("id", jobId);
+
     const model = "google/gemini-2.5-flash";
-
-    const messages: any[] = [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: contentParts },
-    ];
-
     console.log(`Comparing: sketch=${sketchName} (${sketchMimeType}), final=${finalName} (${finalMimeType}), model=${model}`);
 
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          stream: false,
-        }),
-      }
-    );
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: contentParts },
+        ],
+        stream: false,
+      }),
+    });
+
+    await supabase.from("comparison_jobs").update({ progress: 80 }).eq("id", jobId);
 
     if (!response.ok) {
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
-
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "יותר מדי בקשות, נסה שוב מאוחר יותר." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "נדרש תשלום. הוסף קרדיטים לחשבון." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      return new Response(
-        JSON.stringify({ error: `שגיאה בשירות ה-AI (${response.status})` }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      let errorMsg = `שגיאה בשירות ה-AI (${response.status})`;
+      if (response.status === 429) errorMsg = "יותר מדי בקשות, נסה שוב מאוחר יותר.";
+      if (response.status === 402) errorMsg = "נדרש תשלום. הוסף קרדיטים לחשבון.";
+      
+      await supabase.from("comparison_jobs").update({
+        status: "failed",
+        error_message: errorMsg,
+        progress: 100,
+      }).eq("id", jobId);
+      return;
     }
 
     const data = await response.json();
@@ -155,7 +139,64 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
       result = { matchScore: 0, summary: content, discrepancies: [] };
     }
 
-    return new Response(JSON.stringify(result), {
+    await supabase.from("comparison_jobs").update({
+      status: "completed",
+      result,
+      progress: 100,
+    }).eq("id", jobId);
+
+    console.log(`Job ${jobId} completed successfully`);
+  } catch (e) {
+    console.error(`Job ${jobId} failed:`, e);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    await supabase.from("comparison_jobs").update({
+      status: "failed",
+      error_message: e instanceof Error ? e.message : "Unknown error",
+      progress: 100,
+    }).eq("id", jobId);
+  }
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const params = await req.json();
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Create a job record
+    const { data: job, error: jobError } = await supabase
+      .from("comparison_jobs")
+      .insert({
+        user_id: params.userId,
+        sketch_path: params.sketchPath,
+        final_path: params.finalPath,
+        sketch_name: params.sketchName,
+        final_name: params.finalName,
+        sketch_mime_type: params.sketchMimeType,
+        final_mime_type: params.finalMimeType,
+        status: "processing",
+        progress: 0,
+      })
+      .select()
+      .single();
+
+    if (jobError) throw new Error(`Failed to create job: ${jobError.message}`);
+
+    // Start background processing
+    EdgeRuntime.waitUntil(processComparison(job.id, params));
+
+    return new Response(JSON.stringify({ jobId: job.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

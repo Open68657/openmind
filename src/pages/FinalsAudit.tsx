@@ -52,6 +52,7 @@ const FinalsAudit = () => {
   const [sketchPreview, setSketchPreview] = useState<string | null>(null);
   const [finalPreview, setFinalPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ComparisonResult | null>(null);
   const [dragOver, setDragOver] = useState<"sketch" | "final" | null>(null);
   const sketchRef = useRef<HTMLInputElement>(null);
@@ -114,7 +115,33 @@ const FinalsAudit = () => {
     setSketchPreview(null);
     setFinalPreview(null);
     setResult(null);
+    setProgress(0);
   }, []);
+
+  const pollForResult = async (jobId: string): Promise<ComparisonResult> => {
+    const maxAttempts = 60; // 2 minutes max
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      
+      const { data, error } = await supabase
+        .from("comparison_jobs")
+        .select("status, progress, result, error_message")
+        .eq("id", jobId)
+        .single();
+
+      if (error) throw new Error("שגיאה בבדיקת סטטוס");
+
+      setProgress(data.progress || 0);
+
+      if (data.status === "completed" && data.result) {
+        return data.result as unknown as ComparisonResult;
+      }
+      if (data.status === "failed") {
+        throw new Error(data.error_message || "ההשוואה נכשלה");
+      }
+    }
+    throw new Error("ההשוואה לקחה יותר מדי זמן. נסה שוב.");
+  };
 
   const handleCompare = async () => {
     if (!sketchFile || !finalFile) {
@@ -124,16 +151,27 @@ const FinalsAudit = () => {
 
     setLoading(true);
     setResult(null);
+    setProgress(0);
 
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({ title: "שגיאה", description: "יש להתחבר למערכת", variant: "destructive" });
+        return;
+      }
+
       // Upload files to storage first
+      setProgress(5);
       const [sketchPath, finalPath] = await Promise.all([
         uploadToStorage(sketchFile, "sketches"),
         uploadToStorage(finalFile, "finals"),
       ]);
+      setProgress(10);
 
       const { data, error } = await supabase.functions.invoke("compare-finals", {
         body: {
+          userId: user.id,
           sketchPath,
           finalPath,
           sketchName: sketchFile.name,
@@ -149,7 +187,10 @@ const FinalsAudit = () => {
         return;
       }
 
-      setResult(data);
+      // Poll for the result
+      const jobId = data.jobId;
+      const comparisonResult = await pollForResult(jobId);
+      setResult(comparisonResult);
     } catch (err: any) {
       toast({ title: "שגיאה בהשוואה", description: err.message || "נסה שוב", variant: "destructive" });
     } finally {
@@ -296,7 +337,7 @@ const FinalsAudit = () => {
             {loading ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                מנתח קבצים...
+                מנתח קבצים... {progress > 0 && `${progress}%`}
               </>
             ) : (
               <>
@@ -307,10 +348,17 @@ const FinalsAudit = () => {
           </Button>
         </div>
 
+        {/* Progress bar during loading */}
+        {loading && progress > 0 && (
+          <div className="mb-10 max-w-md mx-auto">
+            <Progress value={progress} className="h-2" />
+            <p className="text-xs text-muted-foreground text-center mt-2">מעבד קבצים...</p>
+          </div>
+        )}
+
         {/* Results */}
         {result && (
           <div className="space-y-6 animate-fade-in">
-            {/* New Comparison Button */}
             <div className="flex justify-center">
               <Button
                 variant="outline"
