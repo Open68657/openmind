@@ -1,15 +1,18 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { clients } from "@/data/clients";
+import { clients, ExtractedBrandData } from "@/data/clients";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import BrandAssets from "@/components/BrandAssets";
 import GuidelineChecker from "@/components/GuidelineChecker";
 import NanoBananaGenerator from "@/components/NanoBananaGenerator";
+import PdfBrandScanner from "@/components/PdfBrandScanner";
 
 const ClientGuideline = () => {
   const { clientId } = useParams();
   const navigate = useNavigate();
   const client = clients.find((c) => c.id === clientId);
+  const [extractedData, setExtractedData] = useState<ExtractedBrandData | null>(null);
 
   if (!client) {
     return (
@@ -49,10 +52,19 @@ const ClientGuideline = () => {
           </div>
         </div>
 
+        {/* PDF Scanner */}
+        <section className="mb-8">
+          <PdfBrandScanner client={client} onExtracted={setExtractedData} />
+        </section>
+
         {/* Brand Assets */}
         <section className="mb-8">
           <h2 className="text-xl font-bold text-foreground mb-4">נכסי מותג</h2>
-          <BrandAssets client={client} />
+          <BrandAssets
+            brandColors={client.brandColors}
+            fonts={client.fonts}
+            extracted={extractedData}
+          />
         </section>
 
         {/* Tools */}

@@ -3,6 +3,17 @@ export interface BrandColor {
   hex: string;
 }
 
+export interface LogoRule {
+  rule: string;
+  type: "do" | "dont";
+}
+
+export interface ExtractedBrandData {
+  colors: BrandColor[];
+  fonts: { name: string; size: string; usage: string }[];
+  logoRules: LogoRule[];
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -121,3 +132,75 @@ export const clients: Client[] = [
     fonts: ["Almoni", "Assistant"],
   },
 ];
+
+/** Simulated extracted data per client for demo purposes */
+export const simulatedExtractions: Record<string, ExtractedBrandData> = {
+  leumi: {
+    colors: [
+      { name: "כחול ראשי", hex: "#003DA5" },
+      { name: "כחול כהה", hex: "#001A5C" },
+      { name: "תכלת משני", hex: "#4D9DE0" },
+      { name: "לבן", hex: "#FFFFFF" },
+      { name: "אפור ניטרלי", hex: "#E5E5E5" },
+      { name: "זהב פרימיום", hex: "#C5A43B" },
+    ],
+    fonts: [
+      { name: "Almoni DL", size: "32-48px", usage: "כותרות ראשיות" },
+      { name: "Almoni DL Light", size: "18-24px", usage: "כותרות משניות" },
+      { name: "Open Sans", size: "14-16px", usage: "גוף טקסט" },
+      { name: "Open Sans Bold", size: "14px", usage: "הדגשות וכפתורים" },
+    ],
+    logoRules: [
+      { rule: "שימוש בלוגו על רקע לבן או כחול כהה בלבד", type: "do" },
+      { rule: "שמירה על מרווח מינימלי של 20px סביב הלוגו", type: "do" },
+      { rule: "אין לשנות את יחס הגובה-רוחב של הלוגו", type: "dont" },
+      { rule: "אין להוסיף אפקטים כמו צל או שיפוע", type: "dont" },
+      { rule: "אין להשתמש בלוגו על רקע תמונה עמוסה", type: "dont" },
+    ],
+  },
+  "coca-cola": {
+    colors: [
+      { name: "אדום קוקה קולה", hex: "#F40009" },
+      { name: "אדום כהה", hex: "#C8102E" },
+      { name: "לבן", hex: "#FFFFFF" },
+      { name: "שחור", hex: "#000000" },
+      { name: "כסף מטאלי", hex: "#C4C4C4" },
+      { name: "קרם", hex: "#F5F0EB" },
+    ],
+    fonts: [
+      { name: "Spencerian Script", size: "N/A", usage: "לוגו בלבד" },
+      { name: "TCCC Unity", size: "28-40px", usage: "כותרות" },
+      { name: "TCCC Unity Light", size: "16-20px", usage: "גוף טקסט" },
+      { name: "Noto Sans", size: "14px", usage: "טקסט עברי" },
+    ],
+    logoRules: [
+      { rule: "הלוגו חייב להופיע בצבע אדום או לבן בלבד", type: "do" },
+      { rule: "שימוש ב-Dynamic Ribbon בכל חומר שיווקי", type: "do" },
+      { rule: "אין לשנות את הגופן של הלוגו", type: "dont" },
+      { rule: "אין לסובב או להטות את הלוגו", type: "dont" },
+    ],
+  },
+  default: {
+    colors: [
+      { name: "צבע ראשי", hex: "#2B5EA7" },
+      { name: "צבע משני", hex: "#E8573A" },
+      { name: "רקע בהיר", hex: "#F8F9FA" },
+      { name: "טקסט כהה", hex: "#1A1A2E" },
+      { name: "אפור ממשק", hex: "#6C757D" },
+      { name: "הצלחה", hex: "#28A745" },
+    ],
+    fonts: [
+      { name: "Heebo Bold", size: "28-36px", usage: "כותרות ראשיות" },
+      { name: "Heebo Medium", size: "18-22px", usage: "כותרות משניות" },
+      { name: "Heebo Regular", size: "14-16px", usage: "גוף טקסט" },
+      { name: "Heebo Light", size: "12px", usage: "הערות וכיתובים" },
+    ],
+    logoRules: [
+      { rule: "שימוש בגרסה צבעונית על רקע בהיר", type: "do" },
+      { rule: "שימוש בגרסה לבנה על רקע כהה", type: "do" },
+      { rule: "שמירה על אזור בטחון מסביב ללוגו", type: "do" },
+      { rule: "אין למתוח או לעוות את הלוגו", type: "dont" },
+      { rule: "אין להציב את הלוגו על רקע דומה בצבע", type: "dont" },
+    ],
+  },
+};
