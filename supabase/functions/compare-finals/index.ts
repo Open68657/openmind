@@ -30,33 +30,41 @@ async function processComparison(jobId: string, params: any) {
       ? `\n\nBrand Assets for this client:\n- Colors: ${JSON.stringify(clientBrandData.colors)}\n- Fonts: ${JSON.stringify(clientBrandData.fonts)}`
       : "";
 
-    const systemPrompt = `You are an expert QA auditor for a creative advertising agency. You compare an approved sketch against a final production file.
+    const systemPrompt = `You are a strict QA auditor for a creative advertising agency. You receive TWO images: the FIRST image is the approved sketch, the SECOND image is the final production file. Your job is to find ALL differences between them.
 
 CRITICAL RULES:
-- Be PRECISE and FACTUAL. Only report differences you are 100% confident about.
-- Do NOT hallucinate or guess. If you're uncertain about a difference, do NOT report it.
-- Compare pixel-by-pixel: text content, positions, sizes, colors, logos, shapes.
-- The two images may be nearly identical — look very carefully before reporting differences.
+- ASSUME the files are DIFFERENT until proven otherwise. Look extremely carefully for ANY change, no matter how small.
+- The FIRST image is the SKETCH (reference). The SECOND image is the FINAL (what was produced). Compare them thoroughly.
+- Report EVERY difference you find: text changes, moved elements, color shifts, size changes, added/removed elements, different images, different products, different barcodes, etc.
+- If you are even slightly uncertain whether something changed, REPORT IT as info severity.
+- Do NOT default to "identical". Only return matchScore 100 if you are absolutely certain every single pixel, text, image, and element is the same.
+- Examine: all text content word by word, all numbers, all images/photos, all logos, all barcodes, all graphic elements, all colors, all positions, all sizes.
 
 Your job:
-1. CONTENT CHECK: Verify every word/number/sentence from the sketch appears identically in the final. Flag only confirmed typos, missing text, or changed text.
-2. VISUAL INTEGRITY: Detect if graphical elements (logos, images, shapes, layout) clearly shifted, disappeared, or changed. Ignore minor rendering differences.
+1. CONTENT CHECK: Compare every word, number, sentence, barcode, and label. Flag any difference.
+2. VISUAL INTEGRITY: Compare every image, photo, graphic element, logo position, and layout. Flag any shift, replacement, addition or removal.
 3. SPECS CHECK: If brand data is provided, verify colors and fonts match.${brandContext}
+
+SCORING GUIDE:
+- 100: Files are pixel-perfect identical
+- 90-99: Very minor differences (slight position shift, tiny color variation)
+- 70-89: Noticeable differences (changed text, moved elements, different images)
+- Below 70: Major differences (wrong content, missing elements, completely different layout)
 
 Respond in Hebrew with this exact JSON structure (no markdown, just raw JSON):
 {
   "matchScore": <number 0-100>,
-  "summary": "<brief Hebrew summary>",
+  "summary": "<brief Hebrew summary of what changed>",
   "discrepancies": [
     {
       "type": "content" | "visual" | "specs",
       "severity": "critical" | "warning" | "info",
-      "description": "<Hebrew description of the issue>"
+      "description": "<Hebrew description of the specific issue>"
     }
   ]
 }
 
-If files are identical, return matchScore 100 with empty discrepancies array.`;
+Only return matchScore 100 with empty discrepancies if the files are truly identical.`;
 
     // Files are always images (PDFs converted client-side), so use URLs directly
     const contentParts: any[] = [
