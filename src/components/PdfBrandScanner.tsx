@@ -52,7 +52,7 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
       id: 1,
       fileName: `${client.name}_BrandBook_2024.pdf`,
       uploadedAt: new Date(2024, 3, 15, 10, 30),
-      uploadedBy: "דניאל כהן",
+      uploadedBy: "ליבי ג׳רבי",
       isActive: true,
     },
   ]);
@@ -81,7 +81,7 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
                 id: Date.now(),
                 fileName: name,
                 uploadedAt: new Date(),
-                uploadedBy: "דניאל כהן",
+                uploadedBy: "ליבי ג׳רבי",
                 isActive: true,
               },
               ...archived,
