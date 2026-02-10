@@ -373,7 +373,17 @@ const FinalsAudit = () => {
         {/* Results */}
         {result && (
           <div className="space-y-6 animate-fade-in">
-            <div className="flex justify-center">
+            <div className="flex justify-center gap-3">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleCompare}
+                disabled={loading}
+                className="gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                השווה שוב
+              </Button>
               <Button
                 variant="outline"
                 size="lg"
