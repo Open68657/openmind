@@ -30,49 +30,47 @@ async function processComparison(jobId: string, params: any) {
       ? `\n\nBrand Assets for this client:\n- Colors: ${JSON.stringify(clientBrandData.colors)}\n- Fonts: ${JSON.stringify(clientBrandData.fonts)}`
       : "";
 
-    const systemPrompt = `You are a meticulous QA auditor at an advertising agency. You will receive exactly TWO images.
+    const systemPrompt = `You are a precise QA auditor at an advertising agency. You receive TWO images:
 
-IMAGE 1 = SKETCH (the approved reference)
-IMAGE 2 = FINAL (the produced file)
+IMAGE 1 = SKETCH (approved reference)
+IMAGE 2 = FINAL (produced file)
 
-YOUR TASK: Find EVERY difference between IMAGE 1 and IMAGE 2.
+INSTRUCTIONS:
+1. Carefully compare the two images side by side.
+2. Report ONLY differences you can actually see. Do NOT invent or imagine differences.
+3. For each difference, quote the exact text or describe the exact visual element so it can be verified.
 
-METHODOLOGY - Follow these steps IN ORDER:
-1. TEXT COMPARISON: Read every single word, number, date, phone number, URL, barcode, and label in IMAGE 1. Then check if each one appears IDENTICALLY in IMAGE 2. Report ANY change.
-2. IMAGE/PHOTO COMPARISON: Identify every photograph, illustration, product shot, and graphic in IMAGE 1. Verify each one is the SAME in IMAGE 2. Report ANY replacement, crop change, or removal.
-3. LAYOUT COMPARISON: Check positions, sizes, and alignment of all elements. Report ANY shift, resize, or reflow.
-4. COLOR COMPARISON: Compare background colors, text colors, accent colors. Report ANY change.
-5. ELEMENT COUNT: Count distinct visual elements in each image. Report if counts differ.
+WHAT TO CHECK:
+- Text: Compare every word and number. If text differs, quote BOTH versions (sketch vs final).
+- Photos/Graphics: Are the same images used? Note any replacements.
+- Layout: Are elements in the same positions and sizes?
+- Colors: Are colors visibly different?${brandContext}
 
-CRITICAL RULES:
-- DEFAULT ASSUMPTION: The files are DIFFERENT. You must PROVE they are identical to give 100.
-- If you see ANY difference at all, the score MUST be below 95.
-- If text content differs (different words, missing text, added text), score MUST be below 80.
-- If images/photos are different (different product, different person, different scene), score MUST be below 60.
-- Be EXHAUSTIVE. Missing even one difference is a failure on your part.
-- When in doubt, report it as info severity.
+ACCURACY RULES:
+- ONLY report differences you are 100% confident about.
+- Do NOT guess or speculate. If you cannot clearly see a difference, do NOT report it.
+- Do NOT fabricate content that isn't visible in the images.
+- For every discrepancy, you MUST be able to point to the specific element in both images.
+- If the files look identical to you, say so honestly with matchScore 100.
 
 SCORING:
-- 100: Pixel-perfect identical (extremely rare)
-- 90-99: Only trivial rendering artifacts (anti-aliasing, compression)
-- 70-89: Minor differences (slight position shifts, small color variations)
-- 50-69: Significant differences (changed text, swapped images, layout changes)
-- Below 50: Completely different content
+- 100: No visible differences
+- 90-99: Very minor differences (tiny position shifts)
+- 70-89: Clear differences (changed text, moved elements)
+- Below 70: Major differences (different images, missing content)
 
 Respond in Hebrew. Return ONLY raw JSON (no markdown):
 {
   "matchScore": <number 0-100>,
-  "summary": "<Hebrew summary listing the main differences found>",
+  "summary": "<Hebrew summary of actual differences found>",
   "discrepancies": [
     {
       "type": "content" | "visual" | "specs",
       "severity": "critical" | "warning" | "info",
-      "description": "<Hebrew description of this specific difference>"
+      "description": "<Hebrew description with specific evidence from both images>"
     }
   ]
-}
-
-If and ONLY if the two images are truly pixel-perfect identical, return matchScore 100 with empty discrepancies.`;
+}`;
 
     // Files are always images (PDFs converted client-side), so use URLs directly
     const contentParts: any[] = [
