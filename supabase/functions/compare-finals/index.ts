@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -74,36 +73,16 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
 
     // For images, use image_url with the signed URL
     // For PDFs, download and send as base64 inline_data
-    if (sketchIsImage) {
-      contentParts.push({
-        type: "image_url",
-        image_url: { url: sketchUrl },
-      });
-    } else {
-      // Download the file and send as base64 for PDF support
-      const fileResp = await fetch(sketchUrl);
-      const fileBytes = new Uint8Array(await fileResp.arrayBuffer());
-      const base64 = base64Encode(fileBytes);
-      contentParts.push({
-        type: "image_url",
-        image_url: { url: `data:${sketchMimeType};base64,${base64}` },
-      });
-    }
+    // Always pass signed URLs directly - avoids memory issues with large files
+    contentParts.push({
+      type: "image_url",
+      image_url: { url: sketchUrl },
+    });
 
-    if (finalIsImage) {
-      contentParts.push({
-        type: "image_url",
-        image_url: { url: finalUrl },
-      });
-    } else {
-      const fileResp = await fetch(finalUrl);
-      const fileBytes = new Uint8Array(await fileResp.arrayBuffer());
-      const base64 = base64Encode(fileBytes);
-      contentParts.push({
-        type: "image_url",
-        image_url: { url: `data:${finalMimeType};base64,${base64}` },
-      });
-    }
+    contentParts.push({
+      type: "image_url",
+      image_url: { url: finalUrl },
+    });
 
     // Use pro for PDFs since they need better document understanding
     const model = (!sketchIsImage || !finalIsImage) ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
