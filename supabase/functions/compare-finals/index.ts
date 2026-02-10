@@ -43,26 +43,52 @@ Respond in Hebrew with this exact JSON structure (no markdown, just raw JSON):
 
 If files are identical, return matchScore 100 with empty discrepancies array.`;
 
-    const messages: any[] = [
-      { role: "system", content: systemPrompt },
+    // Build content parts - only use image_url for actual images
+    const contentParts: any[] = [
       {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Compare the approved sketch "${sketchName}" with the final file "${finalName}". Analyze content, visual integrity, and brand specs compliance.`,
-          },
-          {
-            type: "image_url",
-            image_url: { url: `data:${sketchMimeType || "image/png"};base64,${sketchBase64}` },
-          },
-          {
-            type: "image_url",
-            image_url: { url: `data:${finalMimeType || "image/png"};base64,${finalBase64}` },
-          },
-        ],
+        type: "text",
+        text: `Compare the approved sketch "${sketchName}" with the final file "${finalName}". Analyze content, visual integrity, and brand specs compliance.`,
       },
     ];
+
+    const sketchIsImage = (sketchMimeType || "").startsWith("image/");
+    const finalIsImage = (finalMimeType || "").startsWith("image/");
+
+    if (sketchIsImage) {
+      contentParts.push({
+        type: "image_url",
+        image_url: { url: `data:${sketchMimeType};base64,${sketchBase64}` },
+      });
+    } else {
+      // For PDFs and other non-image files, describe as attached file
+      contentParts.push({
+        type: "text",
+        text: `[Sketch file "${sketchName}" is a ${sketchMimeType} file - base64 data provided below for analysis]\nBase64 data (first 500 chars for reference): ${sketchBase64.substring(0, 500)}...`,
+      });
+    }
+
+    if (finalIsImage) {
+      contentParts.push({
+        type: "image_url",
+        image_url: { url: `data:${finalMimeType};base64,${finalBase64}` },
+      });
+    } else {
+      contentParts.push({
+        type: "text",
+        text: `[Final file "${finalName}" is a ${finalMimeType} file - base64 data provided below for analysis]\nBase64 data (first 500 chars for reference): ${finalBase64.substring(0, 500)}...`,
+      });
+    }
+
+    // If both files are PDFs, we can't do visual comparison via this API
+    // Use gemini-2.5-pro which has better document understanding
+    const model = (!sketchIsImage || !finalIsImage) ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
+
+    const messages: any[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: contentParts },
+    ];
+
+    console.log(`Comparing files: sketch=${sketchName} (${sketchMimeType}, isImage=${sketchIsImage}), final=${finalName} (${finalMimeType}, isImage=${finalIsImage}), model=${model}`);
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -73,7 +99,7 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model,
           messages,
           stream: false,
         }),
@@ -81,6 +107,9 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
     );
 
     if (!response.ok) {
+      const t = await response.text();
+      console.error("AI gateway error:", response.status, t);
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "יותר מדי בקשות, נסה שוב מאוחר יותר." }),
@@ -93,10 +122,8 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
       return new Response(
-        JSON.stringify({ error: "שגיאה בשירות ה-AI" }),
+        JSON.stringify({ error: `שגיאה בשירות ה-AI (${response.status})` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -104,7 +131,6 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content ?? "";
 
-    // Extract JSON from response
     let result;
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
