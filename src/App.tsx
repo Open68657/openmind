@@ -12,6 +12,7 @@ import Clients from "./pages/Clients";
 import ClientGuideline from "./pages/ClientGuideline";
 import AiStudio from "./pages/AiStudio";
 import AdminProfile from "./pages/AdminProfile";
+import FinalsAudit from "./pages/FinalsAudit";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
@@ -42,6 +43,7 @@ function ProtectedRoutes() {
           <Route path="/clients" element={<Clients />} />
           <Route path="/clients/:clientId" element={<ClientGuideline />} />
           <Route path="/ai-studio" element={<AiStudio />} />
+          <Route path="/finals-audit" element={<FinalsAudit />} />
           <Route path="/profile" element={<AdminProfile />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
