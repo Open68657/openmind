@@ -11,8 +11,8 @@ const Index = () => {
         <div className="mb-8">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Users className="h-4 w-4" />
-            <span className="text-sm font-medium tracking-wide">
-              Open Agency
+            <span className="text-sm font-medium tracking-wide bg-gradient-to-l from-brand-pink to-brand-purple bg-clip-text text-transparent">
+              OPENMind
             </span>
           </div>
           <h1 className="text-3xl font-bold text-foreground">
