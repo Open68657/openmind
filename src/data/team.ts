@@ -106,6 +106,15 @@ export const initialTeamMembers: TeamMember[] = [
     birthdayDisplay: "09/05",
     avatar: "עש",
   },
+  {
+    id: 9,
+    name: "ליבי ג׳רבי",
+    department: "הנהלה",
+    email: "libbyg@open.co.il",
+    birthday: `${currentYear}-06-15`,
+    birthdayDisplay: "15/06",
+    avatar: "לג",
+  },
 ];
 
 // Keep backward compat
