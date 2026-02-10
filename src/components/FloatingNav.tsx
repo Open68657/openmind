@@ -1,4 +1,4 @@
-import { Home, Users, Building2, Sparkles } from "lucide-react";
+import { Home, Users, Building2, Sparkles, UserCircle } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
 const navItems = [
@@ -6,6 +6,7 @@ const navItems = [
   { title: "הצוות", url: "/team", icon: Users },
   { title: "לקוחות", url: "/clients", icon: Building2 },
   { title: "סטודיו AI", url: "/ai-studio", icon: Sparkles },
+  { title: "פרופיל", url: "/profile", icon: UserCircle },
 ];
 
 export function FloatingNav() {
