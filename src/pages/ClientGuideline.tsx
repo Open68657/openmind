@@ -4,15 +4,9 @@ import { clients } from "@/data/clients";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useBrandGuidelines } from "@/hooks/useBrandGuidelines";
-import { ArrowRight, ShieldCheck, Palette, FileCheck, Sparkles, User, FileText, Circle } from "lucide-react";
+import { useAdminMode } from "@/contexts/AdminModeContext";
+import { ArrowRight, ShieldCheck, Palette, FileCheck, Sparkles, FileText, Circle } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import BrandAssets from "@/components/BrandAssets";
 import BrandBook from "@/components/BrandBook";
 import GuidelineChecker from "@/components/GuidelineChecker";
@@ -26,7 +20,7 @@ const ClientGuideline = () => {
   const navigate = useNavigate();
   const client = clients.find((c) => c.id === clientId);
   const { extractedData, setExtractedData, isLoading, updatedAt } = useBrandGuidelines(clientId);
-  const [role, setRole] = useState<"admin" | "employee">("admin");
+  const { role } = useAdminMode();
   const [fileVersions, setFileVersions] = useState<FileVersion[]>([]);
 
   const handleExtracted = useCallback((data: Parameters<typeof setExtractedData>[0]) => {
@@ -78,30 +72,6 @@ const ClientGuideline = () => {
             <ArrowRight className="h-4 w-4 ml-2" />
             חזרה למאגר לקוחות
           </Button>
-
-          {/* Role Toggle */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">הצגה בתור:</span>
-            <Select value={role} onValueChange={(v) => setRole(v as "admin" | "employee")}>
-              <SelectTrigger className="w-36 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">
-                  <span className="flex items-center gap-2">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    מנהל
-                  </span>
-                </SelectItem>
-                <SelectItem value="employee">
-                  <span className="flex items-center gap-2">
-                    <User className="h-3.5 w-3.5" />
-                    עובד
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         {/* Header */}
