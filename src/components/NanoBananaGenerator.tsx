@@ -74,17 +74,45 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
         >
           {generated ? (
             <div className="text-center space-y-3 animate-in fade-in zoom-in-95 duration-500">
-              <div className="mx-auto w-full aspect-video rounded-lg bg-gradient-to-br from-brand-pink/20 to-brand-purple/20 flex items-center justify-center">
-                <div className="text-center">
-                  <ImageIcon className="h-12 w-12 mx-auto text-brand-purple/40 mb-2" />
-                  <p className="text-sm font-medium text-brand-purple/60">
-                    סקיצה שנוצרה עבור {client.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    "{brief}"
-                  </p>
+              {/* Ad Preview with client-specific layout */}
+              <div className="mx-auto w-full aspect-video rounded-lg bg-card border border-border overflow-hidden relative flex flex-col">
+                {/* Color blocks for deals */}
+                {client.adLayout?.colorBlocks && (
+                  <div className="flex-1 grid grid-cols-3 gap-1 p-2">
+                    {client.brandColors.slice(0, 3).map((c) => (
+                      <div
+                        key={c.hex}
+                        className="rounded-md flex items-center justify-center"
+                        style={{ backgroundColor: c.hex }}
+                      >
+                        <span className="text-white text-xs font-bold drop-shadow-sm">מבצע</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!client.adLayout?.colorBlocks && (
+                  <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-brand-pink/20 to-brand-purple/20">
+                    <ImageIcon className="h-12 w-12 text-brand-purple/40" />
+                  </div>
+                )}
+
+                {/* Stampa */}
+                {client.adLayout?.stampa && (
+                  <div className="absolute top-2 left-2 bg-yellow-400 text-black text-[10px] font-bold px-2 py-1 rounded-full rotate-[-12deg] shadow-md">
+                    {client.adLayout.stampa.text}
+                  </div>
+                )}
+
+                {/* Logo area - bottom center */}
+                <div className={`p-3 text-center border-t border-border bg-card ${
+                  client.adLayout?.logoPosition === "bottom-center" ? "" : ""
+                }`}>
+                  <span className="text-sm font-bold text-foreground">{client.name}</span>
+                  <p className="text-[10px] text-muted-foreground">"{brief}"</p>
                 </div>
               </div>
+
+              {/* Color chips with CMYK */}
               <div className="flex gap-2 flex-wrap justify-center">
                 {client.brandColors.slice(0, 3).map((c) => (
                   <span
@@ -96,6 +124,9 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
                       style={{ backgroundColor: c.hex }}
                     />
                     {c.name}
+                    {c.cmyk && (
+                      <span className="text-[10px] text-muted-foreground font-mono">({c.cmyk})</span>
+                    )}
                   </span>
                 ))}
               </div>
