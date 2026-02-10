@@ -1,10 +1,11 @@
-import { Building2, Sparkles, Users, Brain } from "lucide-react";
+import { Building2, Sparkles, Users, Brain, ArrowLeftRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const quickLinks = [
   { title: "לקוחות", desc: "צפייה בגיידליינס של לקוחות", href: "/clients", icon: Building2, color: "text-area-clients", hoverBg: "group-hover:bg-area-clients-soft" },
   { title: "סטודיו AI", desc: "כלי יצירה חכמים", href: "/ai-studio", icon: Sparkles, color: "text-area-ai", hoverBg: "group-hover:bg-area-ai-soft" },
   { title: "הצוות", desc: "צפייה בחברי הצוות", href: "/team", icon: Users, color: "text-area-team", hoverBg: "group-hover:bg-area-team-soft" },
+  { title: "פיינלים", desc: "בדיקת קבצים סופיים", href: "/finals-audit", icon: ArrowLeftRight, color: "text-area-ai", hoverBg: "group-hover:bg-area-ai-soft" },
 ];
 
 const EmployeeHome = () => {
