@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["DM Sans", "system-ui", "sans-serif"],
+        display: ["Fraunces", "serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -46,6 +50,11 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        celebration: {
+          DEFAULT: "hsl(var(--celebration))",
+          foreground: "hsl(var(--celebration-foreground))",
+          soft: "hsl(var(--celebration-soft))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
