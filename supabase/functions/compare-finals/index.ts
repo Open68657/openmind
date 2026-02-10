@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,10 +13,27 @@ serve(async (req) => {
   }
 
   try {
-    const { sketchBase64, finalBase64, sketchName, finalName, sketchMimeType, finalMimeType, clientBrandData } = await req.json();
+    const { sketchPath, finalPath, sketchName, finalName, sketchMimeType, finalMimeType, clientBrandData } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    // Create Supabase client to get signed URLs
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get signed URLs for both files (valid for 1 hour)
+    const [sketchUrlResult, finalUrlResult] = await Promise.all([
+      supabase.storage.from("finals-audit").createSignedUrl(sketchPath, 3600),
+      supabase.storage.from("finals-audit").createSignedUrl(finalPath, 3600),
+    ]);
+
+    if (sketchUrlResult.error) throw new Error(`Failed to get sketch URL: ${sketchUrlResult.error.message}`);
+    if (finalUrlResult.error) throw new Error(`Failed to get final URL: ${finalUrlResult.error.message}`);
+
+    const sketchUrl = sketchUrlResult.data.signedUrl;
+    const finalUrl = finalUrlResult.data.signedUrl;
 
     const brandContext = clientBrandData
       ? `\n\nBrand Assets for this client:\n- Colors: ${JSON.stringify(clientBrandData.colors)}\n- Fonts: ${JSON.stringify(clientBrandData.fonts)}`
@@ -43,7 +61,6 @@ Respond in Hebrew with this exact JSON structure (no markdown, just raw JSON):
 
 If files are identical, return matchScore 100 with empty discrepancies array.`;
 
-    // Build content parts - only use image_url for actual images
     const contentParts: any[] = [
       {
         type: "text",
@@ -54,33 +71,40 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
     const sketchIsImage = (sketchMimeType || "").startsWith("image/");
     const finalIsImage = (finalMimeType || "").startsWith("image/");
 
+    // For images, use image_url with the signed URL
+    // For PDFs, download and send as base64 inline_data
     if (sketchIsImage) {
       contentParts.push({
         type: "image_url",
-        image_url: { url: `data:${sketchMimeType};base64,${sketchBase64}` },
+        image_url: { url: sketchUrl },
       });
     } else {
-      // For PDFs and other non-image files, describe as attached file
+      // Download the file and send as base64 for PDF support
+      const fileResp = await fetch(sketchUrl);
+      const fileBytes = new Uint8Array(await fileResp.arrayBuffer());
+      const base64 = btoa(String.fromCharCode(...fileBytes));
       contentParts.push({
-        type: "text",
-        text: `[Sketch file "${sketchName}" is a ${sketchMimeType} file - base64 data provided below for analysis]\nBase64 data (first 500 chars for reference): ${sketchBase64.substring(0, 500)}...`,
+        type: "image_url",
+        image_url: { url: `data:${sketchMimeType};base64,${base64}` },
       });
     }
 
     if (finalIsImage) {
       contentParts.push({
         type: "image_url",
-        image_url: { url: `data:${finalMimeType};base64,${finalBase64}` },
+        image_url: { url: finalUrl },
       });
     } else {
+      const fileResp = await fetch(finalUrl);
+      const fileBytes = new Uint8Array(await fileResp.arrayBuffer());
+      const base64 = btoa(String.fromCharCode(...fileBytes));
       contentParts.push({
-        type: "text",
-        text: `[Final file "${finalName}" is a ${finalMimeType} file - base64 data provided below for analysis]\nBase64 data (first 500 chars for reference): ${finalBase64.substring(0, 500)}...`,
+        type: "image_url",
+        image_url: { url: `data:${finalMimeType};base64,${base64}` },
       });
     }
 
-    // If both files are PDFs, we can't do visual comparison via this API
-    // Use gemini-2.5-pro which has better document understanding
+    // Use pro for PDFs since they need better document understanding
     const model = (!sketchIsImage || !finalIsImage) ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
 
     const messages: any[] = [
@@ -88,7 +112,7 @@ If files are identical, return matchScore 100 with empty discrepancies array.`;
       { role: "user", content: contentParts },
     ];
 
-    console.log(`Comparing files: sketch=${sketchName} (${sketchMimeType}, isImage=${sketchIsImage}), final=${finalName} (${finalMimeType}, isImage=${finalIsImage}), model=${model}`);
+    console.log(`Comparing: sketch=${sketchName} (${sketchMimeType}), final=${finalName} (${finalMimeType}), model=${model}`);
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",

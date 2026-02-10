@@ -19,16 +19,14 @@ interface ComparisonResult {
   discrepancies: Discrepancy[];
 }
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(",")[1]);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+async function uploadToStorage(file: File, prefix: string): Promise<string> {
+  const timestamp = Date.now();
+  const path = `${prefix}/${timestamp}_${file.name}`;
+  const { error } = await supabase.storage
+    .from("finals-audit")
+    .upload(path, file, { contentType: file.type, upsert: true });
+  if (error) throw new Error(`Upload failed: ${error.message}`);
+  return path;
 }
 
 const severityConfig = {
@@ -114,15 +112,16 @@ const FinalsAudit = () => {
     setResult(null);
 
     try {
-      const [sketchBase64, finalBase64] = await Promise.all([
-        fileToBase64(sketchFile),
-        fileToBase64(finalFile),
+      // Upload files to storage first
+      const [sketchPath, finalPath] = await Promise.all([
+        uploadToStorage(sketchFile, "sketches"),
+        uploadToStorage(finalFile, "finals"),
       ]);
 
       const { data, error } = await supabase.functions.invoke("compare-finals", {
         body: {
-          sketchBase64,
-          finalBase64,
+          sketchPath,
+          finalPath,
           sketchName: sketchFile.name,
           finalName: finalFile.name,
           sketchMimeType: sketchFile.type || "image/png",
