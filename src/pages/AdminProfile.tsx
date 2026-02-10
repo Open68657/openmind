@@ -208,6 +208,9 @@ const AdminProfile = () => {
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
+                      captionLayout="dropdown-buttons"
+                      fromYear={1950}
+                      toYear={new Date().getFullYear()}
                       selected={draft.birthday}
                       onSelect={(date) => setDraft({ ...draft, birthday: date })}
                       disabled={(date) => date > new Date()}
