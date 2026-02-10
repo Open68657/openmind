@@ -14,7 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      brand_guidelines: {
+        Row: {
+          client_id: string
+          colors: Json
+          created_at: string
+          fonts: Json
+          id: string
+          logo_rules: Json
+          source_file_name: string | null
+          sub_brands: Json
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          colors?: Json
+          created_at?: string
+          fonts?: Json
+          id?: string
+          logo_rules?: Json
+          source_file_name?: string | null
+          sub_brands?: Json
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          colors?: Json
+          created_at?: string
+          fonts?: Json
+          id?: string
+          logo_rules?: Json
+          source_file_name?: string | null
+          sub_brands?: Json
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
