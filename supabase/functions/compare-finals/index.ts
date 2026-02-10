@@ -30,41 +30,49 @@ async function processComparison(jobId: string, params: any) {
       ? `\n\nBrand Assets for this client:\n- Colors: ${JSON.stringify(clientBrandData.colors)}\n- Fonts: ${JSON.stringify(clientBrandData.fonts)}`
       : "";
 
-    const systemPrompt = `You are a strict QA auditor for a creative advertising agency. You receive TWO images: the FIRST image is the approved sketch, the SECOND image is the final production file. Your job is to find ALL differences between them.
+    const systemPrompt = `You are a meticulous QA auditor at an advertising agency. You will receive exactly TWO images.
+
+IMAGE 1 = SKETCH (the approved reference)
+IMAGE 2 = FINAL (the produced file)
+
+YOUR TASK: Find EVERY difference between IMAGE 1 and IMAGE 2.
+
+METHODOLOGY - Follow these steps IN ORDER:
+1. TEXT COMPARISON: Read every single word, number, date, phone number, URL, barcode, and label in IMAGE 1. Then check if each one appears IDENTICALLY in IMAGE 2. Report ANY change.
+2. IMAGE/PHOTO COMPARISON: Identify every photograph, illustration, product shot, and graphic in IMAGE 1. Verify each one is the SAME in IMAGE 2. Report ANY replacement, crop change, or removal.
+3. LAYOUT COMPARISON: Check positions, sizes, and alignment of all elements. Report ANY shift, resize, or reflow.
+4. COLOR COMPARISON: Compare background colors, text colors, accent colors. Report ANY change.
+5. ELEMENT COUNT: Count distinct visual elements in each image. Report if counts differ.
 
 CRITICAL RULES:
-- ASSUME the files are DIFFERENT until proven otherwise. Look extremely carefully for ANY change, no matter how small.
-- The FIRST image is the SKETCH (reference). The SECOND image is the FINAL (what was produced). Compare them thoroughly.
-- Report EVERY difference you find: text changes, moved elements, color shifts, size changes, added/removed elements, different images, different products, different barcodes, etc.
-- If you are even slightly uncertain whether something changed, REPORT IT as info severity.
-- Do NOT default to "identical". Only return matchScore 100 if you are absolutely certain every single pixel, text, image, and element is the same.
-- Examine: all text content word by word, all numbers, all images/photos, all logos, all barcodes, all graphic elements, all colors, all positions, all sizes.
+- DEFAULT ASSUMPTION: The files are DIFFERENT. You must PROVE they are identical to give 100.
+- If you see ANY difference at all, the score MUST be below 95.
+- If text content differs (different words, missing text, added text), score MUST be below 80.
+- If images/photos are different (different product, different person, different scene), score MUST be below 60.
+- Be EXHAUSTIVE. Missing even one difference is a failure on your part.
+- When in doubt, report it as info severity.
 
-Your job:
-1. CONTENT CHECK: Compare every word, number, sentence, barcode, and label. Flag any difference.
-2. VISUAL INTEGRITY: Compare every image, photo, graphic element, logo position, and layout. Flag any shift, replacement, addition or removal.
-3. SPECS CHECK: If brand data is provided, verify colors and fonts match.${brandContext}
+SCORING:
+- 100: Pixel-perfect identical (extremely rare)
+- 90-99: Only trivial rendering artifacts (anti-aliasing, compression)
+- 70-89: Minor differences (slight position shifts, small color variations)
+- 50-69: Significant differences (changed text, swapped images, layout changes)
+- Below 50: Completely different content
 
-SCORING GUIDE:
-- 100: Files are pixel-perfect identical
-- 90-99: Very minor differences (slight position shift, tiny color variation)
-- 70-89: Noticeable differences (changed text, moved elements, different images)
-- Below 70: Major differences (wrong content, missing elements, completely different layout)
-
-Respond in Hebrew with this exact JSON structure (no markdown, just raw JSON):
+Respond in Hebrew. Return ONLY raw JSON (no markdown):
 {
   "matchScore": <number 0-100>,
-  "summary": "<brief Hebrew summary of what changed>",
+  "summary": "<Hebrew summary listing the main differences found>",
   "discrepancies": [
     {
       "type": "content" | "visual" | "specs",
       "severity": "critical" | "warning" | "info",
-      "description": "<Hebrew description of the specific issue>"
+      "description": "<Hebrew description of this specific difference>"
     }
   ]
 }
 
-Only return matchScore 100 with empty discrepancies if the files are truly identical.`;
+If and ONLY if the two images are truly pixel-perfect identical, return matchScore 100 with empty discrepancies.`;
 
     // Files are always images (PDFs converted client-side), so use URLs directly
     const contentParts: any[] = [
@@ -94,7 +102,7 @@ Only return matchScore 100 with empty discrepancies if the files are truly ident
           { role: "user", content: contentParts },
         ],
         stream: false,
-        temperature: 0.2,
+        temperature: 0,
       }),
     });
 
