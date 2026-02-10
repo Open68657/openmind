@@ -13,6 +13,8 @@ export interface ExtractedBrandData {
   colors: BrandColor[];
   fonts: { name: string; size: string; usage: string }[];
   logoRules: LogoRule[];
+  subBrands?: { name: string; nameHe: string | null }[];
+  sourceFileName?: string;
 }
 
 export interface SubBrand {

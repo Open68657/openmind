@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Client, ExtractedBrandData, simulatedExtractions } from "@/data/clients";
+import { Client, ExtractedBrandData } from "@/data/clients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +14,11 @@ import {
   Lock,
   ChevronDown,
   ChevronUp,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PdfVersion {
   id: number;
@@ -33,6 +35,7 @@ interface PdfBrandScannerProps {
 }
 
 const STEPS = [
+  "מעלה קובץ לשרת...",
   "מנתח חוקי מותג...",
   "מזהה צבעים ופלטות...",
   "מחלץ טיפוגרפיה...",
@@ -45,72 +48,129 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
   const [currentStep, setCurrentStep] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [versions, setVersions] = useState<PdfVersion[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [versions, setVersions] = useState<PdfVersion[]>([
-    {
-      id: 1,
-      fileName: `${client.name}_BrandBook_2024.pdf`,
-      uploadedAt: new Date(2024, 3, 15, 10, 30),
-      uploadedBy: "ליבי ג׳רבי",
-      isActive: true,
-    },
-  ]);
+  const stepIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const activeVersion = versions.find((v) => v.isActive);
 
-  const startAnalysis = useCallback(
-    (name: string) => {
+  const startStepAnimation = useCallback(() => {
+    setCurrentStep(0);
+    let step = 0;
+    stepIntervalRef.current = setInterval(() => {
+      step++;
+      if (step < STEPS.length) {
+        setCurrentStep(step);
+      }
+    }, 2000);
+  }, []);
+
+  const stopStepAnimation = useCallback(() => {
+    if (stepIntervalRef.current) {
+      clearInterval(stepIntervalRef.current);
+      stepIntervalRef.current = null;
+    }
+    setCurrentStep(STEPS.length - 1);
+  }, []);
+
+  const handleFile = useCallback(
+    async (file: File) => {
+      if (role !== "admin") {
+        toast.error("אין לך הרשאה להחליף קובץ");
+        return;
+      }
+      if (file.type !== "application/pdf") {
+        toast.error("יש להעלות קובץ PDF בלבד");
+        return;
+      }
+
       setIsAnalyzing(true);
-      setCurrentStep(0);
+      setErrorMessage(null);
+      startStepAnimation();
 
-      let step = 0;
-      const interval = setInterval(() => {
-        step++;
-        if (step < STEPS.length) {
-          setCurrentStep(step);
-        } else {
-          clearInterval(interval);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("clientName", client.name);
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-brand-pdf`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: formData,
+          }
+        );
+
+        stopStepAnimation();
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          const msg = errorData?.error || "שגיאה בניתוח הקובץ";
+          setErrorMessage(msg);
           setIsAnalyzing(false);
-
-          // Archive old active version
-          setVersions((prev) => {
-            const archived = prev.map((v) => ({ ...v, isActive: false }));
-            return [
-              {
-                id: Date.now(),
-                fileName: name,
-                uploadedAt: new Date(),
-                uploadedBy: "ליבי ג׳רבי",
-                isActive: true,
-              },
-              ...archived,
-            ];
-          });
-
-          const data =
-            simulatedExtractions[client.id] || simulatedExtractions.default;
-          onExtracted(data);
-          toast.success("הגיידליין עודכן בהצלחה במערכת", {
-            description: `ספר המותג של ${client.name} נותח ונשמר`,
-          });
+          toast.error(msg);
+          return;
         }
-      }, 700);
-    },
-    [client, onExtracted]
-  );
 
-  const handleFile = (file: File) => {
-    if (role !== "admin") {
-      toast.error("אין לך הרשאה להחליף קובץ");
-      return;
-    }
-    if (file.type !== "application/pdf") {
-      toast.error("יש להעלות קובץ PDF בלבד");
-      return;
-    }
-    startAnalysis(file.name);
-  };
+        const extracted = await response.json();
+
+        // Transform to ExtractedBrandData format
+        const brandData: ExtractedBrandData = {
+          colors: (extracted.colors || []).map((c: any) => ({
+            name: c.name || "לא ידוע",
+            hex: c.hex || "#000000",
+            cmyk: c.cmyk || undefined,
+          })),
+          fonts: (extracted.fonts || []).map((f: any) => ({
+            name: f.name || "לא נמצא",
+            size: f.size || "לא נמצא",
+            usage: f.usage || "לא נמצא",
+          })),
+          logoRules: (extracted.logoRules || []).map((r: any) => ({
+            rule: r.rule,
+            type: r.type === "dont" ? "dont" : "do",
+          })),
+          subBrands: extracted.subBrands || [],
+          sourceFileName: extracted.sourceFileName || file.name,
+        };
+
+        // Archive old versions and add new
+        setVersions((prev) => {
+          const archived = prev.map((v) => ({ ...v, isActive: false }));
+          return [
+            {
+              id: Date.now(),
+              fileName: file.name,
+              uploadedAt: new Date(),
+              uploadedBy: "ליבי ג׳רבי",
+              isActive: true,
+            },
+            ...archived,
+          ];
+        });
+
+        onExtracted(brandData);
+        setIsAnalyzing(false);
+        toast.success("הגיידליין עודכן בהצלחה במערכת", {
+          description: `ערכים חולצו מ-${file.name}`,
+        });
+      } catch (err) {
+        stopStepAnimation();
+        setIsAnalyzing(false);
+        const msg = err instanceof Error ? err.message : "שגיאה לא ידועה";
+        setErrorMessage(msg);
+        toast.error(msg);
+      }
+    },
+    [client, onExtracted, role, startStepAnimation, stopStepAnimation]
+  );
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -174,6 +234,7 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleFile(file);
+                  if (e.target) e.target.value = "";
                 }}
               />
               <div
@@ -201,7 +262,7 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
                   העלה ספר מותג חדש (PDF)
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  הקובץ הקיים יועבר לארכיון אוטומטית
+                  המערכת תחלץ אוטומטית צבעים, פונטים וחוקי לוגו
                 </p>
               </div>
             </>
@@ -226,6 +287,9 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
               <div className="text-center mb-6">
                 <Loader2 className="h-10 w-10 mx-auto text-brand-purple animate-spin mb-3" />
                 <p className="text-sm font-medium text-foreground">מנתח ספר מותג...</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  החילוץ מתבצע באמצעות AI — עשוי לקחת עד 30 שניות
+                </p>
               </div>
               <div className="space-y-3 max-w-xs mx-auto">
                 {STEPS.map((step, i) => (
@@ -239,9 +303,7 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
                     )}
                     <span
                       className={`text-sm ${
-                        i <= currentStep
-                          ? "text-foreground font-medium"
-                          : "text-muted-foreground"
+                        i <= currentStep ? "text-foreground font-medium" : "text-muted-foreground"
                       }`}
                     >
                       {step}
@@ -251,73 +313,84 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
               </div>
             </div>
           )}
+
+          {/* Error message */}
+          {errorMessage && !isAnalyzing && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3 animate-in fade-in duration-300">
+              <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-destructive">שגיאה בניתוח</p>
+                <p className="text-xs text-destructive/80 mt-0.5">{errorMessage}</p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Version Archive */}
-      <Card className="border-0 shadow-md">
-        <CardHeader className="pb-3">
-          <button
-            onClick={() => setShowArchive(!showArchive)}
-            className="flex items-center justify-between w-full"
-          >
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Clock className="h-5 w-5 text-muted-foreground" />
-              ארכיון גרסאות
-              <Badge variant="secondary" className="text-[10px]">
-                {versions.length}
-              </Badge>
-            </CardTitle>
-            {showArchive ? (
-              <ChevronUp className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            )}
-          </button>
-        </CardHeader>
-        {showArchive && (
-          <CardContent className="pt-0">
-            <div className="space-y-2">
-              {versions.map((v) => (
-                <div
-                  key={v.id}
-                  className={`flex items-center justify-between rounded-lg border p-3 transition-colors ${
-                    v.isActive
-                      ? "border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/30"
-                      : "border-border"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <FileText
-                      className={`h-4 w-4 shrink-0 ${
-                        v.isActive ? "text-green-600" : "text-muted-foreground"
-                      }`}
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        {v.fileName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(v.uploadedAt, "dd/MM/yyyy HH:mm")} • {v.uploadedBy}
-                      </p>
+      {/* Version Archive - only show if there are versions */}
+      {versions.length > 0 && (
+        <Card className="border-0 shadow-md">
+          <CardHeader className="pb-3">
+            <button
+              onClick={() => setShowArchive(!showArchive)}
+              className="flex items-center justify-between w-full"
+            >
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                ארכיון גרסאות
+                <Badge variant="secondary" className="text-[10px]">
+                  {versions.length}
+                </Badge>
+              </CardTitle>
+              {showArchive ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+          </CardHeader>
+          {showArchive && (
+            <CardContent className="pt-0">
+              <div className="space-y-2">
+                {versions.map((v) => (
+                  <div
+                    key={v.id}
+                    className={`flex items-center justify-between rounded-lg border p-3 transition-colors ${
+                      v.isActive
+                        ? "border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/30"
+                        : "border-border"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText
+                        className={`h-4 w-4 shrink-0 ${
+                          v.isActive ? "text-green-600" : "text-muted-foreground"
+                        }`}
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{v.fileName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(v.uploadedAt, "dd/MM/yyyy HH:mm")} • {v.uploadedBy}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {v.isActive && (
+                        <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0 text-[10px]">
+                          פעיל
+                        </Badge>
+                      )}
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {v.isActive && (
-                      <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0 text-[10px]">
-                        פעיל
-                      </Badge>
-                    )}
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        )}
-      </Card>
+                ))}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
     </div>
   );
 };

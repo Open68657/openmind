@@ -19,6 +19,9 @@ const BrandAssets = ({ brandColors, fonts, extracted, subBrands }: BrandAssetsPr
         size: i === 0 ? "28-36px" : "14-16px",
         usage: i === 0 ? "כותרות" : "גוף טקסט",
       }));
+  const displaySubBrands = extracted?.subBrands?.length
+    ? extracted.subBrands.map((sb) => ({ name: sb.name, nameHe: sb.nameHe || "" }))
+    : subBrands;
 
   return (
     <div className="space-y-6">
@@ -31,7 +34,7 @@ const BrandAssets = ({ brandColors, fonts, extracted, subBrands }: BrandAssetsPr
               צבעי מותג
               {extracted && (
                 <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-[10px] mr-2">
-                  עודכן מ-PDF
+                  {extracted.sourceFileName ? `חולץ מ-${extracted.sourceFileName}` : "עודכן מ-PDF"}
                 </Badge>
               )}
             </CardTitle>
@@ -103,17 +106,22 @@ const BrandAssets = ({ brandColors, fonts, extracted, subBrands }: BrandAssetsPr
       </div>
 
       {/* Sub-Brands */}
-      {subBrands && subBrands.length > 0 && (
+      {displaySubBrands && displaySubBrands.length > 0 && (
         <Card className="border-0 shadow-md">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Tag className="h-5 w-5 text-accent" />
               תת-מותגים
+              {extracted?.subBrands?.length ? (
+                <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-[10px] mr-2">
+                  חולץ מ-PDF
+                </Badge>
+              ) : null}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
-              {subBrands.map((sb) => (
+              {displaySubBrands.map((sb) => (
                 <div
                   key={sb.name}
                   className="flex items-center gap-3 rounded-lg border border-border p-4"
