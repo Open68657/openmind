@@ -14,8 +14,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Heebo", "system-ui", "sans-serif"],
-        display: ["Heebo", "system-ui", "sans-serif"],
+        sans: ["Calibri", "Assistant", "system-ui", "sans-serif"],
+        display: ["Calibri", "Assistant", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -60,6 +60,16 @@ export default {
           pink: "hsl(var(--brand-pink))",
           purple: "hsl(var(--brand-purple))",
         },
+        area: {
+          home: "hsl(var(--area-home))",
+          "home-soft": "hsl(var(--area-home-soft))",
+          team: "hsl(var(--area-team))",
+          "team-soft": "hsl(var(--area-team-soft))",
+          clients: "hsl(var(--area-clients))",
+          "clients-soft": "hsl(var(--area-clients-soft))",
+          ai: "hsl(var(--area-ai))",
+          "ai-soft": "hsl(var(--area-ai-soft))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -78,20 +88,12 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {

@@ -2,11 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;500;600;700;800&display=swap');
 
 @layer base {
   :root {
-    --background: 240 20% 97%;
+    --background: 0 0% 98%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -18,10 +18,10 @@
     --primary: 222 47% 11%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 230 20% 95%;
+    --secondary: 220 16% 96%;
     --secondary-foreground: 222 47% 11%;
 
-    --muted: 230 16% 94%;
+    --muted: 220 14% 94%;
     --muted-foreground: 220 9% 46%;
 
     --accent: 36 95% 54%;
@@ -30,26 +30,36 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 230 18% 91%;
-    --input: 230 18% 91%;
+    --border: 220 16% 91%;
+    --input: 220 16% 91%;
     --ring: 222 47% 11%;
 
     --radius: 0.75rem;
+
+    /* Functional area colors */
+    --area-home: 215 85% 55%;
+    --area-home-soft: 215 80% 95%;
+    --area-team: 28 90% 55%;
+    --area-team-soft: 28 85% 95%;
+    --area-clients: 165 60% 42%;
+    --area-clients-soft: 165 55% 94%;
+    --area-ai: 265 65% 58%;
+    --area-ai-soft: 265 55% 95%;
 
     --celebration: 36 95% 54%;
     --celebration-foreground: 36 95% 14%;
     --celebration-soft: 38 100% 96%;
 
     --brand-pink: 330 85% 60%;
-    --brand-purple: 270 70% 55%;
+    --brand-purple: 265 65% 58%;
 
-    --glass-bg: 0 0% 100% / 0.55;
-    --glass-border: 0 0% 100% / 0.25;
+    --glass-bg: 0 0% 100% / 0.6;
+    --glass-border: 0 0% 100% / 0.3;
     --glass-blur: 20px;
 
-    --shadow-card: 0 4px 32px -8px hsl(270 70% 55% / 0.06), 0 2px 12px -4px hsl(222 47% 11% / 0.04);
-    --shadow-card-hover: 0 8px 40px -8px hsl(270 70% 55% / 0.12), 0 4px 20px -4px hsl(222 47% 11% / 0.06);
-    --shadow-float: 0 12px 48px -12px hsl(270 70% 55% / 0.15), 0 4px 24px -4px hsl(222 47% 11% / 0.08);
+    --shadow-card: 0 4px 24px -6px hsl(220 20% 20% / 0.06), 0 2px 8px -4px hsl(220 20% 20% / 0.03);
+    --shadow-card-hover: 0 8px 32px -6px hsl(220 20% 20% / 0.1), 0 4px 16px -4px hsl(220 20% 20% / 0.05);
+    --shadow-float: 0 12px 40px -10px hsl(220 20% 20% / 0.12), 0 4px 20px -4px hsl(220 20% 20% / 0.06);
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -81,15 +91,25 @@
     --border: 217 33% 17%;
     --input: 217 33% 17%;
     --ring: 213 27% 84%;
+
+    --area-home: 215 80% 60%;
+    --area-home-soft: 215 50% 15%;
+    --area-team: 28 80% 55%;
+    --area-team-soft: 28 50% 15%;
+    --area-clients: 165 55% 45%;
+    --area-clients-soft: 165 40% 14%;
+    --area-ai: 265 60% 60%;
+    --area-ai-soft: 265 40% 15%;
+
     --celebration: 36 95% 54%;
     --celebration-foreground: 36 95% 14%;
     --celebration-soft: 36 50% 15%;
 
     --glass-bg: 222 47% 9% / 0.6;
     --glass-border: 0 0% 100% / 0.08;
-    --shadow-card: 0 4px 32px -8px hsl(0 0% 0% / 0.3);
-    --shadow-card-hover: 0 8px 40px -8px hsl(270 70% 55% / 0.2);
-    --shadow-float: 0 12px 48px -12px hsl(0 0% 0% / 0.4);
+    --shadow-card: 0 4px 24px -6px hsl(0 0% 0% / 0.3);
+    --shadow-card-hover: 0 8px 32px -6px hsl(0 0% 0% / 0.35);
+    --shadow-float: 0 12px 40px -10px hsl(0 0% 0% / 0.4);
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
@@ -113,9 +133,8 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Heebo', system-ui, sans-serif;
-    background:
-      linear-gradient(135deg, hsl(240 20% 97%) 0%, hsl(258 30% 96%) 40%, hsl(230 25% 97%) 100%);
+    font-family: 'Calibri', 'Assistant', system-ui, sans-serif;
+    background: hsl(0 0% 98%);
     background-attachment: fixed;
   }
 
@@ -127,7 +146,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    opacity: 0.025;
+    opacity: 0.02;
     pointer-events: none;
     z-index: 9999;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -136,7 +155,7 @@
   }
 
   h1, h2, h3 {
-    font-family: 'Heebo', system-ui, sans-serif;
+    font-family: 'Calibri', 'Assistant', system-ui, sans-serif;
     @apply tracking-tight;
   }
 
@@ -171,7 +190,7 @@
     transition: box-shadow 0.3s ease, transform 0.25s ease;
   }
   .hover-glow:hover {
-    box-shadow: 0 0 0 1px hsl(var(--brand-purple) / 0.15), 0 8px 32px -8px hsl(var(--brand-purple) / 0.12);
+    box-shadow: 0 0 0 1px hsl(220 20% 20% / 0.06), 0 8px 24px -6px hsl(220 20% 20% / 0.1);
     transform: scale(1.02);
   }
 }

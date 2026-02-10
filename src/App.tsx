@@ -26,7 +26,7 @@ function ProtectedRoutes() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
+        <Loader2 className="h-8 w-8 animate-spin text-area-home" />
       </div>
     );
   }
@@ -61,7 +61,7 @@ function AuthGate() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-purple" />
+        <Loader2 className="h-8 w-8 animate-spin text-area-home" />
       </div>
     );
   }

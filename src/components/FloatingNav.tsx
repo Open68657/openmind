@@ -5,11 +5,11 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 
 const navItems = [
-  { title: "בית", url: "/", icon: Home },
-  { title: "הצוות", url: "/team", icon: Users },
-  { title: "לקוחות", url: "/clients", icon: Building2 },
-  { title: "סטודיו AI", url: "/ai-studio", icon: Sparkles },
-  { title: "פיינלים", url: "/finals-audit", icon: ArrowLeftRight },
+  { title: "בית", url: "/", icon: Home, color: "text-area-home", activeBg: "bg-area-home" },
+  { title: "הצוות", url: "/team", icon: Users, color: "text-area-team", activeBg: "bg-area-team" },
+  { title: "לקוחות", url: "/clients", icon: Building2, color: "text-area-clients", activeBg: "bg-area-clients" },
+  { title: "סטודיו AI", url: "/ai-studio", icon: Sparkles, color: "text-area-ai", activeBg: "bg-area-ai" },
+  { title: "פיינלים", url: "/finals-audit", icon: ArrowLeftRight, color: "text-area-ai", activeBg: "bg-area-ai" },
 ];
 
 export function FloatingNav() {
@@ -31,13 +31,15 @@ export function FloatingNav() {
             <Switch
               checked={isAdmin}
               onCheckedChange={(checked) => setRole(checked ? "admin" : "employee")}
-              className="h-5 w-9 data-[state=checked]:bg-brand-purple transition-all duration-300"
+              className={`h-5 w-9 transition-all duration-300 ${
+                isAdmin ? "data-[state=checked]:bg-emerald-500" : "data-[state=unchecked]:bg-muted"
+              }`}
             />
             <Badge
               variant="secondary"
               className={`text-[10px] px-1.5 py-0 leading-relaxed transition-all duration-300 ${
                 isAdmin
-                  ? "bg-brand-purple/15 text-brand-purple border-brand-purple/20"
+                  ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/20"
                   : "bg-muted text-muted-foreground"
               }`}
             >
@@ -59,11 +61,11 @@ export function FloatingNav() {
               end={item.url === "/"}
               className={`relative flex flex-col items-center gap-0.5 rounded-xl px-3.5 py-2.5 transition-all duration-300 ${
                 active
-                  ? "bg-gradient-to-br from-brand-pink to-brand-purple text-white shadow-lg shadow-brand-purple/25"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  ? `${item.activeBg} text-white shadow-lg`
+                  : `text-muted-foreground hover:${item.color} hover:bg-muted/40`
               }`}
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className={`h-5 w-5 ${!active ? item.color : ''}`} />
               <span className="text-[10px] font-medium leading-none">{item.title}</span>
             </NavLink>
           );
