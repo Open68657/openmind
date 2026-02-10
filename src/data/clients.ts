@@ -2,19 +2,41 @@ export interface BrandColor {
   name: string;
   hex: string;
   cmyk?: string;
+  rgb?: string;
+  pantone?: string;
+  page?: number;
+  confidence?: "exact" | "inferred";
 }
 
 export interface LogoRule {
   rule: string;
   type: "do" | "dont";
+  page?: number;
+  confidence?: "exact" | "inferred";
+}
+
+export interface ExtractedFont {
+  name: string;
+  weight?: string;
+  size: string;
+  usage: string;
+  page?: number;
+  confidence?: "exact" | "inferred";
 }
 
 export interface ExtractedBrandData {
   colors: BrandColor[];
-  fonts: { name: string; size: string; usage: string }[];
+  fonts: ExtractedFont[];
   logoRules: LogoRule[];
-  subBrands?: { name: string; nameHe: string | null }[];
+  subBrands?: { name: string; nameHe: string | null; page?: number }[];
   sourceFileName?: string;
+  summary?: {
+    totalPages?: number;
+    colorsFound: boolean;
+    fontsFound: boolean;
+    logoRulesFound: boolean;
+    subBrandsFound: boolean;
+  };
 }
 
 export interface SubBrand {

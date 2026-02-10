@@ -121,24 +121,38 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
 
         const extracted = await response.json();
 
-        // Transform to ExtractedBrandData format
+        // Transform to ExtractedBrandData format - preserve all fields including page & confidence
         const brandData: ExtractedBrandData = {
           colors: (extracted.colors || []).map((c: any) => ({
             name: c.name || "לא ידוע",
-            hex: c.hex || "#000000",
+            hex: c.hex || null,
             cmyk: c.cmyk || undefined,
+            rgb: c.rgb || undefined,
+            pantone: c.pantone || undefined,
+            page: c.page || undefined,
+            confidence: c.confidence || "exact",
           })),
           fonts: (extracted.fonts || []).map((f: any) => ({
             name: f.name || "לא נמצא",
+            weight: f.weight || undefined,
             size: f.size || "לא נמצא",
             usage: f.usage || "לא נמצא",
+            page: f.page || undefined,
+            confidence: f.confidence || "exact",
           })),
           logoRules: (extracted.logoRules || []).map((r: any) => ({
             rule: r.rule,
             type: r.type === "dont" ? "dont" : "do",
+            page: r.page || undefined,
+            confidence: r.confidence || "exact",
           })),
-          subBrands: extracted.subBrands || [],
+          subBrands: (extracted.subBrands || []).map((sb: any) => ({
+            name: sb.name,
+            nameHe: sb.nameHe || null,
+            page: sb.page || undefined,
+          })),
           sourceFileName: extracted.sourceFileName || file.name,
+          summary: extracted.summary || undefined,
         };
 
         // Archive old versions and add new
