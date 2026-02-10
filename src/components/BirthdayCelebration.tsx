@@ -16,8 +16,8 @@ const BirthdayCelebration = ({ members }: BirthdayCelebrationProps) => {
     <div className="rounded-xl border border-celebration/30 bg-celebration-soft p-6">
       <div className="flex items-center gap-2 mb-4">
         <PartyPopper className="h-5 w-5 text-celebration" />
-        <h2 className="text-lg font-semibold font-display text-foreground">
-          Birthday Celebration
+        <h2 className="text-lg font-semibold text-foreground">
+          חוגגים יום הולדת
         </h2>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -35,8 +35,8 @@ const BirthdayCelebration = ({ members }: BirthdayCelebrationProps) => {
               </p>
               <p className="text-sm text-muted-foreground">
                 {person.isToday
-                  ? "🎉 Birthday is today!"
-                  : "🎂 Birthday is tomorrow!"}
+                  ? "🎉 חוגג/ת היום!"
+                  : "🎂 חוגג/ת מחר!"}
               </p>
             </div>
           </div>

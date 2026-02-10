@@ -15,10 +15,10 @@ const TeamTable = () => {
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="font-semibold text-foreground">Name</TableHead>
-            <TableHead className="font-semibold text-foreground">Department</TableHead>
-            <TableHead className="font-semibold text-foreground">Email</TableHead>
-            <TableHead className="font-semibold text-foreground text-right">Birthday</TableHead>
+            <TableHead className="font-semibold text-foreground text-right">שם</TableHead>
+            <TableHead className="font-semibold text-foreground text-right">מחלקה</TableHead>
+            <TableHead className="font-semibold text-foreground text-right">אימייל</TableHead>
+            <TableHead className="font-semibold text-foreground text-left">יום הולדת</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -39,10 +39,10 @@ const TeamTable = () => {
                   {member.department}
                 </span>
               </TableCell>
-              <TableCell className="text-muted-foreground">
+              <TableCell className="text-muted-foreground" dir="ltr">
                 {member.email}
               </TableCell>
-              <TableCell className="text-right text-muted-foreground">
+              <TableCell className="text-left text-muted-foreground">
                 {member.birthdayDisplay}
               </TableCell>
             </TableRow>

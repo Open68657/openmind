@@ -11,15 +11,15 @@ const Index = () => {
         <div className="mb-8">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Users className="h-4 w-4" />
-            <span className="text-sm font-medium tracking-wide uppercase">
+            <span className="text-sm font-medium tracking-wide">
               Open Agency
             </span>
           </div>
-          <h1 className="text-3xl font-bold font-display text-foreground">
-            Team
+          <h1 className="text-3xl font-bold text-foreground">
+            הצוות שלנו
           </h1>
           <p className="mt-1 text-muted-foreground">
-            {teamMembers.length} members across the organization
+            {teamMembers.length} חברי צוות בארגון
           </p>
         </div>
 
