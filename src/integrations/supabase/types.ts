@@ -119,6 +119,57 @@ export type Database = {
         }
         Relationships: []
       }
+      comparison_jobs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          final_mime_type: string | null
+          final_name: string | null
+          final_path: string
+          id: string
+          progress: number
+          result: Json | null
+          sketch_mime_type: string | null
+          sketch_name: string | null
+          sketch_path: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          final_mime_type?: string | null
+          final_name?: string | null
+          final_path: string
+          id?: string
+          progress?: number
+          result?: Json | null
+          sketch_mime_type?: string | null
+          sketch_name?: string | null
+          sketch_path: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          final_mime_type?: string | null
+          final_name?: string | null
+          final_path?: string
+          id?: string
+          progress?: number
+          result?: Json | null
+          sketch_mime_type?: string | null
+          sketch_name?: string | null
+          sketch_path?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
