@@ -6,6 +6,7 @@ import { toast } from "@/components/ui/sonner";
 export function useBrandGuidelines(clientId: string | undefined) {
   const [extractedData, setExtractedData] = useState<ExtractedBrandData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   // Load from DB on mount
   useEffect(() => {
@@ -28,6 +29,7 @@ export function useBrandGuidelines(clientId: string | undefined) {
             sourceFileName: data.source_file_name || undefined,
             summary: typeof data.summary === 'object' ? data.summary as any : undefined,
           });
+          setUpdatedAt(data.updated_at);
         }
         setIsLoading(false);
       });
@@ -49,17 +51,21 @@ export function useBrandGuidelines(clientId: string | undefined) {
         summary: data.summary || null,
       };
 
-      const { error } = await supabase
+      const { data: result, error } = await supabase
         .from("brand_guidelines")
-        .upsert(row as any, { onConflict: "client_id" });
+        .upsert(row as any, { onConflict: "client_id" })
+        .select("updated_at")
+        .maybeSingle();
 
       if (error) {
         console.error("Error saving brand guidelines:", error);
         toast.error("שגיאה בשמירת הנתונים");
+      } else if (result) {
+        setUpdatedAt(result.updated_at);
       }
     },
     [clientId]
   );
 
-  return { extractedData, setExtractedData: saveData, isLoading };
+  return { extractedData, setExtractedData: saveData, isLoading, updatedAt };
 }

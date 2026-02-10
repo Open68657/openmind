@@ -211,31 +211,6 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Active file status */}
-          {activeVersion && (
-            <div className="rounded-lg border border-border bg-muted/30 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      קובץ פעיל: {activeVersion.fileName}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      עודכן לאחרונה ע"י: {activeVersion.uploadedBy} •{" "}
-                      {format(activeVersion.uploadedAt, "dd/MM/yyyy HH:mm")}
-                    </p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" className="shrink-0 gap-1.5">
-                  <Download className="h-3.5 w-3.5" />
-                  הורדה
-                </Button>
-              </div>
-            </div>
-          )}
 
           {/* Upload area - Admin only */}
           {role === "admin" && !isAnalyzing && (
@@ -340,71 +315,6 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
           )}
         </CardContent>
       </Card>
-
-      {/* Version Archive - only show if there are versions */}
-      {versions.length > 0 && (
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <button
-              onClick={() => setShowArchive(!showArchive)}
-              className="flex items-center justify-between w-full"
-            >
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-                ארכיון גרסאות
-                <Badge variant="secondary" className="text-[10px]">
-                  {versions.length}
-                </Badge>
-              </CardTitle>
-              {showArchive ? (
-                <ChevronUp className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              )}
-            </button>
-          </CardHeader>
-          {showArchive && (
-            <CardContent className="pt-0">
-              <div className="space-y-2">
-                {versions.map((v) => (
-                  <div
-                    key={v.id}
-                    className={`flex items-center justify-between rounded-lg border p-3 transition-colors ${
-                      v.isActive
-                        ? "border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/30"
-                        : "border-border"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText
-                        className={`h-4 w-4 shrink-0 ${
-                          v.isActive ? "text-green-600" : "text-muted-foreground"
-                        }`}
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{v.fileName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(v.uploadedAt, "dd/MM/yyyy HH:mm")} • {v.uploadedBy}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {v.isActive && (
-                        <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0 text-[10px]">
-                          פעיל
-                        </Badge>
-                      )}
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                        <Download className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          )}
-        </Card>
-      )}
     </div>
   );
 };
