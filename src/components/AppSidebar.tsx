@@ -21,8 +21,13 @@ export function AppSidebar() {
   return (
     <Sidebar side="right" collapsible="icon">
       <SidebarHeader className="p-4">
-        <div className="text-lg font-bold bg-gradient-to-l from-brand-pink to-brand-purple bg-clip-text text-transparent">
-          Open Agency
+        <div>
+          <div className="text-xl font-bold bg-gradient-to-l from-brand-pink to-brand-purple bg-clip-text text-transparent tracking-tight">
+            OPENMind
+          </div>
+          <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+            המוח המשותף של Open
+          </p>
         </div>
       </SidebarHeader>
       <SidebarContent>
