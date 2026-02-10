@@ -1,11 +1,15 @@
 import { useState, useRef } from "react";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/components/ui/sonner";
+import { cn } from "@/lib/utils";
 import {
   ShieldCheck,
   Camera,
@@ -14,16 +18,19 @@ import {
   Save,
   User,
   Pencil,
+  CalendarIcon,
+  Cake,
 } from "lucide-react";
 
 const AdminProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState({
     name: "ליבי ג׳רבי",
-    email: "libi@openagency.com",
-    phone: "054-1234567",
-    role: "מנהלת ראשית",
+    email: "libbyg@open.co.il",
+    phone: "052-6220348",
+    role: "מנהלת לקוח",
     department: "הנהלה",
+    birthday: new Date(1992, 5, 15) as Date | undefined,
   });
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [draft, setDraft] = useState(profile);
@@ -176,6 +183,43 @@ const AdminProfile = () => {
                 />
               ) : (
                 <p className="text-foreground font-medium">{profile.role}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-muted-foreground">
+                <Cake className="h-3.5 w-3.5" />
+                תאריך לידה
+              </Label>
+              {isEditing ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-right font-normal",
+                        !draft.birthday && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="ml-2 h-4 w-4" />
+                      {draft.birthday ? format(draft.birthday, "dd/MM/yyyy") : "בחר תאריך"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={draft.birthday}
+                      onSelect={(date) => setDraft({ ...draft, birthday: date })}
+                      disabled={(date) => date > new Date()}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <p className="text-foreground font-medium">
+                  {profile.birthday ? format(profile.birthday, "dd/MM/yyyy") : "לא הוגדר"}
+                </p>
               )}
             </div>
 
