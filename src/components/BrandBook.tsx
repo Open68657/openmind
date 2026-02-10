@@ -39,47 +39,38 @@ function deduplicateColors(colors: BrandColor[]): (BrandColor & { cssColor: stri
 
 const PANGRAM_HE = "דג סקרן שט בים מאוכזב ולפתע מצא חברה";
 
-/* ─── Color Card ─── */
+/* ─── Color Card (compact) ─── */
 const ColorCard = ({ color }: { color: BrandColor & { cssColor: string | null } }) => {
   const bg = color.cssColor;
   const isLight = bg === "#FFFFFF" || bg === "rgb(255, 255, 255)" || color.name.includes("white") || color.name.includes("לבן");
 
   return (
-    <div className="group flex flex-col rounded-2xl border border-border bg-card shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
-      {/* Color swatch */}
+    <div className="group flex flex-col items-center gap-2 min-w-0">
+      {/* Color swatch — 60×60 rounded */}
       <div
-        className={`h-28 w-full transition-transform duration-300 group-hover:scale-[1.02] ${isLight ? "border-b border-border" : ""}`}
+        className={`h-[60px] w-[60px] rounded-xl shrink-0 shadow-sm transition-transform duration-200 group-hover:scale-110 ${isLight ? "border border-border" : ""}`}
         style={{ backgroundColor: bg || "hsl(var(--muted))" }}
       >
         {!bg && (
           <div className="flex items-center justify-center h-full">
-            <Info className="h-5 w-5 text-muted-foreground" />
+            <Info className="h-4 w-4 text-muted-foreground" />
           </div>
         )}
       </div>
       {/* Details */}
-      <div className="p-4 space-y-1.5">
-        <p className="text-sm font-semibold text-foreground leading-tight">{color.name}</p>
+      <div className="text-center space-y-0.5 min-w-0 w-full">
+        <p className="text-[11px] font-semibold text-foreground leading-tight truncate">{color.name}</p>
         {color.hex && (
-          <p className="text-xs font-mono text-muted-foreground" dir="ltr">{color.hex}</p>
+          <p className="text-[10px] font-mono text-muted-foreground" dir="ltr">{color.hex}</p>
         )}
         {color.cmyk && (
-          <p className="text-[11px] font-mono text-muted-foreground/80" dir="ltr">
-            CMYK: {color.cmyk}
-          </p>
-        )}
-        {color.rgb && !color.hex && (
-          <p className="text-[11px] font-mono text-muted-foreground/80" dir="ltr">
-            RGB: {color.rgb}
-          </p>
+          <p className="text-[9px] font-mono text-muted-foreground/70 truncate" dir="ltr">{color.cmyk}</p>
         )}
         {color.pantone && (
-          <p className="text-[11px] font-mono text-brand-purple/70" dir="ltr">
-            Pantone: {color.pantone}
-          </p>
+          <p className="text-[9px] font-mono text-brand-purple/60 truncate" dir="ltr">{color.pantone}</p>
         )}
         {color.confidence === "inferred" && (
-          <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border-0 text-[10px] mt-1">
+          <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border-0 text-[9px]">
             דרוש בדיקה
           </Badge>
         )}
@@ -88,27 +79,18 @@ const ColorCard = ({ color }: { color: BrandColor & { cssColor: string | null } 
   );
 };
 
-/* ─── Typography Card ─── */
-const TypographyCard = ({ font }: { font: ExtractedFont }) => (
-  <div className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-all duration-300">
-    <div className="flex items-start justify-between gap-3 mb-4">
-      <div>
-        <h3 className="text-xl font-bold text-foreground" dir="ltr">{font.name}</h3>
-        {font.weight && (
-          <span className="text-xs text-muted-foreground" dir="ltr">{font.weight}</span>
-        )}
-      </div>
-      <Badge variant="secondary" className="text-[10px] shrink-0">{font.usage}</Badge>
+/* ─── Typography Row (compact) ─── */
+const TypographyRow = ({ font }: { font: ExtractedFont }) => (
+  <div className="flex items-center gap-4 rounded-xl border border-border bg-card px-4 py-3 shadow-sm hover:shadow-md transition-all duration-200">
+    <div className="shrink-0 min-w-0">
+      <p className="text-sm font-bold text-foreground truncate" dir="ltr">{font.name}</p>
+      {font.weight && <span className="text-[10px] text-muted-foreground" dir="ltr">{font.weight}</span>}
     </div>
-    {/* Pangram preview */}
-    <div className="rounded-xl bg-muted/40 p-4">
-      <p className="text-lg leading-relaxed text-foreground/80">{PANGRAM_HE}</p>
-      <p className="text-sm text-foreground/50 mt-1" dir="ltr">
-        The quick brown fox jumps over the lazy dog
-      </p>
-    </div>
+    <div className="h-8 w-px bg-border shrink-0" />
+    <p className="text-sm text-foreground/70 truncate flex-1">{PANGRAM_HE}</p>
+    <Badge variant="secondary" className="text-[9px] shrink-0 hidden sm:inline-flex">{font.usage}</Badge>
     {font.confidence === "inferred" && (
-      <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border-0 text-[10px] mt-3">
+      <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 border-0 text-[9px] shrink-0">
         דרוש בדיקה
       </Badge>
     )}
@@ -149,12 +131,12 @@ const BrandBook = ({ extracted }: BrandBookProps) => {
             <h2 className="text-xl font-bold text-foreground">פלטת צבעים</h2>
             <Badge variant="secondary" className="text-[10px]">{uniqueColors.length} צבעים</Badge>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="flex flex-wrap justify-center gap-5">
             {uniqueColors.map((color, i) => (
               <div
                 key={`${color.name}-${i}`}
-                className="animate-in fade-in slide-in-from-bottom-2 duration-500"
-                style={{ animationDelay: `${i * 80}ms`, animationFillMode: "both" }}
+                className="animate-in fade-in duration-400 w-[80px]"
+                style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
               >
                 <ColorCard color={color} />
               </div>
@@ -170,14 +152,14 @@ const BrandBook = ({ extracted }: BrandBookProps) => {
             <Type className="h-5 w-5 text-brand-pink" />
             <h2 className="text-xl font-bold text-foreground">טיפוגרפיה</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-2">
             {extracted.fonts.map((font, i) => (
               <div
                 key={`${font.name}-${i}`}
-                className="animate-in fade-in slide-in-from-bottom-2 duration-500"
-                style={{ animationDelay: `${(uniqueColors.length + i) * 80}ms`, animationFillMode: "both" }}
+                className="animate-in fade-in duration-400"
+                style={{ animationDelay: `${(uniqueColors.length + i) * 60}ms`, animationFillMode: "both" }}
               >
-                <TypographyCard font={font} />
+                <TypographyRow font={font} />
               </div>
             ))}
           </div>
