@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -7,42 +8,37 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+declare const EdgeRuntime: { waitUntil: (promise: Promise<void>) => void };
+
+async function processInBackground(
+  jobId: string,
+  storagePath: string,
+  clientName: string,
+  fileName: string,
+) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
   try {
-    const { storagePath, clientName, fileName } = await req.json();
-
-    if (!storagePath) {
-      return new Response(
-        JSON.stringify({ error: "חסר נתיב לקובץ" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Create a signed URL instead of downloading the file
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+    // Download PDF from storage
+    const { data: fileData, error: downloadError } = await supabase.storage
       .from("brand-pdfs")
-      .createSignedUrl(storagePath, 600); // 10 minutes
+      .download(storagePath);
 
-    if (signedUrlError || !signedUrlData?.signedUrl) {
-      console.error("Signed URL error:", signedUrlError);
-      return new Response(
-        JSON.stringify({ error: "לא הצלחנו לגשת לקובץ" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (downloadError || !fileData) {
+      console.error("Storage download error:", downloadError);
+      await supabase.from("brand_parse_jobs").update({
+        status: "failed",
+        error_message: "לא הצלחנו להוריד את הקובץ מהאחסון",
+      }).eq("id", jobId);
+      return;
     }
+
+    // Convert to base64
+    const arrayBuffer = await fileData.arrayBuffer();
+    const base64Pdf = base64Encode(new Uint8Array(arrayBuffer));
 
     const systemPrompt = `You are a strict brand guideline data extractor. You extract ONLY factual data visible in uploaded brand book PDFs.
 
@@ -55,7 +51,7 @@ EXTRACTION RULES:
 For EVERY extracted item, you MUST note which page number it was found on.
 
 CONFIDENCE LEVELS:
-- "exact": The value is explicitly written in the document (e.g. "CMYK: C100 M70")
+- "exact": The value is explicitly written in the document
 - "inferred": The value was derived from context but not explicitly stated
 
 Return ONLY valid JSON, no markdown fences:
@@ -98,12 +94,12 @@ CRITICAL: If you CANNOT find a specific data type, return an empty array for it 
             content: [
               {
                 type: "text",
-                text: `Analyze this brand guideline PDF for "${clientName || "Unknown"}". Extract all colors with their EXACT CMYK/RGB/HEX/Pantone codes as printed, all font names with weights, logo usage rules, and sub-brand names. For each item note the page number. Return ONLY the JSON object.`,
+                text: `Analyze this brand guideline PDF for "${clientName}". Extract all colors, fonts, logo rules, and sub-brands. Return ONLY the JSON object.`,
               },
               {
                 type: "image_url",
                 image_url: {
-                  url: signedUrlData.signedUrl,
+                  url: `data:application/pdf;base64,${base64Pdf}`,
                 },
               },
             ],
@@ -113,24 +109,13 @@ CRITICAL: If you CANNOT find a specific data type, return an empty array for it 
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "יותר מדי בקשות, נסה שוב בעוד דקה" }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "נדרשים קרדיטים נוספים" }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: "שגיאה בניתוח הקובץ" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      await supabase.from("brand_parse_jobs").update({
+        status: "failed",
+        error_message: response.status === 429 ? "יותר מדי בקשות, נסה שוב בעוד דקה" : "שגיאה בניתוח הקובץ",
+      }).eq("id", jobId);
+      return;
     }
 
     const aiData = await response.json();
@@ -146,15 +131,78 @@ CRITICAL: If you CANNOT find a specific data type, return an empty array for it 
       extracted = JSON.parse(cleaned);
     } catch {
       console.error("Failed to parse AI response:", content);
-      return new Response(
-        JSON.stringify({ error: "לא הצלחנו לנתח את תוכן הקובץ", raw: content }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      await supabase.from("brand_parse_jobs").update({
+        status: "failed",
+        error_message: "לא הצלחנו לנתח את תוכן הקובץ",
+      }).eq("id", jobId);
+      return;
     }
 
     extracted.sourceFileName = fileName || "unknown.pdf";
 
-    return new Response(JSON.stringify(extracted), {
+    // Success - save result
+    await supabase.from("brand_parse_jobs").update({
+      status: "completed",
+      result: extracted,
+    }).eq("id", jobId);
+
+    console.log("Successfully parsed brand PDF for job:", jobId);
+  } catch (e) {
+    console.error("Background processing error:", e);
+    await supabase.from("brand_parse_jobs").update({
+      status: "failed",
+      error_message: e instanceof Error ? e.message : "שגיאה לא ידועה",
+    }).eq("id", jobId);
+  }
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { storagePath, clientName, fileName, userId } = await req.json();
+
+    if (!storagePath || !userId) {
+      return new Response(
+        JSON.stringify({ error: "חסרים פרטים" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Create job record
+    const { data: job, error: jobError } = await supabase
+      .from("brand_parse_jobs")
+      .insert({
+        user_id: userId,
+        client_id: clientName || "unknown",
+        storage_path: storagePath,
+        file_name: fileName,
+        status: "processing",
+      })
+      .select("id")
+      .single();
+
+    if (jobError || !job) {
+      console.error("Failed to create job:", jobError);
+      return new Response(
+        JSON.stringify({ error: "שגיאה ביצירת משימת ניתוח" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Start background processing
+    EdgeRuntime.waitUntil(
+      processInBackground(job.id, storagePath, clientName || "Unknown", fileName || "unknown.pdf")
+    );
+
+    // Return immediately with job ID
+    return new Response(JSON.stringify({ jobId: job.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

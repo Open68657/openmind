@@ -83,6 +83,45 @@ export type Database = {
         }
         Relationships: []
       }
+      brand_parse_jobs: {
+        Row: {
+          client_id: string
+          created_at: string
+          error_message: string | null
+          file_name: string | null
+          id: string
+          result: Json | null
+          status: string
+          storage_path: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          error_message?: string | null
+          file_name?: string | null
+          id?: string
+          result?: Json | null
+          status?: string
+          storage_path: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          error_message?: string | null
+          file_name?: string | null
+          id?: string
+          result?: Json | null
+          status?: string
+          storage_path?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           ad_layout: Json | null

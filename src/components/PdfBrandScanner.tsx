@@ -92,8 +92,13 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.session?.access_token;
+        const userId = sessionData?.session?.user?.id;
 
-        // Step 1: Upload PDF to Storage first
+        if (!userId) {
+          throw new Error("יש להתחבר למערכת");
+        }
+
+        // Step 1: Upload PDF to Storage
         const storagePath = `${client.id}/${Date.now()}-${file.name}`;
         const { error: uploadError } = await supabase.storage
           .from("brand-pdfs")
@@ -103,7 +108,7 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
           throw new Error(`שגיאה בהעלאת הקובץ: ${uploadError.message}`);
         }
 
-        // Step 2: Call edge function with storage path (not the file itself)
+        // Step 2: Start background processing job
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-brand-pdf`,
           {
@@ -116,24 +121,40 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
               storagePath,
               clientName: client.name,
               fileName: file.name,
+              userId,
             }),
           }
         );
 
-        stopStepAnimation();
-
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);
-          const msg = errorData?.error || "שגיאה בניתוח הקובץ";
-          setErrorMessage(msg);
-          setIsAnalyzing(false);
-          toast.error(msg);
-          return;
+          throw new Error(errorData?.error || "שגיאה בשליחת הקובץ לניתוח");
         }
 
-        const extracted = await response.json();
+        const { jobId } = await response.json();
 
-        // Transform to ExtractedBrandData format - preserve all fields including page & confidence
+        // Step 3: Poll for completion
+        const pollForResult = async (): Promise<any> => {
+          const { data, error } = await supabase
+            .from("brand_parse_jobs")
+            .select("status, result, error_message")
+            .eq("id", jobId)
+            .single();
+
+          if (error) throw new Error("שגיאה בבדיקת סטטוס");
+
+          if (data.status === "completed") return data.result;
+          if (data.status === "failed") throw new Error(data.error_message || "שגיאה בניתוח הקובץ");
+
+          // Still processing - wait and retry
+          await new Promise((r) => setTimeout(r, 3000));
+          return pollForResult();
+        };
+
+        const extracted = await pollForResult();
+        stopStepAnimation();
+
+        // Transform to ExtractedBrandData format
         const brandData: ExtractedBrandData = {
           colors: (extracted.colors || []).map((c: any) => ({
             name: c.name || "לא ידוע",
