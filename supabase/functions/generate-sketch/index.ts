@@ -12,7 +12,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { brief, clientId } = await req.json();
+    const { brief, clientId, logoBase64 } = await req.json();
 
     if (!brief || !clientId) {
       return new Response(
@@ -150,6 +150,71 @@ Brand visual language:
     if (!imageUrl && message) {
       console.log("Message content preview:", JSON.stringify(message).substring(0, 500));
     }
+
+    /* ---- Overlay logo if provided ---- */
+    let finalImageUrl = imageUrl;
+    if (imageUrl && logoBase64) {
+      console.log("Overlaying logo on generated mockup...");
+      try {
+        const overlayResponse = await fetch(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash-image",
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "text",
+                      text: `Take this product mockup image and place the provided logo on it naturally. 
+The logo should be placed in the most appropriate position for the product (e.g., center of a cup, top of packaging, corner of a poster).
+Keep the logo proportional and well-integrated into the mockup.
+Do NOT add any text. Do NOT modify the rest of the design.
+Make it look like the logo was originally part of the product design.`,
+                    },
+                    {
+                      type: "image_url",
+                      image_url: { url: imageUrl },
+                    },
+                    {
+                      type: "image_url",
+                      image_url: { url: logoBase64 },
+                    },
+                  ],
+                },
+              ],
+              modalities: ["image", "text"],
+            }),
+          }
+        );
+
+        if (overlayResponse.ok) {
+          const overlayData = await overlayResponse.json();
+          const overlayMessage = overlayData.choices?.[0]?.message;
+          const overlayImage =
+            overlayMessage?.images?.[0]?.image_url?.url ||
+            overlayMessage?.image?.url ||
+            null;
+          if (overlayImage) {
+            finalImageUrl = overlayImage;
+            console.log("Logo overlay successful");
+          } else {
+            console.log("Logo overlay returned no image, using original");
+          }
+        } else {
+          console.error("Logo overlay failed, using original mockup");
+        }
+      } catch (overlayErr) {
+        console.error("Logo overlay error:", overlayErr);
+      }
+    }
+
     const textContent = typeof message?.content === "string" && !message.content.startsWith("data:image")
       ? message.content : "";
 
@@ -175,7 +240,7 @@ Brand visual language:
 
     return new Response(
       JSON.stringify({
-        imageUrl,
+        imageUrl: finalImageUrl,
         textContent,
         compliance,
         clientName: client.name,

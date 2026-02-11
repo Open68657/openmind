@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Client } from "@/data/clients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, ImageIcon, Loader2, Check, X, Palette, Type, Ruler, Shield, FileText } from "lucide-react";
+import { Sparkles, ImageIcon, Loader2, Check, X, Palette, Type, Ruler, Shield, FileText, Upload, Trash2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
 interface NanoBananaGeneratorProps {
@@ -19,6 +19,8 @@ interface ComplianceData {
   fontNames: string[];
 }
 
+const ACCEPTED_LOGO_TYPES = ".png,.jpg,.jpeg,.svg,.webp,.gif,.bmp,.tiff,.ai,.eps,.pdf";
+
 const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
   const briefTemplate = `סוג המוצר להדמייה: (כוס חד-פעמית / אריזה / שקית / קופסה / שלט חוצות / רול-אפ / פוסט / סטורי / באנר)
 מה ההדמייה צריכה להציג: (המוצר בסביבה טבעית / מוקאפ סטודיו / פלאט-ליי)
@@ -32,9 +34,31 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [compliance, setCompliance] = useState<ComplianceData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const handleLoadTemplate = () => {
     setBrief(briefTemplate);
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("הקובץ גדול מדי. מקסימום 10MB.");
+      return;
+    }
+    setLogoFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setLogoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const removeLogo = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    if (logoInputRef.current) logoInputRef.current.value = "";
   };
 
   const handleGenerate = async () => {
@@ -45,6 +69,17 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
     setCompliance(null);
 
     try {
+      // Convert logo to base64 if provided
+      let logoBase64: string | null = null;
+      if (logoFile) {
+        logoBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(logoFile);
+        });
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-sketch`,
         {
@@ -53,7 +88,7 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ brief, clientId: client.id }),
+          body: JSON.stringify({ brief, clientId: client.id, logoBase64 }),
         }
       );
 
@@ -114,6 +149,47 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
               placeholder={`לדוגמה: פוסט למבצע קיץ של ${client.name}`}
               className="min-h-[180px] resize-none leading-relaxed"
             />
+          </div>
+
+          {/* Logo upload */}
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              לוגו להלבשה על ההדמייה (אופציונלי)
+            </label>
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept={ACCEPTED_LOGO_TYPES}
+              onChange={handleLogoUpload}
+              className="hidden"
+            />
+            {logoPreview ? (
+              <div className="flex items-center gap-3 rounded-lg border border-border p-3 bg-muted/30">
+                <img
+                  src={logoPreview}
+                  alt="לוגו שהועלה"
+                  className="h-12 w-12 object-contain rounded bg-card"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{logoFile?.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {logoFile && (logoFile.size / 1024).toFixed(0)} KB
+                  </p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={removeLogo} className="shrink-0">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full h-16 border-dashed gap-2"
+                onClick={() => logoInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4" />
+                העלה לוגו (PNG, SVG, JPG, PDF...)
+              </Button>
+            )}
           </div>
 
           <Button
