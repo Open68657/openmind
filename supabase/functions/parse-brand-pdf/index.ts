@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,29 +13,11 @@ serve(async (req) => {
   }
 
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    const clientName = formData.get("clientName") as string || "Unknown";
+    const { storagePath, clientName, fileName } = await req.json();
 
-    if (!file) {
+    if (!storagePath) {
       return new Response(
-        JSON.stringify({ error: "לא הועלה קובץ" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (file.type !== "application/pdf") {
-      return new Response(
-        JSON.stringify({ error: "יש להעלות קובץ PDF בלבד" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Limit file size to 10MB to avoid memory issues
-    const MAX_SIZE = 10 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      return new Response(
-        JSON.stringify({ error: "הקובץ גדול מדי. מקסימום 10MB" }),
+        JSON.stringify({ error: "חסר נתיב לקובץ" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -45,9 +27,32 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Convert PDF to base64 efficiently
-    const arrayBuffer = await file.arrayBuffer();
-    const base64Pdf = base64Encode(new Uint8Array(arrayBuffer));
+    // Download PDF from storage using service role
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from("brand-pdfs")
+      .download(storagePath);
+
+    if (downloadError || !fileData) {
+      console.error("Storage download error:", downloadError);
+      return new Response(
+        JSON.stringify({ error: "לא הצלחנו להוריד את הקובץ מהאחסון" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Stream-friendly base64 encoding using chunked approach
+    const arrayBuffer = await fileData.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    const CHUNK = 32768;
+    let base64Pdf = "";
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      const chunk = bytes.subarray(i, i + CHUNK);
+      base64Pdf += btoa(String.fromCharCode(...chunk));
+    }
 
     const systemPrompt = `You are a strict brand guideline data extractor. You extract ONLY factual data visible in uploaded brand book PDFs.
 
@@ -104,7 +109,7 @@ CRITICAL: If you CANNOT find a specific data type, return an empty array for it 
             content: [
               {
                 type: "text",
-                text: `Analyze this brand guideline PDF for "${clientName}". Extract all colors with their EXACT CMYK/RGB/HEX/Pantone codes as printed, all font names with weights, logo usage rules, and sub-brand names. For each item note the page number. Return ONLY the JSON object.`,
+                text: `Analyze this brand guideline PDF for "${clientName || "Unknown"}". Extract all colors with their EXACT CMYK/RGB/HEX/Pantone codes as printed, all font names with weights, logo usage rules, and sub-brand names. For each item note the page number. Return ONLY the JSON object.`,
               },
               {
                 type: "image_url",
@@ -117,6 +122,9 @@ CRITICAL: If you CANNOT find a specific data type, return an empty array for it 
         ],
       }),
     });
+
+    // Free memory
+    base64Pdf = "";
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -158,7 +166,7 @@ CRITICAL: If you CANNOT find a specific data type, return an empty array for it 
       );
     }
 
-    extracted.sourceFileName = file.name;
+    extracted.sourceFileName = fileName || "unknown.pdf";
 
     return new Response(JSON.stringify(extracted), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
