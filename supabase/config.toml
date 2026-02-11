@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.generate-sketch]
 verify_jwt = false
+
+[functions.generate-logos]
+verify_jwt = false

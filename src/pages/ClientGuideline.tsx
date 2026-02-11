@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useBrandGuidelines } from "@/hooks/useBrandGuidelines";
 import { useAdminMode } from "@/contexts/AdminModeContext";
-import { ArrowRight, ShieldCheck, Palette, FileCheck, Sparkles, FileText, Circle } from "lucide-react";
+import { ArrowRight, ShieldCheck, Palette, FileCheck, Sparkles, FileText, Circle, Crown } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import BrandAssets from "@/components/BrandAssets";
 import BrandBook from "@/components/BrandBook";
 import GuidelineChecker from "@/components/GuidelineChecker";
 import NanoBananaGenerator from "@/components/NanoBananaGenerator";
+import LogoGenerator from "@/components/LogoGenerator";
 import PdfBrandScanner from "@/components/PdfBrandScanner";
 import FileHistory, { FileVersion } from "@/components/FileHistory";
 import { format } from "date-fns";
@@ -92,7 +93,7 @@ const ClientGuideline = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="brand" dir="rtl" className="w-full">
-          <TabsList className="w-full grid grid-cols-3 mb-6">
+          <TabsList className="w-full grid grid-cols-4 mb-6">
             <TabsTrigger value="brand" className="gap-2">
               <Palette className="h-4 w-4" />
               נכסי מותג
@@ -104,6 +105,10 @@ const ClientGuideline = () => {
             <TabsTrigger value="generator" className="gap-2">
               <Sparkles className="h-4 w-4" />
               מחולל סקיצות
+            </TabsTrigger>
+            <TabsTrigger value="logos" className="gap-2">
+              <Crown className="h-4 w-4" />
+              מחולל לוגואים
             </TabsTrigger>
           </TabsList>
 
@@ -163,6 +168,10 @@ const ClientGuideline = () => {
 
           <TabsContent value="generator">
             <NanoBananaGenerator client={client} />
+          </TabsContent>
+
+          <TabsContent value="logos">
+            <LogoGenerator client={client} />
           </TabsContent>
         </Tabs>
       </div>
