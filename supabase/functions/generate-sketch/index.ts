@@ -68,27 +68,31 @@ serve(async (req) => {
       .map((r: any) => r.rule)
       .join("; ");
 
-    const prompt = `Generate a photorealistic product mockup / visualization (הדמייה) based on this brief:
+    const prompt = `Generate a photorealistic product mockup / visualization based on this brief:
 
 "${brief}"
 
 Brand: "${client.name}"
 
-IMPORTANT INSTRUCTIONS:
-- Create a HIGH-QUALITY PHOTOREALISTIC MOCKUP showing the design applied to the actual product or medium described in the brief.
-- If the brief mentions a cup, show a real disposable cup with the design printed on it, photographed in a realistic setting.
-- If the brief mentions a billboard/sign, show a real billboard in an urban environment with the design on it.
-- If the brief mentions packaging, show realistic product packaging with the design.
-- If the brief mentions a social media post, show it as a phone screen or social feed mockup.
-- If no specific medium is mentioned, create a professional print-ready marketing poster.
+CRITICAL TEXT RULES:
+- Do NOT write any Hebrew text on the mockup. Hebrew characters will look like gibberish.
+- If text is needed, use ONLY the English brand name "${client.name}" in clean, simple typography.
+- Keep text minimal - focus on visual design, colors, patterns and layout.
+- Do NOT attempt to write the brand logo - leave a clean placeholder area where a logo would go.
+
+CRITICAL DESIGN RULES:
+- Create a HIGH-QUALITY PHOTOREALISTIC MOCKUP showing the design applied to the actual product described in the brief.
+- If the brief mentions a cup, show a real disposable cup with the design printed on it in a realistic cafe setting.
+- If the brief mentions a billboard/sign, show a real billboard in an urban environment.
+- If the brief mentions packaging, show realistic product packaging.
+- If the brief mentions a social media post, show it as a phone screen mockup.
+- If no specific medium is mentioned, create a professional marketing poster.
 
 Brand visual language:
-- Use these exact brand colors prominently: ${colorStr}
-- Typography style: ${fontStr}
-- The brand name "${client.name}" should appear clearly
-- Hebrew text (RTL direction)
-- Ultra high resolution, photorealistic quality
-- Make it look like a real professional product photograph / mockup render`;
+- Use these exact brand colors as the dominant design elements: ${colorStr}
+- Create bold geometric patterns, color blocks, and graphic elements using the brand palette.
+- The design should feel modern, bold, and retail-oriented.
+- Ultra high resolution, photorealistic quality, professional product photography look.`;
 
     /* ---- Call Lovable AI image generation ---- */
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
