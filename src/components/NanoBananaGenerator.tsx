@@ -3,146 +3,272 @@ import { Client } from "@/data/clients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, ImageIcon, Loader2 } from "lucide-react";
+import { Sparkles, ImageIcon, Loader2, Check, X, Palette, Type, Ruler, Shield } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
 
 interface NanoBananaGeneratorProps {
   client: Client;
 }
 
+interface ComplianceData {
+  colorsApplied: boolean;
+  colorDetails: { name: string; hex: string }[];
+  logoRulesApplied: boolean;
+  logoRuleCount: number;
+  fontsApplied: boolean;
+  fontNames: string[];
+}
+
 const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
   const [brief, setBrief] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generated, setGenerated] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [compliance, setCompliance] = useState<ComplianceData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!brief.trim()) return;
     setIsGenerating(true);
-    setGenerated(false);
-    // Simulate generation
-    setTimeout(() => {
+    setError(null);
+    setGeneratedImage(null);
+    setCompliance(null);
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-sketch`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ brief, clientId: client.id }),
+        }
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "שגיאה ביצירת הסקיצה");
+      }
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+
+      if (!data.imageUrl) {
+        throw new Error("המודל לא הצליח ליצור תמונה. נסה שוב עם בריף אחר.");
+      }
+
+      setGeneratedImage(data.imageUrl);
+      setCompliance(data.compliance);
+      toast.success("הסקיצה נוצרה בהצלחה!");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "שגיאה ביצירת הסקיצה";
+      setError(msg);
+      toast.error(msg);
+    } finally {
       setIsGenerating(false);
-      setGenerated(true);
-    }, 2000);
+    }
   };
 
   return (
-    <Card className="border-0 shadow-md">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Sparkles className="h-5 w-5 text-accent" />
-          מחולל סקיצות Nano Banana
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <label className="text-sm font-medium text-foreground mb-2 block">
-            בריף ליצירה
-          </label>
-          <Textarea
-            value={brief}
-            onChange={(e) => setBrief(e.target.value)}
-            placeholder={`לדוגמה: פוסט למבצע קיץ של ${client.name}`}
-            className="min-h-[100px] resize-none"
-          />
-        </div>
+    <div className="space-y-6">
+      <Card className="border-0 shadow-md">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Sparkles className="h-5 w-5 text-accent" />
+            מחולל סקיצות Nano Banana
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              בריף ליצירה
+            </label>
+            <Textarea
+              value={brief}
+              onChange={(e) => setBrief(e.target.value)}
+              placeholder={`לדוגמה: פוסט למבצע קיץ של ${client.name}`}
+              className="min-h-[100px] resize-none"
+            />
+          </div>
 
-        <Button
-          onClick={handleGenerate}
-          disabled={!brief.trim() || isGenerating}
-          className="w-full bg-gradient-to-l from-brand-pink to-brand-purple text-white hover:opacity-90 transition-opacity"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin ml-2" />
-              מייצר סקיצה...
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-4 w-4 ml-2" />
-              צור סקיצה לפי גיידליין
-            </>
-          )}
-        </Button>
+          <Button
+            onClick={handleGenerate}
+            disabled={!brief.trim() || isGenerating}
+            className="w-full bg-gradient-to-l from-brand-pink to-brand-purple text-white hover:opacity-90 transition-opacity"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                מייצר סקיצה...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 ml-2" />
+                צור סקיצה לפי גיידליין
+              </>
+            )}
+          </Button>
 
-        {/* Result placeholder */}
-        <div
-          className={`rounded-xl border-2 border-dashed transition-all duration-500 ${
-            generated
-              ? "border-brand-purple/30 bg-gradient-to-br from-brand-pink/5 to-brand-purple/5 p-6"
-              : "border-border p-10"
-          }`}
-        >
-          {generated ? (
-            <div className="text-center space-y-3 animate-in fade-in zoom-in-95 duration-500">
-              {/* Ad Preview with client-specific layout */}
-              <div className="mx-auto w-full aspect-video rounded-lg bg-card border border-border overflow-hidden relative flex flex-col">
-                {/* Color blocks for deals */}
-                {client.adLayout?.colorBlocks && (
-                  <div className="flex-1 grid grid-cols-3 gap-1 p-2">
-                    {client.brandColors.slice(0, 3).map((c) => (
-                      <div
-                        key={c.hex}
-                        className="rounded-md flex items-center justify-center"
+          {/* Result area */}
+          <div
+            className={`rounded-xl border-2 border-dashed transition-all duration-500 overflow-hidden ${
+              generatedImage
+                ? "border-brand-purple/30 bg-gradient-to-br from-brand-pink/5 to-brand-purple/5 p-2"
+                : isGenerating
+                  ? "border-brand-purple/20 p-10"
+                  : "border-border p-10"
+            }`}
+          >
+            {isGenerating ? (
+              <div className="text-center space-y-3">
+                <div className="relative mx-auto w-14 h-14">
+                  <Sparkles className="h-14 w-14 text-brand-purple/20" />
+                  <Loader2 className="h-7 w-7 animate-spin text-brand-purple absolute top-3.5 left-3.5" />
+                </div>
+                <p className="text-sm text-muted-foreground animate-pulse">
+                  מייצר סקיצה מבוססת גיידליין...
+                </p>
+                <p className="text-xs text-muted-foreground/60">
+                  זה עשוי לקחת 10-20 שניות
+                </p>
+              </div>
+            ) : generatedImage ? (
+              <div className="space-y-3 animate-in fade-in zoom-in-95 duration-500">
+                <img
+                  src={generatedImage}
+                  alt={`סקיצה שנוצרה עבור ${client.name}`}
+                  className="w-full rounded-lg shadow-sm"
+                />
+                {/* Color chips */}
+                <div className="flex gap-2 flex-wrap justify-center">
+                  {client.brandColors.slice(0, 4).map((c) => (
+                    <span
+                      key={c.hex}
+                      className="inline-flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 border border-border"
+                    >
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
                         style={{ backgroundColor: c.hex }}
-                      >
-                        <span className="text-white text-xs font-bold drop-shadow-sm">מבצע</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!client.adLayout?.colorBlocks && (
-                  <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-brand-pink/20 to-brand-purple/20">
-                    <ImageIcon className="h-12 w-12 text-brand-purple/40" />
-                  </div>
-                )}
-
-                {/* Stampa */}
-                {client.adLayout?.stampa && (
-                  <div className="absolute top-2 left-2 bg-yellow-400 text-black text-[10px] font-bold px-2 py-1 rounded-full rotate-[-12deg] shadow-md">
-                    {client.adLayout.stampa.text}
-                  </div>
-                )}
-
-                {/* Logo area - bottom center */}
-                <div className={`p-3 text-center border-t border-border bg-card ${
-                  client.adLayout?.logoPosition === "bottom-center" ? "" : ""
-                }`}>
-                  <span className="text-sm font-bold text-foreground">{client.name}</span>
-                  <p className="text-[10px] text-muted-foreground">"{brief}"</p>
+                      />
+                      {c.name}
+                      {c.cmyk && (
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          ({c.cmyk})
+                        </span>
+                      )}
+                    </span>
+                  ))}
                 </div>
               </div>
-
-              {/* Color chips with CMYK */}
-              <div className="flex gap-2 flex-wrap justify-center">
-                {client.brandColors.slice(0, 3).map((c) => (
-                  <span
-                    key={c.hex}
-                    className="inline-flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 border border-border"
-                  >
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: c.hex }}
-                    />
-                    {c.name}
-                    {c.cmyk && (
-                      <span className="text-[10px] text-muted-foreground font-mono">({c.cmyk})</span>
-                    )}
-                  </span>
-                ))}
+            ) : error ? (
+              <div className="text-center space-y-2">
+                <X className="h-10 w-10 mx-auto text-destructive/40" />
+                <p className="text-sm text-destructive">{error}</p>
               </div>
+            ) : (
+              <div className="text-center">
+                <ImageIcon className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground">הסקיצה תופיע כאן</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Brand Compliance checklist */}
+      {compliance && (
+        <Card className="border-0 shadow-md animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Shield className="h-5 w-5 text-brand-purple" />
+              בדיקת תאימות מותג
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <ComplianceItem
+                passed={compliance.colorsApplied}
+                icon={<Palette className="h-4 w-4" />}
+                title="HEX נכון בשימוש"
+              >
+                <div className="flex gap-1 flex-wrap mt-1">
+                  {compliance.colorDetails?.map((c) => (
+                    <span
+                      key={c.hex}
+                      className="inline-flex items-center gap-1 text-[10px] rounded-full px-1.5 py-0.5 bg-card border border-border/50"
+                    >
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: c.hex }} />
+                      {c.hex}
+                    </span>
+                  ))}
+                </div>
+              </ComplianceItem>
+              <ComplianceItem
+                passed={compliance.logoRulesApplied}
+                icon={<Ruler className="h-4 w-4" />}
+                title="Safe Zone לוגו"
+              >
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {compliance.logoRulesApplied
+                    ? `${compliance.logoRuleCount} כללי לוגו הוחלו`
+                    : "לא נמצאו כללי לוגו"}
+                </p>
+              </ComplianceItem>
+              <ComplianceItem
+                passed={compliance.fontsApplied}
+                icon={<Type className="h-4 w-4" />}
+                title="פונט מאושר"
+              >
+                <div className="flex gap-1 flex-wrap mt-1">
+                  {compliance.fontNames?.slice(0, 3).map((f) => (
+                    <span key={f} className="text-[10px] bg-card rounded px-1.5 py-0.5 border border-border/50">
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              </ComplianceItem>
             </div>
-          ) : (
-            <div className="text-center">
-              <ImageIcon className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
-              <p className="text-sm text-muted-foreground">
-                הסקיצה תופיע כאן
-              </p>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
+
+function ComplianceItem({
+  passed,
+  icon,
+  title,
+  children,
+}: {
+  passed: boolean;
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`rounded-lg p-3 border ${
+        passed
+          ? "border-green-200 bg-green-50/60 dark:border-green-800/40 dark:bg-green-950/20"
+          : "border-destructive/20 bg-destructive/5"
+      }`}
+    >
+      <div className="flex items-center gap-1.5 mb-0.5">
+        {passed ? (
+          <Check className="h-4 w-4 text-green-600" />
+        ) : (
+          <X className="h-4 w-4 text-destructive" />
+        )}
+        <span className="flex items-center gap-1 text-xs font-semibold">
+          {icon}
+          {title}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
 
 export default NanoBananaGenerator;
