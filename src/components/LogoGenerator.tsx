@@ -13,6 +13,7 @@ interface LogoGeneratorProps {
 interface LogoVariation {
   type: string;
   imageUrl: string | null;
+  explanation?: string;
 }
 
 const ACCEPTED_IMAGE_TYPES = ".png,.jpg,.jpeg,.webp,.gif,.bmp,.tiff";
@@ -244,7 +245,7 @@ const LogoGenerator = ({ client }: LogoGeneratorProps) => {
               <h3 className="text-sm font-semibold text-foreground">
                 תוצאות — {variations.filter((v) => v.imageUrl).length} לוגואים
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {variations.map((v, i) =>
                   v.imageUrl ? (
                     <div
@@ -258,18 +259,25 @@ const LogoGenerator = ({ client }: LogoGeneratorProps) => {
                           className="max-h-full max-w-full object-contain"
                         />
                       </div>
-                      <div className="px-3 py-2 border-t border-border flex items-center justify-between">
-                        <span className="text-xs font-medium text-muted-foreground">
-                          {LOGO_TYPES_HE[v.type] || v.type}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleDownload(v.imageUrl!, i)}
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                        </Button>
+                      <div className="px-3 py-2 border-t border-border space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-foreground">
+                            {LOGO_TYPES_HE[v.type] || v.type}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleDownload(v.imageUrl!, i)}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        {v.explanation && (
+                          <p className="text-[11px] leading-relaxed text-muted-foreground">
+                            {v.explanation}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ) : null
