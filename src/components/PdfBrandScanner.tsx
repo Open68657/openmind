@@ -90,21 +90,33 @@ const PdfBrandScanner = ({ client, onExtracted, role }: PdfBrandScannerProps) =>
       startStepAnimation();
 
       try {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("clientName", client.name);
-
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.session?.access_token;
 
+        // Step 1: Upload PDF to Storage first
+        const storagePath = `${client.id}/${Date.now()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("brand-pdfs")
+          .upload(storagePath, file, { contentType: "application/pdf" });
+
+        if (uploadError) {
+          throw new Error(`שגיאה בהעלאת הקובץ: ${uploadError.message}`);
+        }
+
+        // Step 2: Call edge function with storage path (not the file itself)
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-brand-pdf`,
           {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              "Content-Type": "application/json",
             },
-            body: formData,
+            body: JSON.stringify({
+              storagePath,
+              clientName: client.name,
+              fileName: file.name,
+            }),
           }
         );
 
