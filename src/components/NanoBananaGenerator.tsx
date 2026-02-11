@@ -20,11 +20,11 @@ interface ComplianceData {
 }
 
 const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
-  const briefTemplate = `סוג הנכס: (פוסט / סטורי / באנר / מודעה / פלייר)
+  const briefTemplate = `סוג הנכס: (כוס חד-פעמית / אריזה / שלט חוצות / פוסט / סטורי / באנר / פלייר)
 מטרת הקמפיין: (מבצע / השקה / אירוע / מודעות)
 קהל יעד: (צעירים / משפחות / עסקי / כללי)
 טקסט מרכזי: 
-טון: (שמח / רציני / אנרגטי / מינימליסטי)
+רעיון עיצובי / סגנון: (מינימליסטי / צבעוני / פרימיום / שובב)
 הערות נוספות: `;
 
   const [brief, setBrief] = useState("");

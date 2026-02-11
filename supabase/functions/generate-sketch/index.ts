@@ -68,17 +68,27 @@ serve(async (req) => {
       .map((r: any) => r.rule)
       .join("; ");
 
-    const prompt = `Generate an image: A professional marketing poster/ad for the brand "${client.name}".
+    const prompt = `Generate a photorealistic product mockup / visualization (הדמייה) based on this brief:
 
-The campaign brief is: "${brief}"
+"${brief}"
 
-Visual style:
+Brand: "${client.name}"
+
+IMPORTANT INSTRUCTIONS:
+- Create a HIGH-QUALITY PHOTOREALISTIC MOCKUP showing the design applied to the actual product or medium described in the brief.
+- If the brief mentions a cup, show a real disposable cup with the design printed on it, photographed in a realistic setting.
+- If the brief mentions a billboard/sign, show a real billboard in an urban environment with the design on it.
+- If the brief mentions packaging, show realistic product packaging with the design.
+- If the brief mentions a social media post, show it as a phone screen or social feed mockup.
+- If no specific medium is mentioned, create a professional print-ready marketing poster.
+
+Brand visual language:
 - Use these exact brand colors prominently: ${colorStr}
-- Bold modern typography, brand fonts: ${fontStr}
-- The brand name "${client.name}" appears at the bottom center
-- Portrait format (4:5), clean layout, polished and print-ready
-- Hebrew text (RTL). Make it look like a real Israeli retail ad campaign.
-- Ultra high resolution.`;
+- Typography style: ${fontStr}
+- The brand name "${client.name}" should appear clearly
+- Hebrew text (RTL direction)
+- Ultra high resolution, photorealistic quality
+- Make it look like a real professional product photograph / mockup render`;
 
     /* ---- Call Lovable AI image generation ---- */
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
