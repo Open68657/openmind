@@ -84,8 +84,14 @@ CRITICAL RULES:
     console.log(`Generating 5 logos for client "${client.name}" with brief: "${brief.slice(0, 80)}..."`);
 
     const generateOne = async (variationPrompt: string, index: number) => {
+      const explanationRequest = `\n\nAFTER generating the logo, write a SHORT explanation in Hebrew (2-3 sentences) covering:
+1. How this logo matches the brief "${brief}"
+2. How it adheres to the brand guidelines (colors, fonts, style)
+${styleImage ? "3. How it draws inspiration from the provided reference image" : ""}
+Keep the explanation concise and professional.`;
+
       const messageContent: any[] = [
-        { type: "text", text: `${basePrompt}\n\nSTYLE DIRECTION: ${variationPrompt}` },
+        { type: "text", text: `${basePrompt}\n\nSTYLE DIRECTION: ${variationPrompt}${explanationRequest}` },
       ];
 
       if (styleImage) {
@@ -124,8 +130,13 @@ CRITICAL RULES:
         || (message?.content?.startsWith?.("data:image") ? message.content : null)
         || null;
 
-      console.log(`Logo ${index + 1}: ${imageUrl ? "success" : "no image"}`);
-      return imageUrl;
+      // Extract text explanation
+      const explanation = typeof message?.content === "string" && !message.content.startsWith("data:image")
+        ? message.content.trim()
+        : "";
+
+      console.log(`Logo ${index + 1}: ${imageUrl ? "success" : "no image"}, explanation: ${explanation ? "yes" : "no"}`);
+      return { imageUrl, explanation };
     };
 
     // Run all 5 in parallel
@@ -133,7 +144,7 @@ CRITICAL RULES:
       variations.map((v, i) => generateOne(v, i))
     );
 
-    const logos: (string | null)[] = results.map((r) =>
+    const logoResults = results.map((r) =>
       r.status === "fulfilled" ? r.value : null
     );
 
@@ -157,7 +168,7 @@ CRITICAL RULES:
       }
     }
 
-    const successCount = logos.filter(Boolean).length;
+    const successCount = logoResults.filter((r) => r?.imageUrl).length;
     console.log(`Generated ${successCount}/5 logos successfully`);
 
     if (successCount === 0) {
@@ -166,11 +177,11 @@ CRITICAL RULES:
 
     return new Response(
       JSON.stringify({
-        logos,
         clientName: client.name,
         variations: variations.map((v, i) => ({
           type: ["Wordmark", "Icon/Symbol", "Combination", "Lettermark", "Emblem"][i],
-          imageUrl: logos[i],
+          imageUrl: logoResults[i]?.imageUrl || null,
+          explanation: logoResults[i]?.explanation || "",
         })),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
