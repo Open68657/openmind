@@ -2,3 +2,6 @@ project_id = "xxmjwrsaxwoxajwikvna"
 
 [functions.compare-finals]
 verify_jwt = false
+
+[functions.generate-sketch]
+verify_jwt = false
