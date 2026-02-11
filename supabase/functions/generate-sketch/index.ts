@@ -12,7 +12,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { brief, clientId, logoBase64 } = await req.json();
+    const { brief, clientId, logoBase64, refSketches } = await req.json();
 
     if (!brief || !clientId) {
       return new Response(
@@ -94,12 +94,22 @@ Brand visual language:
 - The design should feel modern, bold, and retail-oriented.
 - Ultra high resolution, photorealistic quality, professional product photography look.`;
 
+    /* ---- Build message content (with optional ref sketches) ---- */
+    const messageContent: any[] = [{ type: "text", text: prompt }];
+
+    if (refSketches && Array.isArray(refSketches) && refSketches.length > 0) {
+      messageContent[0].text += `\n\nIMPORTANT: I am attaching ${refSketches.length} previous sketch(es) that were NOT approved. Use them as INSPIRATION for style, composition, and layout — but improve upon them. Fix any issues you see and create a better version. Do NOT copy them exactly.`;
+      for (const sketch of refSketches) {
+        messageContent.push({ type: "image_url", image_url: { url: sketch } });
+      }
+    }
+
     /* ---- Call Lovable AI image generation ---- */
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY)
       throw new Error("LOVABLE_API_KEY is not configured");
 
-    console.log(`Generating sketch for client "${client.name}" with brief: "${brief.slice(0, 80)}..."`);
+    console.log(`Generating sketch for client "${client.name}" with brief: "${brief.slice(0, 80)}..." refSketches: ${refSketches?.length || 0}`);
 
     const aiResponse = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -111,7 +121,7 @@ Brand visual language:
         },
         body: JSON.stringify({
           model: "google/gemini-2.5-flash-image",
-          messages: [{ role: "user", content: prompt }],
+          messages: [{ role: "user", content: messageContent }],
           modalities: ["image", "text"],
         }),
       }
