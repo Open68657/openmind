@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -28,26 +27,22 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Download PDF from storage using service role
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: fileData, error: downloadError } = await supabase.storage
+    // Create a signed URL instead of downloading the file
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
       .from("brand-pdfs")
-      .download(storagePath);
+      .createSignedUrl(storagePath, 600); // 10 minutes
 
-    if (downloadError || !fileData) {
-      console.error("Storage download error:", downloadError);
+    if (signedUrlError || !signedUrlData?.signedUrl) {
+      console.error("Signed URL error:", signedUrlError);
       return new Response(
-        JSON.stringify({ error: "לא הצלחנו להוריד את הקובץ מהאחסון" }),
+        JSON.stringify({ error: "לא הצלחנו לגשת לקובץ" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    // Encode entire PDF as base64 in one pass
-    const arrayBuffer = await fileData.arrayBuffer();
-    const base64Pdf = base64Encode(new Uint8Array(arrayBuffer));
 
     const systemPrompt = `You are a strict brand guideline data extractor. You extract ONLY factual data visible in uploaded brand book PDFs.
 
@@ -62,7 +57,6 @@ For EVERY extracted item, you MUST note which page number it was found on.
 CONFIDENCE LEVELS:
 - "exact": The value is explicitly written in the document (e.g. "CMYK: C100 M70")
 - "inferred": The value was derived from context but not explicitly stated
-- "not_found": Could not locate this type of data in the document
 
 Return ONLY valid JSON, no markdown fences:
 {
@@ -87,7 +81,7 @@ Return ONLY valid JSON, no markdown fences:
   }
 }
 
-CRITICAL: If you CANNOT find a specific data type, return an empty array for it and set the corresponding "Found" flag to false. NEVER invent values. If unsure about a value, set confidence to "inferred".`;
+CRITICAL: If you CANNOT find a specific data type, return an empty array for it and set the corresponding "Found" flag to false. NEVER invent values.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -109,7 +103,7 @@ CRITICAL: If you CANNOT find a specific data type, return an empty array for it 
               {
                 type: "image_url",
                 image_url: {
-                  url: `data:application/pdf;base64,${base64Pdf}`,
+                  url: signedUrlData.signedUrl,
                 },
               },
             ],
@@ -117,9 +111,6 @@ CRITICAL: If you CANNOT find a specific data type, return an empty array for it 
         ],
       }),
     });
-
-    // Free memory
-    base64Pdf = "";
 
     if (!response.ok) {
       if (response.status === 429) {
