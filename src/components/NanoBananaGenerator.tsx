@@ -3,7 +3,7 @@ import { Client } from "@/data/clients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, ImageIcon, Loader2, Check, X, Palette, Type, Ruler, Shield } from "lucide-react";
+import { Sparkles, ImageIcon, Loader2, Check, X, Palette, Type, Ruler, Shield, FileText } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
 interface NanoBananaGeneratorProps {
@@ -20,11 +20,22 @@ interface ComplianceData {
 }
 
 const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
+  const briefTemplate = `סוג הנכס: (פוסט / סטורי / באנר / מודעה / פלייר)
+מטרת הקמפיין: (מבצע / השקה / אירוע / מודעות)
+קהל יעד: (צעירים / משפחות / עסקי / כללי)
+טקסט מרכזי: 
+טון: (שמח / רציני / אנרגטי / מינימליסטי)
+הערות נוספות: `;
+
   const [brief, setBrief] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [compliance, setCompliance] = useState<ComplianceData | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const handleLoadTemplate = () => {
+    setBrief(briefTemplate);
+  };
 
   const handleGenerate = async () => {
     if (!brief.trim()) return;
@@ -81,14 +92,27 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              בריף ליצירה
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-foreground">
+                בריף ליצירה
+              </label>
+              {!brief && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLoadTemplate}
+                  className="text-xs gap-1.5"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  טען טמפלייט בריף
+                </Button>
+              )}
+            </div>
             <Textarea
               value={brief}
               onChange={(e) => setBrief(e.target.value)}
               placeholder={`לדוגמה: פוסט למבצע קיץ של ${client.name}`}
-              className="min-h-[100px] resize-none"
+              className="min-h-[180px] resize-none leading-relaxed"
             />
           </div>
 
