@@ -176,6 +176,18 @@ export const clients: Client[] = [
     ],
     fonts: ["Heebo", "Open Sans"],
   },
+  {
+    id: "yellow",
+    name: "Yellow",
+    industry: "חנויות נוחות בתחנות דלק",
+    brandColors: [
+      { name: "צהוב Yellow", hex: "#FFD100" },
+      { name: "שחור", hex: "#1A1A1A" },
+      { name: "לבן", hex: "#FFFFFF" },
+      { name: "אפור כהה", hex: "#333333" },
+    ],
+    fonts: ["Heebo", "Open Sans"],
+  },
 ];
 
 /** Simulated extracted data per client for demo purposes */
