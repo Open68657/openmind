@@ -20,6 +20,7 @@ interface ComplianceData {
 }
 
 const ACCEPTED_LOGO_TYPES = ".png,.jpg,.jpeg,.svg,.webp,.gif,.bmp,.tiff,.ai,.eps,.pdf";
+const ACCEPTED_IMAGE_TYPES = ".png,.jpg,.jpeg,.webp,.gif,.bmp,.tiff,.pdf";
 
 const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
   const briefTemplate = `סוג המוצר להדמייה: (כוס חד-פעמית / אריזה / שקית / קופסה / שלט חוצות / רול-אפ / פוסט / סטורי / באנר)
@@ -38,6 +39,9 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [refSketches, setRefSketches] = useState<{ file: File; preview: string }[]>([]);
+  const [isRefDragging, setIsRefDragging] = useState(false);
+  const refInputRef = useRef<HTMLInputElement>(null);
 
   const handleLoadTemplate = () => {
     setBrief(briefTemplate);
@@ -82,6 +86,39 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
     if (logoInputRef.current) logoInputRef.current.value = "";
   };
 
+  const processRefFile = (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("הקובץ גדול מדי. מקסימום 10MB.");
+      return;
+    }
+    if (refSketches.length >= 3) {
+      toast.error("ניתן להעלות עד 3 סקיצות השראה.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setRefSketches((prev) => [...prev, { file, preview: ev.target?.result as string }]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRefUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) Array.from(files).forEach(processRefFile);
+    if (refInputRef.current) refInputRef.current.value = "";
+  };
+
+  const handleRefDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsRefDragging(false);
+    const files = e.dataTransfer.files;
+    if (files) Array.from(files).forEach(processRefFile);
+  };
+
+  const removeRefSketch = (index: number) => {
+    setRefSketches((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleGenerate = async () => {
     if (!brief.trim()) return;
     setIsGenerating(true);
@@ -101,6 +138,18 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
         });
       }
 
+      // Convert ref sketches to base64
+      const refSketchesBase64: string[] = [];
+      for (const ref of refSketches) {
+        const b64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(ref.file);
+        });
+        refSketchesBase64.push(b64);
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-sketch`,
         {
@@ -109,7 +158,7 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ brief, clientId: client.id, logoBase64 }),
+          body: JSON.stringify({ brief, clientId: client.id, logoBase64, refSketches: refSketchesBase64.length > 0 ? refSketchesBase64 : undefined }),
         }
       );
 
@@ -218,6 +267,58 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
                   גרור לוגו לכאן או <span className="underline">בחר קובץ</span>
                 </p>
                 <p className="text-[10px] text-muted-foreground/60">PNG, SVG, JPG, PDF, AI, EPS</p>
+              </div>
+            )}
+          </div>
+
+          {/* Reference sketches */}
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              סקיצות קודמות להשראה (אופציונלי, עד 3)
+            </label>
+            <input
+              ref={refInputRef}
+              type="file"
+              accept={ACCEPTED_IMAGE_TYPES}
+              multiple
+              onChange={handleRefUpload}
+              className="hidden"
+            />
+            {refSketches.length > 0 && (
+              <div className="flex gap-2 flex-wrap mb-2">
+                {refSketches.map((ref, i) => (
+                  <div key={i} className="relative group">
+                    <img
+                      src={ref.preview}
+                      alt={`סקיצת השראה ${i + 1}`}
+                      className="h-16 w-16 object-cover rounded-lg border border-border"
+                    />
+                    <button
+                      onClick={() => removeRefSketch(i)}
+                      className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {refSketches.length < 3 && (
+              <div
+                onDrop={handleRefDrop}
+                onDragOver={(e) => { e.preventDefault(); setIsRefDragging(true); }}
+                onDragLeave={(e) => { e.preventDefault(); setIsRefDragging(false); }}
+                onClick={() => refInputRef.current?.click()}
+                className={`w-full h-16 border-2 border-dashed rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-colors ${
+                  isRefDragging
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground/40"
+                }`}
+              >
+                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  גרור סקיצות לכאן או <span className="underline">בחר קבצים</span>
+                </p>
               </div>
             )}
           </div>
