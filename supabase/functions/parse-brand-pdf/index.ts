@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,19 +31,23 @@ serve(async (req) => {
       );
     }
 
+    // Limit file size to 10MB to avoid memory issues
+    const MAX_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      return new Response(
+        JSON.stringify({ error: "הקובץ גדול מדי. מקסימום 10MB" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Convert PDF to base64 for vision API
+    // Convert PDF to base64 efficiently
     const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    let binary = "";
-    for (let i = 0; i < uint8Array.length; i++) {
-      binary += String.fromCharCode(uint8Array[i]);
-    }
-    const base64Pdf = btoa(binary);
+    const base64Pdf = base64Encode(new Uint8Array(arrayBuffer));
 
     const systemPrompt = `You are a strict brand guideline data extractor. You extract ONLY factual data visible in uploaded brand book PDFs.
 
