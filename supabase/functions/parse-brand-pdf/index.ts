@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -44,15 +45,9 @@ serve(async (req) => {
       );
     }
 
-    // Stream-friendly base64 encoding using chunked approach
+    // Encode entire PDF as base64 in one pass
     const arrayBuffer = await fileData.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    const CHUNK = 32768;
-    let base64Pdf = "";
-    for (let i = 0; i < bytes.length; i += CHUNK) {
-      const chunk = bytes.subarray(i, i + CHUNK);
-      base64Pdf += btoa(String.fromCharCode(...chunk));
-    }
+    const base64Pdf = base64Encode(new Uint8Array(arrayBuffer));
 
     const systemPrompt = `You are a strict brand guideline data extractor. You extract ONLY factual data visible in uploaded brand book PDFs.
 
