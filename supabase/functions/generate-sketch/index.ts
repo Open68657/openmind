@@ -122,9 +122,22 @@ Visual style:
     }
 
     const aiData = await aiResponse.json();
-    const imageUrl =
-      aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url || null;
-    const textContent = aiData.choices?.[0]?.message?.content || "";
+    console.log("AI response keys:", JSON.stringify(Object.keys(aiData)));
+    console.log("Choice keys:", JSON.stringify(Object.keys(aiData.choices?.[0]?.message || {})));
+    
+    const message = aiData.choices?.[0]?.message;
+    // Try multiple possible image locations in the response
+    const imageUrl = message?.images?.[0]?.image_url?.url
+      || message?.image?.url
+      || (message?.content?.startsWith?.("data:image") ? message.content : null)
+      || null;
+    
+    console.log("Image found:", imageUrl ? `yes (length: ${imageUrl.length})` : "no");
+    if (!imageUrl && message) {
+      console.log("Message content preview:", JSON.stringify(message).substring(0, 500));
+    }
+    const textContent = typeof message?.content === "string" && !message.content.startsWith("data:image")
+      ? message.content : "";
 
     /* ---- Build compliance report ---- */
     const doRulesList = logoRules.filter((r: any) => r.type === "do");
