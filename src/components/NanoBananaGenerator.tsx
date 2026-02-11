@@ -37,14 +37,13 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleLoadTemplate = () => {
     setBrief(briefTemplate);
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processLogoFile = (file: File) => {
     if (file.size > 10 * 1024 * 1024) {
       toast.error("הקובץ גדול מדי. מקסימום 10MB.");
       return;
@@ -53,6 +52,28 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
     const reader = new FileReader();
     reader.onload = (ev) => setLogoPreview(ev.target?.result as string);
     reader.readAsDataURL(file);
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processLogoFile(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processLogoFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
   };
 
   const removeLogo = () => {
@@ -181,14 +202,23 @@ const NanoBananaGenerator = ({ client }: NanoBananaGeneratorProps) => {
                 </Button>
               </div>
             ) : (
-              <Button
-                variant="outline"
-                className="w-full h-16 border-dashed gap-2"
+              <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
                 onClick={() => logoInputRef.current?.click()}
+                className={`w-full h-20 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
+                  isDragging
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground/40"
+                }`}
               >
-                <Upload className="h-4 w-4" />
-                העלה לוגו (PNG, SVG, JPG, PDF...)
-              </Button>
+                <Upload className="h-5 w-5 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  גרור לוגו לכאן או <span className="underline">בחר קובץ</span>
+                </p>
+                <p className="text-[10px] text-muted-foreground/60">PNG, SVG, JPG, PDF, AI, EPS</p>
+              </div>
             )}
           </div>
 
