@@ -181,12 +181,16 @@ export const clients: Client[] = [
     name: "Yellow",
     industry: "חנויות נוחות בתחנות דלק",
     brandColors: [
-      { name: "צהוב Yellow", hex: "#FFD100" },
-      { name: "שחור", hex: "#1A1A1A" },
+      { name: "צהוב Yellow", hex: "#FCBC00", cmyk: "C0 M29 Y95 K0" },
+      { name: "אדום Yellow", hex: "#D1003F", cmyk: "C0 M86 Y64 K0" },
       { name: "לבן", hex: "#FFFFFF" },
-      { name: "אפור כהה", hex: "#333333" },
+      { name: "כהה", hex: "#3C3E50", cmyk: "C76 M70 Y46 K37" },
     ],
-    fonts: ["Heebo", "Open Sans"],
+    fonts: ["Rag Sans", "TitlingGothicFB"],
+    subBrands: [
+      { name: "Yellow Market", nameHe: "ילו מרקט" },
+      { name: "mini yellow", nameHe: "מיני ילו" },
+    ],
   },
 ];
 
