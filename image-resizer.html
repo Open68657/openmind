@@ -163,6 +163,10 @@
       <input id="noUpscale" type="checkbox" checked />
       <label for="noUpscale">אל תגדיל תמונה שקטנה מהיעד (רק הקטנה)</label>
     </div>
+    <div class="checkrow">
+      <input id="rememberSettings" type="checkbox" />
+      <label for="rememberSettings">💾 שמור את ההגדרות האלה וזכור אותן בפעם הבאה (נשמר מקומית בדפדפן)</label>
+    </div>
     <div class="hint">
       • התאמה במצב <b>fit</b>: כל התמונה נכנסת לתוך המידה תוך שמירה על הפרופורציה. ב-PNG השוליים יישארו שקופים; ב-JPG הם ימולאו בצבע הרקע.<br>
       • <b>שקיפות נשמרת</b> ב-PNG אם המקור שקוף.
@@ -612,6 +616,48 @@ function syncFormatUI() {
   $("bgField").style.opacity = (f === "image/jpeg" || f === "original") ? "1" : ".4";
 }
 $("format").addEventListener("change", syncFormatUI);
+
+/* ============================================================
+   שמירת הגדרות אופציונלית (localStorage)
+   ============================================================ */
+const SETTINGS_KEY = "imageResizerSettings";
+
+function saveSettings() {
+  if (!$("rememberSettings").checked) {
+    try { localStorage.removeItem(SETTINGS_KEY); } catch (e) {}
+    return;
+  }
+  const data = {
+    dpi: $("dpi").value,
+    format: $("format").value,
+    quality: $("quality").value,
+    bgColor: $("bgColor").value,
+    noUpscale: $("noUpscale").checked,
+  };
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(data)); } catch (e) {}
+}
+
+function loadSettings() {
+  let raw = null;
+  try { raw = localStorage.getItem(SETTINGS_KEY); } catch (e) {}
+  if (!raw) return;
+  try {
+    const d = JSON.parse(raw);
+    if (d.dpi != null) $("dpi").value = d.dpi;
+    if (d.format != null) $("format").value = d.format;
+    if (d.quality != null) { $("quality").value = d.quality; $("qualityVal").textContent = d.quality + "%"; }
+    if (d.bgColor != null) $("bgColor").value = d.bgColor;
+    if (d.noUpscale != null) $("noUpscale").checked = d.noUpscale;
+    $("rememberSettings").checked = true; // אם נשמרו הגדרות — הזיכרון פעיל
+  } catch (e) {}
+}
+
+// שמירה בכל שינוי של אחד הפקדים (רק אם "זכור" מסומן)
+["dpi", "format", "quality", "bgColor", "noUpscale"].forEach(id =>
+  $(id).addEventListener("change", saveSettings));
+$("rememberSettings").addEventListener("change", saveSettings);
+
+loadSettings();
 syncFormatUI();
 render();
 </script>
