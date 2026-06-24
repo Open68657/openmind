@@ -148,11 +148,10 @@
           <option value="original">שמירה על הפורמט המקורי</option>
           <option value="image/jpeg">JPG</option>
           <option value="image/png">PNG</option>
-          <option value="image/webp">WebP</option>
         </select>
       </div>
       <div class="field" id="qualityField">
-        <label for="quality">איכות (JPG / WebP): <span id="qualityVal">92%</span></label>
+        <label for="quality">איכות (JPG): <span id="qualityVal">92%</span></label>
         <input id="quality" type="range" min="50" max="100" value="92" step="1" />
       </div>
       <div class="field" id="bgField">
@@ -165,9 +164,8 @@
       <label for="noUpscale">אל תגדיל תמונה שקטנה מהיעד (רק הקטנה)</label>
     </div>
     <div class="hint">
-      • התאמה במצב <b>fit</b>: כל התמונה נכנסת לתוך המידה תוך שמירה על הפרופורציה. ב-PNG/WebP השוליים יישארו שקופים; ב-JPG הם ימולאו בצבע הרקע.<br>
-      • <b>שקיפות נשמרת</b> ב-PNG וב-WebP אם המקור שקוף.<br>
-      • שימו לב: לפורמט <b>WebP אין תקן ל-dpi</b> — הגודל בפיקסלים נשמר, אבל ערך ה-dpi לא נכתב בקובץ.
+      • התאמה במצב <b>fit</b>: כל התמונה נכנסת לתוך המידה תוך שמירה על הפרופורציה. ב-PNG השוליים יישארו שקופים; ב-JPG הם ימולאו בצבע הרקע.<br>
+      • <b>שקיפות נשמרת</b> ב-PNG אם המקור שקוף.
     </div>
   </div>
 
@@ -609,7 +607,7 @@ clearBtn.addEventListener("click", () => { items = []; statusText.textContent = 
 $("quality").addEventListener("input", e => { $("qualityVal").textContent = e.target.value + "%"; });
 function syncFormatUI() {
   const f = $("format").value;
-  const showQuality = (f === "image/jpeg" || f === "image/webp" || f === "original");
+  const showQuality = (f === "image/jpeg" || f === "original");
   $("qualityField").style.opacity = showQuality ? "1" : ".4";
   $("bgField").style.opacity = (f === "image/jpeg" || f === "original") ? "1" : ".4";
 }
