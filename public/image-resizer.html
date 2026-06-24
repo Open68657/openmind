@@ -172,13 +172,18 @@
       <label for="noUpscale">אל תגדיל תמונה שקטנה מהיעד (רק הקטנה)</label>
     </div>
     <div class="checkrow">
+      <input id="preserveColor" type="checkbox" checked />
+      <label for="preserveColor">שמור צבעוניות מקורית (פרופיל ICC) — צבעים חיים כמו בפוטושופ (JPG)</label>
+    </div>
+    <div class="checkrow">
       <input id="rememberSettings" type="checkbox" />
       <label for="rememberSettings">💾 שמור את ההגדרות האלה וזכור אותן בפעם הבאה (נשמר מקומית בדפדפן)</label>
     </div>
     <div class="hint">
       • התאמה במצב <b>fit</b>: כל התמונה נכנסת לתוך המידה תוך שמירה על הפרופורציה. ב-PNG השוליים יישארו שקופים; ב-JPG הם ימולאו בצבע הרקע.<br>
       • <b>שקיפות נשמרת</b> ב-PNG אם המקור שקוף.<br>
-      • ההקטנה מתבצעת בשלבים (step-down) עם <b>חידוד</b> אופציונלי — כדי לקבל תוצאה חדה ורוויה כמו בפוטושופ. אם יוצא חד מדי, הורידי את אחוז החדות.
+      • ההקטנה מתבצעת בשלבים (step-down) עם <b>חידוד</b> אופציונלי — כדי לקבל תוצאה חדה ורוויה כמו בפוטושופ. אם יוצא חד מדי, הורידי את אחוז החדות.<br>
+      • <b>שמירת צבעוניות מקורית</b>: כשהאפשרות מסומנת, פרופיל הצבע (ICC) של ה-JPG נשמר בפלט והצבעים לא "נגזמים" ל-sRGB — כך שאדומים/ורודים רוויים (כמו פרחים) נשארים חיים. אם דווקא תרצי תאימות מקסימלית לכל מסך, אפשר לבטל את הסימון.
     </div>
   </div>
 
@@ -345,8 +350,24 @@ async function resizeOne(it) {
 
   const sharpenAmount = (parseInt($("sharpen").value, 10) || 0) / 100;
   const saturation = (parseInt($("saturation").value, 10) || 100) / 100;
+  const preserveColor = $("preserveColor").checked;
 
-  const bmp = await createImageBitmap(it.file);
+  // שימור פרופיל צבע: רלוונטי כש-JPG → JPG. שולפים את ה-ICC מהמקור
+  // ומפענחים ללא המרה ל-sRGB, כדי לא "לגזום" צבעים רוויים (כמו פוטושופ).
+  const carryICC = preserveColor && it.file.type === "image/jpeg" && mime === "image/jpeg";
+  let srcIcc = null;
+  if (carryICC) {
+    try { srcIcc = extractJpegICC(new Uint8Array(await it.file.arrayBuffer())); } catch (e) {}
+  }
+
+  let bmp;
+  try {
+    bmp = carryICC
+      ? await createImageBitmap(it.file, { colorSpaceConversion: "none" })
+      : await createImageBitmap(it.file);
+  } catch (e) {
+    bmp = await createImageBitmap(it.file);
+  }
   const iw = bmp.width, ih = bmp.height;
 
   // חישוב fit (contain) תוך שמירת פרופורציה
@@ -384,10 +405,14 @@ async function resizeOne(it) {
   const blob = await new Promise((res) => canvas.toBlob(res, mime, quality));
   if (!blob) throw new Error("encode failed");
 
-  // הזרקת dpi כ-metadata
+  // הזרקת dpi כ-metadata + שימור פרופיל צבע (ICC) למקור JPG
   let buf = new Uint8Array(await blob.arrayBuffer());
-  if (mime === "image/jpeg") buf = setJpegDpi(buf, dpi);
-  else if (mime === "image/png") buf = setPngDpi(buf, dpi);
+  if (mime === "image/jpeg") {
+    buf = setJpegDpi(buf, dpi);
+    if (srcIcc && srcIcc.length) buf = injectJpegICC(buf, srcIcc);
+  } else if (mime === "image/png") {
+    buf = setPngDpi(buf, dpi);
+  }
   // WebP — ללא dpi (אין תקן)
 
   const finalBlob = new Blob([buf], { type: mime });
@@ -504,6 +529,77 @@ function setJpegDpi(bytes, dpi) {
   out.set(bytes.subarray(0, 2), 0);
   out.set(seg, 2);
   out.set(bytes.subarray(2), 2 + seg.length);
+  return out;
+}
+
+/* ============================================================
+   שליפת פרופיל ICC מ-JPEG (מקטעי APP2 עם המזהה "ICC_PROFILE")
+   ============================================================ */
+const ICC_ID = [0x49,0x43,0x43,0x5F,0x50,0x52,0x4F,0x46,0x49,0x4C,0x45,0x00]; // "ICC_PROFILE\0"
+
+function extractJpegICC(bytes) {
+  if (bytes[0] !== 0xFF || bytes[1] !== 0xD8) return null;
+  let pos = 2;
+  const chunks = [];
+  while (pos + 4 <= bytes.length && bytes[pos] === 0xFF) {
+    const marker = bytes[pos + 1];
+    if (marker === 0xD9 || marker === 0xDA) break; // EOI / תחילת נתוני התמונה
+    const L = (bytes[pos + 2] << 8) | bytes[pos + 3];
+    const segStart = pos + 4;
+    if (marker === 0xE2) {
+      let match = true;
+      for (let i = 0; i < ICC_ID.length; i++) {
+        if (bytes[segStart + i] !== ICC_ID[i]) { match = false; break; }
+      }
+      if (match) {
+        const seq = bytes[segStart + 12];
+        chunks.push({ seq, data: bytes.subarray(segStart + 14, pos + 2 + L) });
+      }
+    }
+    pos = pos + 2 + L;
+  }
+  if (!chunks.length) return null;
+  chunks.sort((a, b) => a.seq - b.seq);
+  let total = 0;
+  for (const c of chunks) total += c.data.length;
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) { out.set(c.data, off); off += c.data.length; }
+  return out;
+}
+
+/* ============================================================
+   הזרקת פרופיל ICC ל-JPEG (מקטע/י APP2), אחרי APP0 אם קיים
+   ============================================================ */
+function injectJpegICC(bytes, icc) {
+  if (bytes[0] !== 0xFF || bytes[1] !== 0xD8) return bytes;
+  let insertAt = 2;
+  if (bytes[2] === 0xFF && bytes[3] === 0xE0) {
+    const L = (bytes[4] << 8) | bytes[5];
+    insertAt = 4 + L; // אחרי מקטע APP0
+  }
+  const MAX = 65519; // מקסימום נתונים למקטע (65535 - 16)
+  const totalChunks = Math.max(1, Math.ceil(icc.length / MAX));
+  const segs = [];
+  let segTotalLen = 0;
+  for (let i = 0; i < totalChunks; i++) {
+    const part = icc.subarray(i * MAX, Math.min((i + 1) * MAX, icc.length));
+    const L = 16 + part.length;
+    const seg = new Uint8Array(2 + L);
+    seg[0] = 0xFF; seg[1] = 0xE2;
+    seg[2] = (L >> 8) & 0xFF; seg[3] = L & 0xFF;
+    seg.set(ICC_ID, 4);
+    seg[16] = i + 1;        // מספר מקטע (1-based)
+    seg[17] = totalChunks;  // סך המקטעים
+    seg.set(part, 18);
+    segs.push(seg);
+    segTotalLen += seg.length;
+  }
+  const out = new Uint8Array(bytes.length + segTotalLen);
+  out.set(bytes.subarray(0, insertAt), 0);
+  let off = insertAt;
+  for (const seg of segs) { out.set(seg, off); off += seg.length; }
+  out.set(bytes.subarray(insertAt), off);
   return out;
 }
 
@@ -726,6 +822,7 @@ function saveSettings() {
     saturation: $("saturation").value,
     bgColor: $("bgColor").value,
     noUpscale: $("noUpscale").checked,
+    preserveColor: $("preserveColor").checked,
   };
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(data)); } catch (e) {}
 }
@@ -743,12 +840,13 @@ function loadSettings() {
     if (d.saturation != null) { $("saturation").value = d.saturation; $("saturationVal").textContent = d.saturation + "%"; }
     if (d.bgColor != null) $("bgColor").value = d.bgColor;
     if (d.noUpscale != null) $("noUpscale").checked = d.noUpscale;
+    if (d.preserveColor != null) $("preserveColor").checked = d.preserveColor;
     $("rememberSettings").checked = true; // אם נשמרו הגדרות — הזיכרון פעיל
   } catch (e) {}
 }
 
 // שמירה בכל שינוי של אחד הפקדים (רק אם "זכור" מסומן)
-["dpi", "format", "quality", "sharpen", "saturation", "bgColor", "noUpscale"].forEach(id =>
+["dpi", "format", "quality", "sharpen", "saturation", "bgColor", "noUpscale", "preserveColor"].forEach(id =>
   $(id).addEventListener("change", saveSettings));
 $("rememberSettings").addEventListener("change", saveSettings);
 
