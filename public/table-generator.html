@@ -429,12 +429,12 @@ function buildTableElement(m, colors){
     colsXml += `\n      <Column Self="tbl_col${ci}" Name="${ci}" SingleColumnWidth="${round(m.colWidths[ci]*MM,3)}"/>`;
   }
 
-  // cells: column-major order, Name="col:row"
+  // cells: row-major order (IDML spec: row 0's columns, then row 1's…), Name="col:row"
   let cellsXml='';
   const inset = round(m.padding*MM,3);
   const bw = m.borderW;
-  for(let ci=0; ci<m.cols; ci++){
-    for(let ri=0; ri<m.rows; ri++){
+  for(let ri=0; ri<m.rows; ri++){
+    for(let ci=0; ci<m.cols; ci++){
       const isHeader = headerCount && ri<headerCount;
       let fill='Swatch/None', tint='-1';
       if(isHeader && !isWhite(m.headerFill)){ fill=r.headerFill; tint='100'; }
