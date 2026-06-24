@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>הקטנת תמונות open</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --panel-2: #1f2330;
+    --border: #2a2f3d;
+    --text: #e7e9ee;
+    --muted: #9aa0ad;
+    --pink: #ff4d9d;
+    --purple: #8b5cf6;
+    --accent: #6ea8fe;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Assistant", "Heebo", system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, #1b2030 0%, var(--bg) 55%);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 20px 80px; }
+  header h1 {
+    font-size: 28px; font-weight: 800; margin: 0 0 4px;
+    background: linear-gradient(90deg, var(--pink), var(--purple));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    display: inline-block;
+  }
+  header p { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  /* Dropzone */
+  #dropzone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 44px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    background: var(--panel);
+  }
+  #dropzone:hover { border-color: var(--purple); }
+  #dropzone.drag { border-color: var(--pink); background: rgba(255,77,157,.06); }
+  #dropzone .big { font-size: 17px; font-weight: 700; margin: 10px 0 4px; }
+  #dropzone .sub { color: var(--muted); font-size: 13px; }
+  .icon { font-size: 34px; }
+
+  /* Controls */
+  .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+  .field input[type="number"], .field select, .field input[type="color"] {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 9px 11px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  .field input[type="color"] { height: 40px; padding: 4px; cursor: pointer; }
+  .field input[type="range"] { width: 100%; accent-color: var(--purple); }
+  .checkrow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .checkrow input { width: 16px; height: 16px; accent-color: var(--purple); }
+  .checkrow label { font-size: 13px; color: var(--text); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+  /* Buttons */
+  .btn {
+    border: none; border-radius: 11px; padding: 12px 22px; font-size: 15px; font-weight: 700;
+    cursor: pointer; font-family: inherit; transition: opacity .2s, transform .05s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-primary { background: linear-gradient(90deg, var(--pink), var(--purple)); color: #fff; }
+  .btn-ghost { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  .btn-sm { padding: 7px 13px; font-size: 13px; border-radius: 9px; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+  /* File list */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: right; color: var(--muted); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  .thumb { width: 46px; height: 46px; object-fit: contain; border-radius: 8px; background: repeating-conic-gradient(#2a2f3d 0% 25%, #232734 0% 50%) 50% / 14px 14px; }
+  .fname { font-weight: 600; word-break: break-all; }
+  .size-inputs { display: inline-flex; align-items: center; gap: 4px; }
+  .size-inputs input { width: 62px; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 5px 6px; font-size: 12px; text-align: center; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 700; white-space: nowrap; }
+  .badge.ok { background: rgba(52,211,153,.15); color: var(--green); }
+  .badge.warn { background: rgba(251,191,36,.15); color: var(--amber); }
+  .badge.err { background: rgba(248,113,113,.15); color: var(--red); }
+  .badge.pending { background: var(--panel-2); color: var(--muted); }
+  .remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; }
+  .remove:hover { color: var(--red); }
+
+  .empty { text-align: center; color: var(--muted); padding: 24px; font-size: 14px; }
+  .footnote { color: var(--muted); font-size: 12px; margin-top: 18px; line-height: 1.6; }
+  a.dl { color: var(--accent); text-decoration: none; font-weight: 700; }
+  a.dl:hover { text-decoration: underline; }
+  .section-title { font-size: 15px; font-weight: 800; margin: 0 0 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>הקטנת תמונות open</h1>
+    <p>גוררים תמונות, בוחרים dpi ופורמט — והכלי מקטין כל תמונה לפי הגודל הכתוב בשם הקובץ. הכול רץ מקומית בדפדפן, שום תמונה לא נשלחת לשרת.</p>
+  </header>
+
+  <!-- Dropzone -->
+  <div id="dropzone" class="card">
+    <div class="icon">🖼️</div>
+    <div class="big">גררו לכאן תמונות, או לחצו לבחירה</div>
+    <div class="sub">הגודל הרצוי נקרא מתוך שם הקובץ — למשל <b>"קמפיין קיץ 800x600.jpg"</b> → 800×600 פיקסל</div>
+    <input id="fileInput" type="file" accept="image/*" multiple hidden />
+  </div>
+
+  <!-- Controls -->
+  <div class="card">
+    <div class="section-title">הגדרות לכל האוסף</div>
+    <div class="controls">
+      <div class="field">
+        <label for="dpi">dpi (נשמר כ-metadata)</label>
+        <input id="dpi" type="number" value="72" min="1" max="2400" step="1" />
+      </div>
+      <div class="field">
+        <label for="format">פורמט פלט</label>
+        <select id="format">
+          <option value="original">שמירה על הפורמט המקורי</option>
+          <option value="image/jpeg">JPG</option>
+          <option value="image/png">PNG</option>
+        </select>
+      </div>
+      <div class="field" id="qualityField">
+        <label for="quality">איכות (JPG): <span id="qualityVal">92%</span></label>
+        <input id="quality" type="range" min="50" max="100" value="92" step="1" />
+      </div>
+      <div class="field">
+        <label for="sharpen">חדות / חידוד: <span id="sharpenVal">50%</span></label>
+        <input id="sharpen" type="range" min="0" max="100" value="50" step="1" />
+      </div>
+      <div class="field">
+        <label for="saturation">רוויית צבע: <span id="saturationVal">100%</span></label>
+        <input id="saturation" type="range" min="100" max="160" value="100" step="1" />
+      </div>
+      <div class="field" id="bgField">
+        <label for="bgColor">צבע רקע למילוי (JPG בלבד)</label>
+        <input id="bgColor" type="color" value="#ffffff" />
+      </div>
+    </div>
+    <div class="checkrow">
+      <input id="noUpscale" type="checkbox" checked />
+      <label for="noUpscale">אל תגדיל תמונה שקטנה מהיעד (רק הקטנה)</label>
+    </div>
+    <div class="checkrow">
+      <input id="preserveColor" type="checkbox" checked />
+      <label for="preserveColor">שמור צבעוניות מקורית (פרופיל ICC) — צבעים חיים כמו בפוטושופ (JPG)</label>
+    </div>
+    <div class="checkrow">
+      <input id="rememberSettings" type="checkbox" />
+      <label for="rememberSettings">💾 שמור את ההגדרות האלה וזכור אותן בפעם הבאה (נשמר מקומית בדפדפן)</label>
+    </div>
+    <div class="hint">
+      • התאמה במצב <b>fit</b>: כל התמונה נכנסת לתוך המידה תוך שמירה על הפרופורציה. ב-PNG השוליים יישארו שקופים; ב-JPG הם ימולאו בצבע הרקע.<br>
+      • <b>שקיפות נשמרת</b> ב-PNG אם המקור שקוף.<br>
+      • ההקטנה מתבצעת בשלבים (step-down) עם <b>חידוד</b> אופציונלי — כדי לקבל תוצאה חדה ורוויה כמו בפוטושופ. אם יוצא חד מדי, הורידי את אחוז החדות.<br>
+      • <b>שמירת צבעוניות מקורית</b>: כשהאפשרות מסומנת, פרופיל הצבע (ICC) של ה-JPG נשמר בפלט והצבעים לא "נגזמים" ל-sRGB — כך שאדומים/ורודים רוויים (כמו פרחים) נשארים חיים. אם דווקא תרצי תאימות מקסימלית לכל מסך, אפשר לבטל את הסימון.
+    </div>
+  </div>
+
+  <!-- File list -->
+  <div class="card">
+    <div class="actions" style="margin-bottom:16px;">
+      <button id="processBtn" class="btn btn-primary" disabled>⚡ הקטן את כל התמונות</button>
+      <button id="downloadAllBtn" class="btn btn-ghost" disabled>⬇️ הורד הכל (ZIP)</button>
+      <button id="clearBtn" class="btn btn-ghost btn-sm" disabled>נקה רשימה</button>
+      <span id="statusText" style="color:var(--muted);font-size:13px;"></span>
+    </div>
+    <div id="listWrap">
+      <div class="empty">עדיין לא נוספו תמונות.</div>
+    </div>
+  </div>
+
+  <div class="footnote">
+    טיפ: שמרו את הקובץ הזה איפה שנוח (לדוגמה בשולחן העבודה) ופתחו אותו בלחיצה כפולה בכל פעם. אפשר גם להוסיף אותו למועדפים בדפדפן.
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   מצב (state)
+   ============================================================ */
+let items = []; // { id, file, srcW, srcH, targetW, targetH, parsed, status, outBlob, outName }
+let nextId = 1;
+
+const $ = (id) => document.getElementById(id);
+const dropzone = $("dropzone");
+const fileInput = $("fileInput");
+const listWrap = $("listWrap");
+const processBtn = $("processBtn");
+const downloadAllBtn = $("downloadAllBtn");
+const clearBtn = $("clearBtn");
+const statusText = $("statusText");
+
+/* ============================================================
+   קריאת הגודל מתוך שם הקובץ
+   מחפש את התבנית האחרונה של רוחבxגובה (מתעלם משאר השם)
+   ============================================================ */
+function parseTargetSize(filename) {
+  const base = filename.replace(/\.[^.]+$/, ""); // הורד סיומת
+  const re = /(\d{2,5})\s*[x×X*]\s*(\d{2,5})/g;
+  let m, last = null;
+  while ((m = re.exec(base)) !== null) last = m;
+  if (!last) return null;
+  return { w: parseInt(last[1], 10), h: parseInt(last[2], 10) };
+}
+
+/* ============================================================
+   הוספת קבצים
+   ============================================================ */
+async function addFiles(fileList) {
+  for (const file of fileList) {
+    if (!file.type.startsWith("image/")) continue;
+    const parsed = parseTargetSize(file.name);
+    let srcW = 0, srcH = 0;
+    try {
+      const bmp = await createImageBitmap(file);
+      srcW = bmp.width; srcH = bmp.height;
+      bmp.close && bmp.close();
+    } catch (e) { /* נמשיך גם אם לא הצלחנו לקרוא מימדים */ }
+    items.push({
+      id: nextId++,
+      file,
+      srcW, srcH,
+      targetW: parsed ? parsed.w : "",
+      targetH: parsed ? parsed.h : "",
+      parsed: !!parsed,
+      status: "pending",
+      outBlob: null,
+      outName: null,
+    });
+  }
+  render();
+}
+
+/* ============================================================
+   רינדור הרשימה
+   ============================================================ */
+function render() {
+  processBtn.disabled = items.length === 0;
+  clearBtn.disabled = items.length === 0;
+  const anyDone = items.some(it => it.outBlob);
+  downloadAllBtn.disabled = !anyDone;
+
+  if (items.length === 0) {
+    listWrap.innerHTML = '<div class="empty">עדיין לא נוספו תמונות.</div>';
+    return;
+  }
+
+  let rows = "";
+  for (const it of items) {
+    rows += `<tr data-id="${it.id}">
+      <td><img class="thumb" src="${URL.createObjectURL(it.file)}" alt=""></td>
+      <td><div class="fname">${escapeHtml(it.file.name)}</div>
+          <div style="color:var(--muted);font-size:11px;">מקור: ${it.srcW || "?"}×${it.srcH || "?"}</div></td>
+      <td>
+        <div class="size-inputs">
+          <input type="number" class="tw" value="${it.targetW}" placeholder="רוחב" min="1">
+          <span style="color:var(--muted)">×</span>
+          <input type="number" class="th" value="${it.targetH}" placeholder="גובה" min="1">
+        </div>
+      </td>
+      <td>${statusBadge(it)}</td>
+      <td>${it.outBlob ? `<a class="dl" href="${URL.createObjectURL(it.outBlob)}" download="${escapeAttr(it.outName)}">הורד</a>` : ""}</td>
+      <td><button class="remove" title="הסר">✕</button></td>
+    </tr>`;
+  }
+
+  listWrap.innerHTML = `<table>
+    <thead><tr>
+      <th></th><th>שם קובץ</th><th>גודל יעד (px)</th><th>סטטוס</th><th></th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+
+  // חיווט אירועים לשורות
+  listWrap.querySelectorAll("tr[data-id]").forEach(tr => {
+    const id = parseInt(tr.dataset.id, 10);
+    const it = items.find(x => x.id === id);
+    tr.querySelector(".tw").addEventListener("input", e => { it.targetW = e.target.value; it.status = "pending"; it.outBlob = null; refreshRow(it); });
+    tr.querySelector(".th").addEventListener("input", e => { it.targetH = e.target.value; it.status = "pending"; it.outBlob = null; refreshRow(it); });
+    tr.querySelector(".remove").addEventListener("click", () => { items = items.filter(x => x.id !== id); render(); });
+  });
+}
+
+function refreshRow(it) {
+  downloadAllBtn.disabled = !items.some(x => x.outBlob);
+}
+
+function statusBadge(it) {
+  const hasSize = it.targetW && it.targetH;
+  if (it.status === "done") return '<span class="badge ok">✓ הוקטן</span>';
+  if (it.status === "error") return '<span class="badge err">שגיאה</span>';
+  if (!hasSize) return '<span class="badge warn">חסר גודל בשם</span>';
+  return '<span class="badge pending">ממתין</span>';
+}
+
+function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+function escapeAttr(s) { return escapeHtml(s); }
+
+/* ============================================================
+   עיבוד תמונה אחת — שינוי גודל (fit) + פורמט
+   ============================================================ */
+async function resizeOne(it) {
+  const targetW = parseInt(it.targetW, 10);
+  const targetH = parseInt(it.targetH, 10);
+  if (!targetW || !targetH) throw new Error("missing size");
+
+  const dpi = clampInt(parseInt($("dpi").value, 10) || 72, 1, 2400);
+  const noUpscale = $("noUpscale").checked;
+  const quality = (parseInt($("quality").value, 10) || 92) / 100;
+
+  // פורמט יעד
+  const formatChoice = $("format").value;
+  let mime = formatChoice;
+  if (mime === "original") mime = it.file.type || "image/png";
+  if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) mime = "image/png";
+  const isJpeg = mime === "image/jpeg";
+
+  const sharpenAmount = (parseInt($("sharpen").value, 10) || 0) / 100;
+  const saturation = (parseInt($("saturation").value, 10) || 100) / 100;
+  const preserveColor = $("preserveColor").checked;
+
+  // שימור פרופיל צבע: רלוונטי כש-JPG → JPG. שולפים את ה-ICC מהמקור
+  // ומפענחים ללא המרה ל-sRGB, כדי לא "לגזום" צבעים רוויים (כמו פוטושופ).
+  const carryICC = preserveColor && it.file.type === "image/jpeg" && mime === "image/jpeg";
+  let srcIcc = null;
+  if (carryICC) {
+    try { srcIcc = extractJpegICC(new Uint8Array(await it.file.arrayBuffer())); } catch (e) {}
+  }
+
+  let bmp;
+  try {
+    bmp = carryICC
+      ? await createImageBitmap(it.file, { colorSpaceConversion: "none" })
+      : await createImageBitmap(it.file);
+  } catch (e) {
+    bmp = await createImageBitmap(it.file);
+  }
+  const iw = bmp.width, ih = bmp.height;
+
+  // חישוב fit (contain) תוך שמירת פרופורציה
+  let scale = Math.min(targetW / iw, targetH / ih);
+  if (noUpscale && scale > 1) scale = 1;
+  const drawW = Math.max(1, Math.round(iw * scale));
+  const drawH = Math.max(1, Math.round(ih * scale));
+  const dx = Math.round((targetW - drawW) / 2);
+  const dy = Math.round((targetH - drawH) / 2);
+
+  // הקטנה מדורגת (step-down) — חדה בהרבה מהקטנה בצעד אחד
+  const scaled = progressiveResize(bmp, drawW, drawH);
+  bmp.close && bmp.close();
+
+  // חידוד (unsharp) שמדמה Bicubic Sharper של פוטושופ
+  if (sharpenAmount > 0) sharpenCanvas(scaled, sharpenAmount * 0.7);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  if (isJpeg) {
+    // JPG לא תומך בשקיפות — נמלא רקע
+    ctx.fillStyle = $("bgColor").value || "#ffffff";
+    ctx.fillRect(0, 0, targetW, targetH);
+  }
+  // PNG — נשאר שקוף (כולל שוליים) ושומר שקיפות מהמקור
+  if (saturation !== 1) ctx.filter = `saturate(${saturation})`;
+  ctx.drawImage(scaled, dx, dy);
+  ctx.filter = "none";
+
+  const blob = await new Promise((res) => canvas.toBlob(res, mime, quality));
+  if (!blob) throw new Error("encode failed");
+
+  // הזרקת dpi כ-metadata + שימור פרופיל צבע (ICC) למקור JPG
+  let buf = new Uint8Array(await blob.arrayBuffer());
+  if (mime === "image/jpeg") {
+    buf = setJpegDpi(buf, dpi);
+    if (srcIcc && srcIcc.length) buf = injectJpegICC(buf, srcIcc);
+  } else if (mime === "image/png") {
+    buf = setPngDpi(buf, dpi);
+  }
+  // WebP — ללא dpi (אין תקן)
+
+  const finalBlob = new Blob([buf], { type: mime });
+  it.outBlob = finalBlob;
+  // שמירת שם הקובץ המקורי. אם נבחר "פורמט מקורי" — השם נשאר זהה לחלוטין.
+  // אם נבחר פורמט אחר — נשמר כל השם המקורי ורק הסיומת מתחלפת לפי הפורמט.
+  if (formatChoice === "original") {
+    it.outName = it.file.name;
+  } else {
+    const ext = mime === "image/jpeg" ? "jpg" : mime === "image/webp" ? "webp" : "png";
+    const baseName = it.file.name.replace(/\.[^.]+$/, "");
+    it.outName = `${baseName}.${ext}`;
+  }
+  it.status = "done";
+}
+
+function clampInt(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+/* ============================================================
+   הקטנה מדורגת (step-down) — מקטין בחצאים עד קרוב ליעד
+   ומסיים בצעד אחרון מדויק. חד בהרבה מהקטנה בקפיצה אחת.
+   שומר שקיפות (קנבס שקוף כברירת מחדל).
+   ============================================================ */
+function progressiveResize(bmp, destW, destH) {
+  let cw = bmp.width, ch = bmp.height;
+  let canvas = document.createElement("canvas");
+  canvas.width = cw; canvas.height = ch;
+  let ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(bmp, 0, 0);
+
+  // צעדי חצי כל עוד אנחנו גדולים מפי 2 מהיעד
+  while (cw > destW * 2 && ch > destH * 2) {
+    const nw = Math.max(destW, Math.floor(cw / 2));
+    const nh = Math.max(destH, Math.floor(ch / 2));
+    const c2 = document.createElement("canvas");
+    c2.width = nw; c2.height = nh;
+    const x2 = c2.getContext("2d");
+    x2.imageSmoothingEnabled = true;
+    x2.imageSmoothingQuality = "high";
+    x2.drawImage(canvas, 0, 0, cw, ch, 0, 0, nw, nh);
+    canvas = c2; cw = nw; ch = nh;
+  }
+
+  // צעד אחרון מדויק לגודל היעד
+  const out = document.createElement("canvas");
+  out.width = destW; out.height = destH;
+  const octx = out.getContext("2d");
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = "high";
+  octx.drawImage(canvas, 0, 0, cw, ch, 0, 0, destW, destH);
+  return out;
+}
+
+/* ============================================================
+   חידוד (unsharp) באמצעות גרעין לפלסיאן 3x3.
+   סכום הגרעין = 1 ולכן הבהירות נשמרת. ערוץ האלפא לא משתנה.
+   ============================================================ */
+function sharpenCanvas(canvas, a) {
+  const w = canvas.width, h = canvas.height;
+  if (w < 3 || h < 3 || a <= 0) return;
+  const ctx = canvas.getContext("2d");
+  const src = ctx.getImageData(0, 0, w, h);
+  const s = src.data;
+  const out = ctx.createImageData(w, h);
+  const d = out.data;
+  const center = 1 + 4 * a;
+  const row = w * 4;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) {
+        d[i] = s[i]; d[i+1] = s[i+1]; d[i+2] = s[i+2]; d[i+3] = s[i+3];
+        continue;
+      }
+      const iN = i - row, iS = i + row, iW = i - 4, iE = i + 4;
+      for (let c = 0; c < 3; c++) {
+        let v = center * s[i+c] - a * (s[iN+c] + s[iS+c] + s[iW+c] + s[iE+c]);
+        d[i+c] = v < 0 ? 0 : v > 255 ? 255 : v;
+      }
+      d[i+3] = s[i+3];
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+}
+
+/* ============================================================
+   הזרקת dpi ל-JPEG (JFIF APP0 density)
+   ============================================================ */
+function setJpegDpi(bytes, dpi) {
+  if (bytes[0] !== 0xFF || bytes[1] !== 0xD8) return bytes;
+  // האם יש APP0 (FFE0) מיד אחרי SOI עם מזהה JFIF
+  if (bytes[2] === 0xFF && bytes[3] === 0xE0 &&
+      bytes[6] === 0x4A && bytes[7] === 0x46 && bytes[8] === 0x49 && bytes[9] === 0x46 && bytes[10] === 0x00) {
+    bytes[13] = 1;                  // units = dots per inch
+    bytes[14] = (dpi >> 8) & 0xFF;  // Xdensity hi
+    bytes[15] = dpi & 0xFF;         // Xdensity lo
+    bytes[16] = (dpi >> 8) & 0xFF;  // Ydensity hi
+    bytes[17] = dpi & 0xFF;         // Ydensity lo
+    return bytes;
+  }
+  // אין JFIF APP0 — נוסיף מקטע חדש אחרי SOI
+  const seg = new Uint8Array([
+    0xFF, 0xE0, 0x00, 0x10,
+    0x4A, 0x46, 0x49, 0x46, 0x00, // "JFIF\0"
+    0x01, 0x01,                    // version 1.1
+    0x01,                          // units = dpi
+    (dpi >> 8) & 0xFF, dpi & 0xFF, // Xdensity
+    (dpi >> 8) & 0xFF, dpi & 0xFF, // Ydensity
+    0x00, 0x00                     // thumbnail 0x0
+  ]);
+  const out = new Uint8Array(bytes.length + seg.length);
+  out.set(bytes.subarray(0, 2), 0);
+  out.set(seg, 2);
+  out.set(bytes.subarray(2), 2 + seg.length);
+  return out;
+}
+
+/* ============================================================
+   שליפת פרופיל ICC מ-JPEG (מקטעי APP2 עם המזהה "ICC_PROFILE")
+   ============================================================ */
+const ICC_ID = [0x49,0x43,0x43,0x5F,0x50,0x52,0x4F,0x46,0x49,0x4C,0x45,0x00]; // "ICC_PROFILE\0"
+
+function extractJpegICC(bytes) {
+  if (bytes[0] !== 0xFF || bytes[1] !== 0xD8) return null;
+  let pos = 2;
+  const chunks = [];
+  while (pos + 4 <= bytes.length && bytes[pos] === 0xFF) {
+    const marker = bytes[pos + 1];
+    if (marker === 0xD9 || marker === 0xDA) break; // EOI / תחילת נתוני התמונה
+    const L = (bytes[pos + 2] << 8) | bytes[pos + 3];
+    const segStart = pos + 4;
+    if (marker === 0xE2) {
+      let match = true;
+      for (let i = 0; i < ICC_ID.length; i++) {
+        if (bytes[segStart + i] !== ICC_ID[i]) { match = false; break; }
+      }
+      if (match) {
+        const seq = bytes[segStart + 12];
+        chunks.push({ seq, data: bytes.subarray(segStart + 14, pos + 2 + L) });
+      }
+    }
+    pos = pos + 2 + L;
+  }
+  if (!chunks.length) return null;
+  chunks.sort((a, b) => a.seq - b.seq);
+  let total = 0;
+  for (const c of chunks) total += c.data.length;
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) { out.set(c.data, off); off += c.data.length; }
+  return out;
+}
+
+/* ============================================================
+   הזרקת פרופיל ICC ל-JPEG (מקטע/י APP2), אחרי APP0 אם קיים
+   ============================================================ */
+function injectJpegICC(bytes, icc) {
+  if (bytes[0] !== 0xFF || bytes[1] !== 0xD8) return bytes;
+  let insertAt = 2;
+  if (bytes[2] === 0xFF && bytes[3] === 0xE0) {
+    const L = (bytes[4] << 8) | bytes[5];
+    insertAt = 4 + L; // אחרי מקטע APP0
+  }
+  const MAX = 65519; // מקסימום נתונים למקטע (65535 - 16)
+  const totalChunks = Math.max(1, Math.ceil(icc.length / MAX));
+  const segs = [];
+  let segTotalLen = 0;
+  for (let i = 0; i < totalChunks; i++) {
+    const part = icc.subarray(i * MAX, Math.min((i + 1) * MAX, icc.length));
+    const L = 16 + part.length;
+    const seg = new Uint8Array(2 + L);
+    seg[0] = 0xFF; seg[1] = 0xE2;
+    seg[2] = (L >> 8) & 0xFF; seg[3] = L & 0xFF;
+    seg.set(ICC_ID, 4);
+    seg[16] = i + 1;        // מספר מקטע (1-based)
+    seg[17] = totalChunks;  // סך המקטעים
+    seg.set(part, 18);
+    segs.push(seg);
+    segTotalLen += seg.length;
+  }
+  const out = new Uint8Array(bytes.length + segTotalLen);
+  out.set(bytes.subarray(0, insertAt), 0);
+  let off = insertAt;
+  for (const seg of segs) { out.set(seg, off); off += seg.length; }
+  out.set(bytes.subarray(insertAt), off);
+  return out;
+}
+
+/* ============================================================
+   הזרקת dpi ל-PNG (pHYs chunk, יחידות מטר)
+   ============================================================ */
+function setPngDpi(bytes, dpi) {
+  // חתימת PNG + IHDR חייב להיות ראשון (אורך 13)
+  if (bytes[12] !== 0x49 || bytes[13] !== 0x48 || bytes[14] !== 0x44 || bytes[15] !== 0x52) return bytes;
+  const ihdrEnd = 8 + 4 + 4 + 13 + 4; // = 33
+  const ppm = Math.round(dpi / 0.0254); // פיקסלים למטר
+
+  const phys = new Uint8Array(4 + 4 + 9 + 4);
+  writeUint32(phys, 0, 9);            // length = 9
+  phys[4] = 0x70; phys[5] = 0x48; phys[6] = 0x59; phys[7] = 0x73; // "pHYs"
+  writeUint32(phys, 8, ppm);          // X pixels per unit
+  writeUint32(phys, 12, ppm);         // Y pixels per unit
+  phys[16] = 1;                       // unit = meter
+  const crc = crc32(phys.subarray(4, 17)); // CRC על type+data
+  writeUint32(phys, 17, crc);
+
+  const out = new Uint8Array(bytes.length + phys.length);
+  out.set(bytes.subarray(0, ihdrEnd), 0);
+  out.set(phys, ihdrEnd);
+  out.set(bytes.subarray(ihdrEnd), ihdrEnd + phys.length);
+  return out;
+}
+
+function writeUint32(arr, off, val) {
+  arr[off] = (val >>> 24) & 0xFF;
+  arr[off + 1] = (val >>> 16) & 0xFF;
+  arr[off + 2] = (val >>> 8) & 0xFF;
+  arr[off + 3] = val & 0xFF;
+}
+
+/* ============================================================
+   CRC32 (משמש גם ל-PNG וגם ל-ZIP)
+   ============================================================ */
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(buf, crc = 0) {
+  crc = crc ^ (-1);
+  for (let i = 0; i < buf.length; i++) crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ buf[i]) & 0xFF];
+  return (crc ^ (-1)) >>> 0;
+}
+
+/* ============================================================
+   בניית ZIP (ללא דחיסה — store)
+   ============================================================ */
+async function buildZip(entries) {
+  const enc = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+
+  for (const e of entries) {
+    const nameBytes = enc.encode(e.name);
+    const data = new Uint8Array(await e.blob.arrayBuffer());
+    const crc = crc32(data);
+
+    // Local file header
+    const lh = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(lh.buffer);
+    lv.setUint32(0, 0x04034b50, true);   // signature
+    lv.setUint16(4, 20, true);           // version needed
+    lv.setUint16(6, 0, true);            // flags
+    lv.setUint16(8, 0, true);            // method = store
+    lv.setUint16(10, 0, true);           // mod time
+    lv.setUint16(12, 0, true);           // mod date
+    lv.setUint32(14, crc, true);         // crc32
+    lv.setUint32(18, data.length, true); // compressed size
+    lv.setUint32(22, data.length, true); // uncompressed size
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);           // extra len
+    lh.set(nameBytes, 30);
+
+    chunks.push(lh, data);
+
+    // Central directory record
+    const ch = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, 0, true);
+    cv.setUint16(14, 0, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, data.length, true);
+    cv.setUint32(24, data.length, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
+    ch.set(nameBytes, 46);
+    central.push(ch);
+
+    offset += lh.length + data.length;
+  }
+
+  let centralSize = 0;
+  for (const c of central) centralSize += c.length;
+
+  const end = new Uint8Array(22);
+  const ev = new DataView(end.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(4, 0, true);
+  ev.setUint16(6, 0, true);
+  ev.setUint16(8, entries.length, true);
+  ev.setUint16(10, entries.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, offset, true);
+  ev.setUint16(20, 0, true);
+
+  return new Blob([...chunks, ...central, end], { type: "application/zip" });
+}
+
+/* ============================================================
+   פעולות
+   ============================================================ */
+async function processAll() {
+  processBtn.disabled = true;
+  let done = 0, failed = 0, skipped = 0;
+  for (const it of items) {
+    if (!it.targetW || !it.targetH) { skipped++; continue; }
+    try {
+      statusText.textContent = `מעבד… (${done + failed + 1}/${items.length})`;
+      await resizeOne(it);
+      done++;
+    } catch (e) {
+      it.status = "error";
+      failed++;
+    }
+    render();
+  }
+  let msg = `הוקטנו ${done} תמונות`;
+  if (skipped) msg += ` · ${skipped} ללא גודל בשם (דלגנו)`;
+  if (failed) msg += ` · ${failed} נכשלו`;
+  statusText.textContent = msg;
+  processBtn.disabled = false;
+}
+
+async function downloadAll() {
+  const done = items.filter(it => it.outBlob);
+  if (done.length === 0) return;
+  if (done.length === 1) {
+    triggerDownload(done[0].outBlob, done[0].outName);
+    return;
+  }
+  statusText.textContent = "בונה קובץ ZIP…";
+  const zip = await buildZip(done.map(it => ({ name: it.outName, blob: it.outBlob })));
+  triggerDownload(zip, "תמונות-מוקטנות.zip");
+  statusText.textContent = `הורדו ${done.length} תמונות כ-ZIP`;
+}
+
+function triggerDownload(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* ============================================================
+   חיווט אירועים גלובלי
+   ============================================================ */
+dropzone.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", e => { addFiles(e.target.files); fileInput.value = ""; });
+
+["dragenter", "dragover"].forEach(ev =>
+  dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add("drag"); }));
+["dragleave", "drop"].forEach(ev =>
+  dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove("drag"); }));
+dropzone.addEventListener("drop", e => { if (e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+
+processBtn.addEventListener("click", processAll);
+downloadAllBtn.addEventListener("click", downloadAll);
+clearBtn.addEventListener("click", () => { items = []; statusText.textContent = ""; render(); });
+
+// עדכון תצוגת ערכים
+$("quality").addEventListener("input", e => { $("qualityVal").textContent = e.target.value + "%"; });
+$("sharpen").addEventListener("input", e => { $("sharpenVal").textContent = e.target.value + "%"; });
+$("saturation").addEventListener("input", e => { $("saturationVal").textContent = e.target.value + "%"; });
+function syncFormatUI() {
+  const f = $("format").value;
+  const showQuality = (f === "image/jpeg" || f === "original");
+  $("qualityField").style.opacity = showQuality ? "1" : ".4";
+  $("bgField").style.opacity = (f === "image/jpeg" || f === "original") ? "1" : ".4";
+}
+$("format").addEventListener("change", syncFormatUI);
+
+/* ============================================================
+   שמירת הגדרות אופציונלית (localStorage)
+   ============================================================ */
+const SETTINGS_KEY = "imageResizerSettings";
+
+function saveSettings() {
+  if (!$("rememberSettings").checked) {
+    try { localStorage.removeItem(SETTINGS_KEY); } catch (e) {}
+    return;
+  }
+  const data = {
+    dpi: $("dpi").value,
+    format: $("format").value,
+    quality: $("quality").value,
+    sharpen: $("sharpen").value,
+    saturation: $("saturation").value,
+    bgColor: $("bgColor").value,
+    noUpscale: $("noUpscale").checked,
+    preserveColor: $("preserveColor").checked,
+  };
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(data)); } catch (e) {}
+}
+
+function loadSettings() {
+  let raw = null;
+  try { raw = localStorage.getItem(SETTINGS_KEY); } catch (e) {}
+  if (!raw) return;
+  try {
+    const d = JSON.parse(raw);
+    if (d.dpi != null) $("dpi").value = d.dpi;
+    if (d.format != null) $("format").value = d.format;
+    if (d.quality != null) { $("quality").value = d.quality; $("qualityVal").textContent = d.quality + "%"; }
+    if (d.sharpen != null) { $("sharpen").value = d.sharpen; $("sharpenVal").textContent = d.sharpen + "%"; }
+    if (d.saturation != null) { $("saturation").value = d.saturation; $("saturationVal").textContent = d.saturation + "%"; }
+    if (d.bgColor != null) $("bgColor").value = d.bgColor;
+    if (d.noUpscale != null) $("noUpscale").checked = d.noUpscale;
+    if (d.preserveColor != null) $("preserveColor").checked = d.preserveColor;
+    $("rememberSettings").checked = true; // אם נשמרו הגדרות — הזיכרון פעיל
+  } catch (e) {}
+}
+
+// שמירה בכל שינוי של אחד הפקדים (רק אם "זכור" מסומן)
+["dpi", "format", "quality", "sharpen", "saturation", "bgColor", "noUpscale", "preserveColor"].forEach(id =>
+  $(id).addEventListener("change", saveSettings));
+$("rememberSettings").addEventListener("change", saveSettings);
+
+loadSettings();
+syncFormatUI();
+render();
+</script>
+</body>
+</html>
