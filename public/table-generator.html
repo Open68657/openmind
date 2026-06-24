@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Table &amp; Grid Generator → InDesign (IDML / IDMS)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --txt:#e8ebf0; --muted:#9aa3b2; --accent:#6ea8fe; --accent2:#7bd88f;
+    --danger:#ff6b6b; --radius:10px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Arial,"Noto Sans Hebrew",sans-serif;
+       background:var(--bg);color:var(--txt);font-size:14px}
+  header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header .sub{color:var(--muted);font-size:12px}
+  .wrap{display:grid;grid-template-columns:320px 1fr;gap:0;min-height:calc(100vh - 56px)}
+  .controls{background:var(--panel);border-inline-end:1px solid var(--line);padding:16px;overflow:auto;max-height:calc(100vh - 56px)}
+  .stage{padding:20px;overflow:auto}
+  .group{margin-bottom:18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel2)}
+  .group>summary{cursor:pointer;padding:10px 12px;font-weight:600;list-style:none}
+  .group>summary::-webkit-details-marker{display:none}
+  .group>summary::before{content:"▸";margin-inline-end:8px;color:var(--muted)}
+  .group[open]>summary::before{content:"▾"}
+  .group .body{padding:12px;border-top:1px solid var(--line);display:grid;gap:10px}
+  label.field{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+  label.field>span{font-weight:500}
+  input[type=text],input[type=number],select{background:var(--bg);color:var(--txt);border:1px solid var(--line);
+       border-radius:8px;padding:7px 9px;font-size:13px;width:100%}
+  input[type=color]{width:100%;height:34px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:2px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt)}
+  .chk input{width:16px;height:16px}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--txt);
+       border-radius:8px;padding:8px 12px;font-size:13px;font-weight:500}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#0b1020;border-color:var(--accent);font-weight:600}
+  button.good{background:var(--accent2);color:#06210f;border-color:var(--accent2);font-weight:600}
+  button.ghost{background:transparent}
+  button.sm{padding:4px 8px;font-size:12px}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap}
+  .exportbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+  .hint{color:var(--muted);font-size:12px;line-height:1.5}
+  .hint code{background:var(--panel2);padding:1px 5px;border-radius:4px}
+  /* editor table */
+  .editor-scroll{overflow:auto;border:1px solid var(--line);border-radius:var(--radius);background:#fff;padding:18px}
+  table.edit{border-collapse:collapse;table-layout:fixed;background:#fff;color:#111}
+  table.edit td,table.edit th{border:1px solid #bbb;padding:6px 8px;min-width:60px;vertical-align:top;position:relative;font-size:13px}
+  table.edit td[contenteditable]:focus{outline:2px solid var(--accent)}
+  .colhdr,.rowhdr{background:#eef1f6;color:#444;font-size:11px;text-align:center;user-select:none}
+  .colhdr button,.rowhdr button{background:transparent;border:none;color:#c0392b;cursor:pointer;font-size:12px;padding:0 3px}
+  .colhdr .add,.rowhdr .add{color:#1f7a35}
+  .cornercell{background:#e3e7ee}
+  .previewbox{margin-top:16px}
+  .pageprev{background:#fff;margin:10px auto;box-shadow:0 0 0 1px #ccc, 0 8px 30px rgba(0,0,0,.4);position:relative;overflow:hidden}
+  .pageprev .ptable{position:absolute;}
+  .pagemeta{text-align:center;color:var(--muted);font-size:12px}
+  .tag{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:11px;color:var(--muted)}
+  textarea{width:100%;min-height:90px;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+  .status{font-size:12px;color:var(--muted);margin-top:8px;min-height:16px}
+  .danger{color:var(--danger)}
+  .ok{color:var(--accent2)}
+  a.dl{display:none}
+  details.help summary{cursor:pointer;color:var(--accent);font-size:12px}
+  details.help{margin-top:6px}
+  .swatchrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧮 Table &amp; Grid Generator</h1>
+  <span class="sub">Build a table → export a native, fully-editable InDesign <b>.idml</b> document or <b>.idms</b> snippet</span>
+  <span class="tag" id="dimtag"></span>
+</header>
+
+<div class="wrap">
+  <!-- ============ CONTROLS ============ -->
+  <aside class="controls" id="controls">
+
+    <details class="group" open>
+      <summary>Page &amp; units</summary>
+      <div class="body">
+        <label class="field"><span>Page preset</span>
+          <select id="pagePreset">
+            <option value="a4" selected>A4 — 210 × 297 mm</option>
+            <option value="a3">A3 — 297 × 420 mm</option>
+            <option value="a5">A5 — 148 × 210 mm</option>
+            <option value="letter">US Letter — 215.9 × 279.4 mm</option>
+            <option value="custom">Custom…</option>
+            <option value="none">No page — table only (place into your own doc)</option>
+          </select>
+        </label>
+        <div class="row2">
+          <label class="field"><span>Page width (mm)</span><input type="number" id="pageW" value="210" step="0.1"></label>
+          <label class="field"><span>Page height (mm)</span><input type="number" id="pageH" value="297" step="0.1"></label>
+        </div>
+        <label class="field"><span>Margin (mm)</span><input type="number" id="margin" value="15" step="0.5"></label>
+        <label class="chk"><input type="checkbox" id="orientL"> Landscape</label>
+      </div>
+    </details>
+
+    <details class="group" open>
+      <summary>Direction &amp; font</summary>
+      <div class="body">
+        <label class="field"><span>Reading direction</span>
+          <select id="direction">
+            <option value="rtl" selected>RTL — right to left (עברית)</option>
+            <option value="ltr">LTR — left to right</option>
+          </select>
+        </label>
+        <label class="field"><span>Font family (must be installed in InDesign)</span>
+          <input type="text" id="fontFamily" list="fontlist" value="Arial" placeholder="e.g. Open Sans Hebrew">
+          <datalist id="fontlist">
+            <option>Arial</option><option>Helvetica</option><option>Times New Roman</option>
+            <option>Georgia</option><option>Verdana</option><option>Tahoma</option>
+            <option>Open Sans</option><option>Open Sans Hebrew</option><option>Noto Sans Hebrew</option>
+            <option>Assistant</option><option>Heebo</option><option>Rubik</option>
+            <option>David</option><option>Frank Ruehl</option><option>Narkisim</option>
+            <option>Myriad Pro</option><option>Minion Pro</option><option>Adobe Hebrew</option>
+          </datalist>
+        </label>
+        <div class="row2">
+          <label class="field"><span>Font size (pt)</span><input type="number" id="fontSize" value="10" step="0.5" min="1"></label>
+          <label class="field"><span>Text align</span>
+            <select id="align">
+              <option value="start">Start (per direction)</option>
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </details>
+
+    <details class="group" open>
+      <summary>Sizing</summary>
+      <div class="body">
+        <label class="field"><span>Column width mode</span>
+          <select id="colMode">
+            <option value="auto" selected>Equal — fit table width</option>
+            <option value="fixed">Fixed width per column</option>
+          </select>
+        </label>
+        <label class="field" id="tableWwrap"><span>Total table width (mm)</span><input type="number" id="tableW" value="180" step="1"></label>
+        <label class="field"><span>Min row height (mm)</span><input type="number" id="rowH" value="8" step="0.5"></label>
+        <label class="field"><span>Cell padding (mm)</span><input type="number" id="padding" value="1.5" step="0.25"></label>
+      </div>
+    </details>
+
+    <details class="group" open>
+      <summary>Style</summary>
+      <div class="body">
+        <label class="chk"><input type="checkbox" id="headerRow" checked> First row is a header</label>
+        <label class="chk"><input type="checkbox" id="headerBold" checked> Bold header text</label>
+        <div class="swatchrow"><label class="field" style="margin:0"><span>Header fill</span></label><input type="color" id="headerFill" value="#2a3550"></div>
+        <div class="swatchrow"><label class="field" style="margin:0"><span>Header text</span></label><input type="color" id="headerText" value="#ffffff"></div>
+        <hr style="border-color:var(--line);width:100%">
+        <label class="chk"><input type="checkbox" id="altRows" checked> Alternating row shading</label>
+        <div class="row2">
+          <div class="swatchrow"><label class="field" style="margin:0"><span>Row A</span></label><input type="color" id="rowA" value="#ffffff"></div>
+          <div class="swatchrow"><label class="field" style="margin:0"><span>Row B</span></label><input type="color" id="rowB" value="#eef1f6"></div>
+        </div>
+        <div class="swatchrow"><label class="field" style="margin:0"><span>Body text</span></label><input type="color" id="bodyText" value="#111111"></div>
+        <hr style="border-color:var(--line);width:100%">
+        <div class="row2">
+          <label class="field"><span>Border weight (pt)</span><input type="number" id="borderW" value="0.5" step="0.25" min="0"></label>
+          <div class="swatchrow"><label class="field" style="margin:0"><span>Border color</span></label><input type="color" id="borderColor" value="#999999"></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="group">
+      <summary>Import data</summary>
+      <div class="body">
+        <div class="hint">Paste from Excel / Google Sheets (tab-separated) or CSV, then click <b>Build from data</b>. The first line can be your header.</div>
+        <textarea id="pasteData" placeholder="Name&#9;Role&#9;Email&#10;Dana&#9;Designer&#9;dana@x.com"></textarea>
+        <div class="btnrow">
+          <button class="sm" id="buildFromData">Build from data</button>
+          <button class="sm ghost" id="loadSample">Load sample</button>
+        </div>
+      </div>
+    </details>
+
+    <div class="hint" style="margin-top:8px">
+      Tip: edit cells directly in the grid on the right. Use the green <b>+</b> / red <b>×</b> on row &amp; column headers to add or remove.
+    </div>
+  </aside>
+
+  <!-- ============ STAGE ============ -->
+  <main class="stage">
+    <div class="exportbar">
+      <button class="primary" id="exportIdml">⬇ Download .idml (InDesign document)</button>
+      <button class="good" id="exportIdms">⬇ Download .idms (InDesign snippet)</button>
+      <button id="copyHtml" class="ghost">Copy HTML table</button>
+      <button id="exportCsv" class="ghost">⬇ CSV</button>
+    </div>
+    <div class="status" id="status"></div>
+
+    <div class="toolbar">
+      <button class="sm" id="addRow">+ Row</button>
+      <button class="sm" id="addCol">+ Column</button>
+      <span class="hint" id="gridinfo"></span>
+    </div>
+
+    <div class="editor-scroll">
+      <table class="edit" id="editTable"></table>
+    </div>
+
+    <div class="previewbox">
+      <h3 style="margin:18px 0 4px">Print preview <span class="hint">(scaled — shows real page &amp; table proportions)</span></h3>
+      <div class="pagemeta" id="pagemeta"></div>
+      <div id="pageContainer"></div>
+    </div>
+
+    <details class="help">
+      <summary>How to use the exports in InDesign &amp; Illustrator</summary>
+      <div class="hint" style="margin-top:8px;line-height:1.7">
+        <b>.idml</b> → In InDesign: <code>File ▸ Open</code> the .idml. It opens as a new, untitled document with a fully native, editable table — change cells, strokes, fills, and use all the Table tools.<br>
+        <b>.idms</b> → A snippet. Drag the file straight from Finder/Explorer <b>onto an open InDesign layout</b> (or <code>File ▸ Place</code>). The table drops in as a native table you can keep editing.<br>
+        <b>Fonts</b> → InDesign renders with the font you named only if it is installed; otherwise it flags a missing font (text stays editable — just re-pick the font).<br>
+        <b>Illustrator</b> → Illustrator has no native table object. Best path today: open the .idml in InDesign and copy/paste the table into Illustrator (it becomes editable text + vector strokes), or ask for a future SVG export.
+      </div>
+    </details>
+  </main>
+</div>
+
+<a class="dl" id="dlanchor"></a>
+
+<script>
+/* =========================================================================
+   STATE
+   ========================================================================= */
+const MM = 72/25.4;               // mm -> points
+const round = (n,d=4)=>Math.round(n*10**d)/10**d;
+
+const state = {
+  data: [
+    ["שם","תפקיד","אימייל"],
+    ["דנה כהן","מעצבת","dana@open.co.il"],
+    ["יוסי לוי","קופירייטר","yossi@open.co.il"],
+    ["מאיה בר","אמנית","maya@open.co.il"],
+  ],
+};
+
+/* ---- read all controls into one model ---- */
+function getModel(){
+  const rows = state.data.length;
+  const cols = Math.max(...state.data.map(r=>r.length),1);
+  const landscape = el('orientL').checked;
+  let pw = parseFloat(el('pageW').value)||210;
+  let ph = parseFloat(el('pageH').value)||297;
+  if(landscape && pw<ph){ [pw,ph]=[ph,pw]; }
+  const pagePreset = el('pagePreset').value;
+  const colMode = el('colMode').value;
+  const tableW = parseFloat(el('tableW').value)||180;
+  let colWidths;
+  if(colMode==='fixed'){
+    colWidths = state.colWidths && state.colWidths.length===cols
+      ? state.colWidths.slice()
+      : Array(cols).fill(round(tableW/cols,2));
+  }else{
+    colWidths = Array(cols).fill(round(tableW/cols,3));
+  }
+  return {
+    rows, cols,
+    cells: state.data.map(r=>{const a=r.slice();while(a.length<cols)a.push("");return a;}),
+    pagePreset,
+    page:{w:pw,h:ph},
+    margin: parseFloat(el('margin').value)||0,
+    direction: el('direction').value,
+    fontFamily: (el('fontFamily').value||'Arial').trim(),
+    fontSize: parseFloat(el('fontSize').value)||10,
+    align: el('align').value,
+    colWidths,
+    tableW,
+    rowH: parseFloat(el('rowH').value)||8,
+    padding: parseFloat(el('padding').value)||0,
+    headerRow: el('headerRow').checked,
+    headerBold: el('headerBold').checked,
+    headerFill: el('headerFill').value,
+    headerText: el('headerText').value,
+    altRows: el('altRows').checked,
+    rowA: el('rowA').value,
+    rowB: el('rowB').value,
+    bodyText: el('bodyText').value,
+    borderW: parseFloat(el('borderW').value)||0,
+    borderColor: el('borderColor').value,
+  };
+}
+
+/* =========================================================================
+   SMALL HELPERS
+   ========================================================================= */
+function el(id){return document.getElementById(id);}
+function escXml(s){return String(s==null?'':s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&apos;');}
+function hexToRgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');
+  return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+function isWhite(h){const[r,g,b]=hexToRgb(h);return r>=253&&g>=253&&b>=253;}
+
+/* =========================================================================
+   IDML / IDMS BUILDER  (pure functions of the model)
+   IDML is a ZIP package; IDMS is a single self-contained XML snippet.
+   They share the same Story / TextFrame / resource fragments.
+   ========================================================================= */
+
+// Collect unique colours used and assign IDML Self ids.
+function buildColorTable(m){
+  const map = new Map();   // hex -> {self, rgb}
+  const need = (hex)=>{
+    if(!hex) return null;
+    const key = hex.toLowerCase();
+    if(map.has(key)) return map.get(key).self;
+    const self = 'Color/u'+key.replace('#','');
+    map.set(key,{self, rgb:hexToRgb(hex)});
+    return self;
+  };
+  const refs = {
+    border: need(m.borderColor),
+    headerFill: need(m.headerFill),
+    headerText: need(m.headerText),
+    rowA: need(m.rowA),
+    rowB: need(m.rowB),
+    bodyText: need(m.bodyText),
+  };
+  return {map, refs};
+}
+
+function colorsXml(map){
+  let out='';
+  for(const {self,rgb} of map.values()){
+    out += `\n  <Color Self="${self}" Model="Process" Space="RGB" `+
+           `ColorValue="${rgb.join(' ')}" Name="${rgb.join(' ')}" `+
+           `ColorEditable="true" ColorRemovable="true" Visible="true" `+
+           `SwatchCreatorID="7937"/>`;
+  }
+  return out;
+}
+
+// Graphic.xml content (colours + a couple of mandatory swatches/inks)
+function buildGraphic(map){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<idPkg:Graphic xmlns:idPkg="http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging" DOMVersion="13.1">
+  <Color Self="Color/Black" Model="Process" Space="CMYK" ColorValue="0 0 0 100" Name="Black" ColorEditable="false" ColorRemovable="false" Visible="true" SwatchCreatorID="7937"/>
+  <Color Self="Color/Paper" Model="Process" Space="CMYK" ColorValue="0 0 0 0" Name="Paper" ColorEditable="true" ColorRemovable="false" Visible="true" SwatchCreatorID="7937"/>
+  <Swatch Self="Swatch/None" Name="None" Visible="true" SwatchCreatorID="7937"/>
+  <Ink Self="Ink/$ID/Process Cyan" Name="$ID/Process Cyan" Angle="75" ConvertToProcess="false" Frequency="70" NeutralDensity="0.61" PrintInk="true" TrapOrder="1" InkType="Normal"/>
+  <Ink Self="Ink/$ID/Process Magenta" Name="$ID/Process Magenta" Angle="15" ConvertToProcess="false" Frequency="70" NeutralDensity="0.76" PrintInk="true" TrapOrder="2" InkType="Normal"/>
+  <Ink Self="Ink/$ID/Process Yellow" Name="$ID/Process Yellow" Angle="0" ConvertToProcess="false" Frequency="70" NeutralDensity="0.16" PrintInk="true" TrapOrder="3" InkType="Normal"/>
+  <Ink Self="Ink/$ID/Process Black" Name="$ID/Process Black" Angle="45" ConvertToProcess="false" Frequency="70" NeutralDensity="1.7" PrintInk="true" TrapOrder="4" InkType="Normal"/>
+  <StrokeStyle Self="StrokeStyle/$ID/Solid" Name="$ID/Solid"/>${colorsXml(map)}
+</idPkg:Graphic>`;
+}
+
+// Fonts.xml  (one family / regular face; bold face referenced by style name)
+function buildFonts(m){
+  const fam = escXml(m.fontFamily);
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<idPkg:Fonts xmlns:idPkg="http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging" DOMVersion="13.1">
+  <FontFamily Self="di_font_fam" Name="${fam}">
+    <Font Self="font_reg" FontFamily="${fam}" Name="${fam} Regular" PostScriptName="${fam}" Status="Installed" FontStyleName="Regular" FontStyleNameNative="Regular" FontType="OpenTypeCFF" WritingScript="0" PlatformName="$ID/" FullName="${fam}" FullNameNative="${fam}"/>
+    <Font Self="font_bold" FontFamily="${fam}" Name="${fam} Bold" PostScriptName="${fam}-Bold" Status="Installed" FontStyleName="Bold" FontStyleNameNative="Bold" FontType="OpenTypeCFF" WritingScript="0" PlatformName="$ID/" FullName="${fam} Bold" FullNameNative="${fam} Bold"/>
+  </FontFamily>
+</idPkg:Fonts>`;
+}
+
+// Preferences.xml — document size + measurement units (mm)
+function buildPreferences(m){
+  const pw = round(m.page.w*MM,3), ph = round(m.page.h*MM,3);
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<idPkg:Preferences xmlns:idPkg="http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging" DOMVersion="13.1">
+  <DocumentPreference PageHeight="${ph}" PageWidth="${pw}" PagesPerDocument="1" FacingPages="false" DocumentBleedTopOffset="0" DocumentBleedBottomOffset="0" DocumentBleedInsideOrLeftOffset="0" DocumentBleedOutsideOrRightOffset="0" PageBinding="${m.direction==='rtl'?'RightToLeft':'LeftToRight'}"/>
+  <ViewPreference HorizontalMeasurementUnits="Millimeters" VerticalMeasurementUnits="Millimeters" RulerOrigin="PageOrigin"/>
+  <TextDefault AppliedFont="${escXml(m.fontFamily)}" PointSize="${m.fontSize}" AppliedLanguage="$ID/${m.direction==='rtl'?'Hebrew':'English: USA'}"/>
+  <TransparencyDefaultContainerObject/>
+</idPkg:Preferences>`;
+}
+
+// Styles.xml — the root style groups InDesign requires + Basic Table style
+function buildStyles(m){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<idPkg:Styles xmlns:idPkg="http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging" DOMVersion="13.1">
+  <RootCharacterStyleGroup Self="u_rcsg">
+    <CharacterStyle Self="CharacterStyle/$ID/[No character style]" Name="$ID/[No character style]" Imported="false"/>
+  </RootCharacterStyleGroup>
+  <RootParagraphStyleGroup Self="u_rpsg">
+    <ParagraphStyle Self="ParagraphStyle/$ID/[No paragraph style]" Name="$ID/[No paragraph style]" Imported="false"/>
+    <ParagraphStyle Self="ParagraphStyle/$ID/NormalParagraphStyle" Name="$ID/NormalParagraphStyle" Imported="false" NextStyle="ParagraphStyle/$ID/NormalParagraphStyle" AppliedFont="${escXml(m.fontFamily)}" PointSize="${m.fontSize}"/>
+  </RootParagraphStyleGroup>
+  <RootCellStyleGroup Self="u_rcellsg">
+    <CellStyle Self="CellStyle/$ID/[None]" Name="$ID/[None]" Imported="false"/>
+  </RootCellStyleGroup>
+  <RootTableStyleGroup Self="u_rtsg">
+    <TableStyle Self="TableStyle/$ID/[No table style]" Name="$ID/[No table style]" Imported="false"/>
+    <TableStyle Self="TableStyle/$ID/[Basic Table]" Name="$ID/[Basic Table]" Imported="false" BodyRegionCellStyle="CellStyle/$ID/[None]" HeaderRegionCellStyle="CellStyle/$ID/[None]" FooterRegionCellStyle="CellStyle/$ID/[None]" LeftColumnRegionCellStyle="CellStyle/$ID/[None]" RightColumnRegionCellStyle="CellStyle/$ID/[None]"/>
+  </RootTableStyleGroup>
+  <RootObjectStyleGroup Self="u_rosg">
+    <ObjectStyle Self="ObjectStyle/$ID/[None]" Name="$ID/[None]" Imported="false" AppliedParagraphStyle="ParagraphStyle/$ID/[No paragraph style]"/>
+    <ObjectStyle Self="ObjectStyle/$ID/[Normal Graphics Frame]" Name="$ID/[Normal Graphics Frame]" Imported="false"/>
+    <ObjectStyle Self="ObjectStyle/$ID/[Normal Text Frame]" Name="$ID/[Normal Text Frame]" Imported="false"/>
+    <ObjectStyle Self="ObjectStyle/$ID/[Normal Grid]" Name="$ID/[Normal Grid]" Imported="false"/>
+  </RootObjectStyleGroup>
+  <TOCStyle Self="TOCStyle/$ID/[Default TOC Style]" Name="$ID/[Default TOC Style]"/>
+</idPkg:Styles>`;
+}
+
+/* ---- the Table element (shared by Story for both IDML & IDMS) ---- */
+function buildTableElement(m, colors){
+  const r = colors.refs;
+  const headerCount = m.headerRow?1:0;
+  const bodyCount = m.rows - headerCount;
+  const tableDir = m.direction==='rtl'?'RightToLeftDirection':'LeftToRightDirection';
+
+  let rowsXml='';
+  for(let ri=0; ri<m.rows; ri++){
+    rowsXml += `\n      <Row Self="tbl_row${ri}" Name="${ri}" `+
+      `RowType="${(headerCount&&ri<headerCount)?'HeaderRow':'BodyRow'}" `+
+      `AutoGrow="true" MinimumHeight="${round(m.rowH*MM,3)}" SingleRowHeight="${round(m.rowH*MM,3)}"/>`;
+  }
+  let colsXml='';
+  for(let ci=0; ci<m.cols; ci++){
+    colsXml += `\n      <Column Self="tbl_col${ci}" Name="${ci}" SingleColumnWidth="${round(m.colWidths[ci]*MM,3)}"/>`;
+  }
+
+  // cells: column-major order, Name="col:row"
+  let cellsXml='';
+  const inset = round(m.padding*MM,3);
+  const bw = m.borderW;
+  for(let ci=0; ci<m.cols; ci++){
+    for(let ri=0; ri<m.rows; ri++){
+      const isHeader = headerCount && ri<headerCount;
+      let fill='Swatch/None', tint='-1';
+      if(isHeader && !isWhite(m.headerFill)){ fill=r.headerFill; tint='100'; }
+      else if(!isHeader){
+        const bodyIndex = ri-headerCount;
+        const useB = m.altRows && (bodyIndex%2===1);
+        const hex = useB?m.rowB:m.rowA;
+        if(!isWhite(hex)){ fill=(useB?r.rowB:r.rowA); tint='100'; }
+      }
+      const strokeAttrs = bw>0
+        ? `TopEdgeStrokeWeight="${bw}" BottomEdgeStrokeWeight="${bw}" LeftEdgeStrokeWeight="${bw}" RightEdgeStrokeWeight="${bw}" `+
+          `TopEdgeStrokeColor="${r.border}" BottomEdgeStrokeColor="${r.border}" LeftEdgeStrokeColor="${r.border}" RightEdgeStrokeColor="${r.border}" `+
+          `TopEdgeStrokeType="StrokeStyle/$ID/Solid" BottomEdgeStrokeType="StrokeStyle/$ID/Solid" LeftEdgeStrokeType="StrokeStyle/$ID/Solid" RightEdgeStrokeType="StrokeStyle/$ID/Solid" `
+        : `TopEdgeStrokeWeight="0" BottomEdgeStrokeWeight="0" LeftEdgeStrokeWeight="0" RightEdgeStrokeWeight="0" `;
+
+      const txtColor = isHeader ? r.headerText : r.bodyText;
+      const bold = isHeader && m.headerBold;
+      const just = alignToJust(m.align, m.direction);
+      const content = escXml(m.cells[ri][ci]);
+
+      cellsXml += `\n      <Cell Self="tbl_c_${ci}_${ri}" Name="${ci}:${ri}" RowSpan="1" ColumnSpan="1" `+
+        `AppliedCellStyle="CellStyle/$ID/[None]" CellType="TextTypeCell" `+
+        `TopInset="${inset}" BottomInset="${inset}" LeftInset="${inset}" RightInset="${inset}" `+
+        `${strokeAttrs}FillColor="${fill}" FillTint="${tint}" VerticalJustification="CenterAlign">`+
+        `\n        <ParagraphStyleRange AppliedParagraphStyle="ParagraphStyle/$ID/NormalParagraphStyle" Justification="${just}">`+
+        `\n          <CharacterStyleRange AppliedCharacterStyle="CharacterStyle/$ID/[No character style]" AppliedFont="${escXml(m.fontFamily)}" FontStyle="${bold?'Bold':'Regular'}" PointSize="${m.fontSize}" FillColor="${txtColor}">`+
+        `\n            <Content>${content}</Content>`+
+        `\n          </CharacterStyleRange>`+
+        `\n        </ParagraphStyleRange>`+
+        `\n      </Cell>`;
+    }
+  }
+
+  return `<Table Self="tbl_main" AppliedTableStyle="TableStyle/$ID/[Basic Table]" TableDirection="${tableDir}" `+
+    `HeaderRowCount="${headerCount}" FooterRowCount="0" BodyRowCount="${bodyCount}" ColumnCount="${m.cols}">`+
+    rowsXml + colsXml + cellsXml + `\n    </Table>`;
+}
+
+function alignToJust(align, dir){
+  if(align==='center') return 'CenterAlign';
+  if(align==='left') return 'LeftAlign';
+  if(align==='right') return 'RightAlign';
+  // start -> follow direction
+  return dir==='rtl'?'RightAlign':'LeftAlign';
+}
+
+/* ---- Story (table lives inside a story) ---- */
+function buildStoryInner(m, colors){
+  const dir = m.direction==='rtl'?'RightToLeftDirection':'LeftToRightDirection';
+  return `<Story Self="story_main" AppliedTOCStyle="n" TrackChanges="false" StoryTitle="$ID/" AppliedNamedGrid="n">
+    <StoryPreference OpticalMarginAlignment="false" OpticalMarginSize="12" FrameType="TextFrameType" StoryOrientation="Horizontal" StoryDirection="${dir}"/>
+    <ParagraphStyleRange AppliedParagraphStyle="ParagraphStyle/$ID/NormalParagraphStyle">
+      <CharacterStyleRange AppliedCharacterStyle="CharacterStyle/$ID/[No character style]">
+        ${buildTableElement(m,colors)}
+      </CharacterStyleRange>
+    </ParagraphStyleRange>
+  </Story>`;
+}
+
+function buildStoryFile(m, colors){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<idPkg:Story xmlns:idPkg="http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging" DOMVersion="13.1">
+  ${buildStoryInner(m,colors)}
+</idPkg:Story>`;
+}
+
+/* ---- TextFrame holding the story (geometry in points) ---- */
+function tableWidthMM(m){ return m.colWidths.reduce((a,b)=>a+b,0); }
+function tableHeightMM(m){ return m.rows*m.rowH; }
+
+function buildTextFrame(m){
+  const noPage = m.pagePreset==='none';
+  const wpt = round(tableWidthMM(m)*MM,3);
+  const hpt = round(tableHeightMM(m)*MM,3);
+  // top-left anchor inside margins; for RTL keep frame within page too
+  const x = noPage?0:round(m.margin*MM,3);
+  const y = noPage?0:round(m.margin*MM,3);
+  // local path 0..w / 0..h, translated by ItemTransform
+  return `<TextFrame Self="frame_main" ParentStory="story_main" ContentType="TextType" `+
+    `AppliedObjectStyle="ObjectStyle/$ID/[Normal Text Frame]" ItemTransform="1 0 0 1 ${x} ${y}" `+
+    `StoryTitle="$ID/" OverriddenPageItemProps="" Visible="true" Name="$ID/">`+
+    `\n    <Properties>`+
+    `\n      <PathGeometry>`+
+    `\n        <GeometryPathType PathOpen="false">`+
+    `\n          <PathPointArray>`+
+    `\n            <PathPointType Anchor="0 0" LeftDirection="0 0" RightDirection="0 0"/>`+
+    `\n            <PathPointType Anchor="0 ${hpt}" LeftDirection="0 ${hpt}" RightDirection="0 ${hpt}"/>`+
+    `\n            <PathPointType Anchor="${wpt} ${hpt}" LeftDirection="${wpt} ${hpt}" RightDirection="${wpt} ${hpt}"/>`+
+    `\n            <PathPointType Anchor="${wpt} 0" LeftDirection="${wpt} 0" RightDirection="${wpt} 0"/>`+
+    `\n          </PathPointArray>`+
+    `\n        </GeometryPathType>`+
+    `\n      </PathGeometry>`+
+    `\n      <TextFramePreference AutoSizingReferencePoint="TopLeftPoint" AutoSizingType="HeightOnly"/>`+
+    `\n    </Properties>`+
+    `\n  </TextFrame>`;
+}
+
+/* ---- Spread (page + the text frame) ---- */
+function buildSpread(m){
+  const noPage = m.pagePreset==='none';
+  const pw = round(m.page.w*MM,3), ph = round(m.page.h*MM,3);
+  const page = noPage ? '' :
+    `\n    <Page Self="page_1" Name="1" AppliedMaster="n" GeometricBounds="0 0 ${ph} ${pw}" ItemTransform="1 0 0 1 0 0" `+
+    `UseMasterGrid="true" OverrideList="">`+
+    `\n      <MarginPreference Top="${round(m.margin*MM,3)}" Bottom="${round(m.margin*MM,3)}" Left="${round(m.margin*MM,3)}" Right="${round(m.margin*MM,3)}" ColumnCount="1" ColumnGutter="12"/>`+
+    `\n    </Page>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<idPkg:Spread xmlns:idPkg="http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging" DOMVersion="13.1">
+  <Spread Self="spread_1" PageCount="${noPage?0:1}" BindingLocation="0" ShowMasterItems="true" PageTransitionType="None" ItemTransform="1 0 0 1 0 0">
+    <FlattenerPreference LineArtAndTextResolution="300" GradientAndMeshResolution="150" ClipComplexRegions="false" ConvertAllStrokesToOutlines="false" ConvertAllTextToOutlines="false"/>${page}
+    ${buildTextFrame(m)}
+  </Spread>
+</idPkg:Spread>`;
+}
+
+/* ---- designmap, container, metadata, backing story, tags ---- */
+function buildDesignMap(m){
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?aid style="50" type="document" readerVersion="6.0" featureSet="257" product="13.1(202)" ?>
+<Document xmlns:idPkg="http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging" DOMVersion="13.1" Self="doc_main" StoryList="story_main" Name="table.idml" ZeroPoint="0 0" ActiveLayer="layer_1" CMYKProfile="$ID/" RGBProfile="$ID/">
+  <Language Self="lang_he" Name="$ID/Hebrew" SingleQuotes="‘’" DoubleQuotes="“”" PrimaryLanguageName="$ID/Hebrew" SubLanguageName="$ID/" Id="2049" HyphenationVendor="Hunspell" SpellingVendor="Hunspell"/>
+  <Layer Self="layer_1" Name="Layer 1" Visible="true" Locked="false" IgnoreWrap="false" ShowGuides="true" LockGuides="false" UI="true" Expendable="true" Printable="true"/>
+  <idPkg:Graphic src="Resources/Graphic.xml"/>
+  <idPkg:Fonts src="Resources/Fonts.xml"/>
+  <idPkg:Styles src="Resources/Styles.xml"/>
+  <idPkg:Preferences src="Resources/Preferences.xml"/>
+  <idPkg:Tags src="XML/Tags.xml"/>
+  <idPkg:Spread src="Spreads/Spread_1.xml"/>
+  <idPkg:BackingStory src="XML/BackingStory.xml"/>
+  <idPkg:Story src="Stories/Story_main.xml"/>
+</Document>`;
+}
+const CONTAINER_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Manifest xmlns="urn:oasis:names:tc:opendocument:xmlns:container" DOMVersion="13.1">
+  <Mimetype>application/vnd.adobe.indesign-idml-package</Mimetype>
+</Manifest>`;
+const METADATA_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<MetadataPacket><x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"></rdf:RDF></x:xmpmeta></MetadataPacket>`;
+const BACKING_STORY = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<idPkg:BackingStory xmlns:idPkg="http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging" DOMVersion="13.1">
+  <XmlStory Self="backing_story" AppliedTOCStyle="n" TrackChanges="false" StoryTitle="$ID/" AppliedNamedGrid="n">
+    <StoryPreference OpticalMarginAlignment="false" OpticalMarginSize="12" FrameType="TextFrameType" StoryOrientation="Horizontal" StoryDirection="LeftToRightDirection"/>
+    <ParagraphStyleRange AppliedParagraphStyle="ParagraphStyle/$ID/[No paragraph style]">
+      <CharacterStyleRange AppliedCharacterStyle="CharacterStyle/$ID/[No character style]"><Content></Content></CharacterStyleRange>
+    </ParagraphStyleRange>
+  </XmlStory>
+</idPkg:BackingStory>`;
+const TAGS_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<idPkg:Tags xmlns:idPkg="http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging" DOMVersion="13.1">
+  <XMLTag Self="XMLTag/Root" Name="Root"><Properties><TagColor type="enumeration">LightBlue</TagColor></Properties></XMLTag>
+</idPkg:Tags>`;
+
+/* ---- assemble the .idml ZIP ---- */
+async function buildIdmlBlob(m){
+  const colors = buildColorTable(m);
+  const zip = new JSZip();
+  // mimetype MUST be first and stored (uncompressed)
+  zip.file('mimetype','application/vnd.adobe.indesign-idml-package',{compression:'STORE'});
+  zip.file('META-INF/container.xml',CONTAINER_XML);
+  zip.file('META-INF/metadata.xml',METADATA_XML);
+  zip.file('designmap.xml',buildDesignMap(m));
+  zip.file('Resources/Graphic.xml',buildGraphic(colors.map));
+  zip.file('Resources/Fonts.xml',buildFonts(m));
+  zip.file('Resources/Styles.xml',buildStyles(m));
+  zip.file('Resources/Preferences.xml',buildPreferences(m));
+  zip.file('Spreads/Spread_1.xml',buildSpread(m));
+  zip.file('Stories/Story_main.xml',buildStoryFile(m,colors));
+  zip.file('XML/BackingStory.xml',BACKING_STORY);
+  zip.file('XML/Tags.xml',TAGS_XML);
+  return await zip.generateAsync({type:'blob',mimeType:'application/vnd.adobe.indesign-idml-package'});
+}
+
+/* ---- assemble the .idms snippet (single XML) ---- */
+function buildIdmsString(m){
+  const colors = buildColorTable(m);
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?aid style="50" type="snippet" readerVersion="6.0" featureSet="257" product="13.1(202)" ?>
+<?aid SnippetType="InDesignSnippet"?>
+<Document xmlns:idPkg="http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging" DOMVersion="13.1" Self="doc_snip">
+  <Color Self="Color/Black" Model="Process" Space="CMYK" ColorValue="0 0 0 100" Name="Black" ColorEditable="false" ColorRemovable="false" Visible="true" SwatchCreatorID="7937"/>
+  <Swatch Self="Swatch/None" Name="None" Visible="true" SwatchCreatorID="7937"/>
+  <StrokeStyle Self="StrokeStyle/$ID/Solid" Name="$ID/Solid"/>${colorsXml(colors.map)}
+  <FontFamily Self="di_font_fam" Name="${escXml(m.fontFamily)}">
+    <Font Self="font_reg" FontFamily="${escXml(m.fontFamily)}" Name="${escXml(m.fontFamily)} Regular" PostScriptName="${escXml(m.fontFamily)}" Status="Installed" FontStyleName="Regular" FontType="OpenTypeCFF"/>
+    <Font Self="font_bold" FontFamily="${escXml(m.fontFamily)}" Name="${escXml(m.fontFamily)} Bold" PostScriptName="${escXml(m.fontFamily)}-Bold" Status="Installed" FontStyleName="Bold" FontType="OpenTypeCFF"/>
+  </FontFamily>
+  <RootCharacterStyleGroup Self="u_rcsg">
+    <CharacterStyle Self="CharacterStyle/$ID/[No character style]" Name="$ID/[No character style]"/>
+  </RootCharacterStyleGroup>
+  <RootParagraphStyleGroup Self="u_rpsg">
+    <ParagraphStyle Self="ParagraphStyle/$ID/[No paragraph style]" Name="$ID/[No paragraph style]"/>
+    <ParagraphStyle Self="ParagraphStyle/$ID/NormalParagraphStyle" Name="$ID/NormalParagraphStyle" AppliedFont="${escXml(m.fontFamily)}" PointSize="${m.fontSize}"/>
+  </RootParagraphStyleGroup>
+  <RootCellStyleGroup Self="u_rcellsg">
+    <CellStyle Self="CellStyle/$ID/[None]" Name="$ID/[None]"/>
+  </RootCellStyleGroup>
+  <RootTableStyleGroup Self="u_rtsg">
+    <TableStyle Self="TableStyle/$ID/[No table style]" Name="$ID/[No table style]"/>
+    <TableStyle Self="TableStyle/$ID/[Basic Table]" Name="$ID/[Basic Table]"/>
+  </RootTableStyleGroup>
+  <RootObjectStyleGroup Self="u_rosg">
+    <ObjectStyle Self="ObjectStyle/$ID/[None]" Name="$ID/[None]"/>
+    <ObjectStyle Self="ObjectStyle/$ID/[Normal Text Frame]" Name="$ID/[Normal Text Frame]"/>
+  </RootObjectStyleGroup>
+  <Spread Self="spread_snip" PageCount="0" ItemTransform="1 0 0 1 0 0">
+    ${buildTextFrame(m)}
+  </Spread>
+  ${buildStoryInner(m,colors)}
+</Document>`;
+}
+
+/* =========================================================================
+   DOWNLOAD HELPERS
+   ========================================================================= */
+function downloadBlob(blob,name){
+  const a=el('dlanchor');
+  const url=URL.createObjectURL(blob);
+  a.href=url; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+function setStatus(msg,cls=''){const s=el('status');s.textContent=msg;s.className='status '+cls;}
+
+/* =========================================================================
+   EDITOR GRID RENDERING
+   ========================================================================= */
+function renderEditor(){
+  const t=el('editTable');
+  const rows=state.data.length;
+  const cols=Math.max(...state.data.map(r=>r.length),1);
+  // normalise ragged rows
+  state.data.forEach(r=>{while(r.length<cols)r.push("");});
+  const headerOn=el('headerRow').checked;
+
+  let html='<tr><th class="cornercell"></th>';
+  for(let c=0;c<cols;c++){
+    html+=`<th class="colhdr">C${c+1} <button class="add" data-addcol="${c}" title="Add column after">+</button>`+
+          (cols>1?`<button data-delcol="${c}" title="Delete column">×</button>`:'')+`</th>`;
+  }
+  html+='</tr>';
+  for(let r=0;r<rows;r++){
+    html+=`<tr><th class="rowhdr">R${r+1} <button class="add" data-addrow="${r}" title="Add row after">+</button>`+
+          (rows>1?`<button data-delrow="${r}" title="Delete row">×</button>`:'')+`</th>`;
+    for(let c=0;c<cols;c++){
+      const isH=headerOn&&r===0;
+      const tag=isH?'th':'td';
+      const style=isH?'background:#f3f5fa;font-weight:600':'';
+      html+=`<${tag} contenteditable="true" data-r="${r}" data-c="${c}" style="${style}">${escHtml(state.data[r][c])}</${tag}>`;
+    }
+    html+='</tr>';
+  }
+  t.innerHTML=html;
+
+  // bind cell edits
+  t.querySelectorAll('[contenteditable]').forEach(cell=>{
+    cell.addEventListener('input',e=>{
+      state.data[+cell.dataset.r][+cell.dataset.c]=cell.innerText;
+      schedulePreview();
+    });
+    cell.addEventListener('paste',onCellPaste);
+  });
+  t.querySelectorAll('[data-addcol]').forEach(b=>b.onclick=()=>{addCol(+b.dataset.addcol);});
+  t.querySelectorAll('[data-delcol]').forEach(b=>b.onclick=()=>{delCol(+b.dataset.delcol);});
+  t.querySelectorAll('[data-addrow]').forEach(b=>b.onclick=()=>{addRow(+b.dataset.addrow);});
+  t.querySelectorAll('[data-delrow]').forEach(b=>b.onclick=()=>{delRow(+b.dataset.delrow);});
+
+  el('gridinfo').textContent=`${rows} rows × ${cols} columns`;
+  renderPreview();
+}
+function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* multi-cell paste from Excel into a cell */
+function onCellPaste(e){
+  const txt=(e.clipboardData||window.clipboardData).getData('text');
+  if(!/\t|\n/.test(txt)) return; // single value: let default happen
+  e.preventDefault();
+  const startR=+e.target.dataset.r, startC=+e.target.dataset.c;
+  const grid=parseTabular(txt);
+  grid.forEach((row,ri)=>{
+    const tr=startR+ri;
+    while(state.data.length<=tr) state.data.push([]);
+    row.forEach((val,ci)=>{
+      const tc=startC+ci;
+      while(state.data[tr].length<=tc) state.data[tr].push("");
+      state.data[tr][tc]=val;
+    });
+  });
+  renderEditor();
+}
+
+/* =========================================================================
+   GRID MUTATIONS
+   ========================================================================= */
+function curCols(){return Math.max(...state.data.map(r=>r.length),1);}
+function addRow(after){
+  const cols=curCols();
+  state.data.splice(after+1,0,Array(cols).fill(""));
+  if(state.colWidths) {} renderEditor();
+}
+function delRow(i){ if(state.data.length>1){state.data.splice(i,1);renderEditor();} }
+function addCol(after){
+  state.data.forEach(r=>{while(r.length<curCols())r.push("");r.splice(after+1,0,"");});
+  if(state.colWidths){state.colWidths.splice(after+1,0,state.colWidths[after]||20);}
+  renderEditor();
+}
+function delCol(i){
+  if(curCols()>1){state.data.forEach(r=>r.splice(i,1));
+  if(state.colWidths)state.colWidths.splice(i,1);renderEditor();}
+}
+
+/* =========================================================================
+   DATA IMPORT
+   ========================================================================= */
+function parseTabular(txt){
+  const lines=txt.replace(/\r/g,'').replace(/\n+$/,'').split('\n');
+  const delim = (txt.indexOf('\t')>=0) ? '\t' : ',';
+  return lines.map(l=>delim==='\t'?l.split('\t'):parseCsvLine(l));
+}
+function parseCsvLine(line){
+  const out=[];let cur='';let q=false;
+  for(let i=0;i<line.length;i++){const ch=line[i];
+    if(q){ if(ch==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+    else { if(ch===','){out.push(cur);cur='';} else if(ch==='"'){q=true;} else cur+=ch; }
+  }
+  out.push(cur);return out;
+}
+
+/* =========================================================================
+   PRINT PREVIEW (scaled mm page)
+   ========================================================================= */
+let previewTimer=null;
+function schedulePreview(){clearTimeout(previewTimer);previewTimer=setTimeout(renderPreview,150);}
+function renderPreview(){
+  const m=getModel();
+  el('dimtag').textContent=`table ${round(tableWidthMM(m),1)} × ${round(tableHeightMM(m),1)} mm`;
+  const noPage=m.pagePreset==='none';
+  const cont=el('pageContainer');
+  const maxW=Math.min(cont.clientWidth||700,760);
+  const pageWmm=noPage?tableWidthMM(m)+0:m.page.w;
+  const pageHmm=noPage?tableHeightMM(m)+0:m.page.h;
+  const scale=maxW/pageWmm;
+  const pageW=pageWmm*scale, pageH=pageHmm*scale;
+
+  const div=document.createElement('div');
+  div.className='pageprev';
+  div.style.width=pageW+'px';div.style.height=pageH+'px';
+  div.dir=m.direction;
+
+  // build preview table
+  const tbl=document.createElement('table');
+  tbl.style.borderCollapse='collapse';
+  tbl.style.position='absolute';
+  tbl.style.tableLayout='fixed';
+  const offset=noPage?0:m.margin*scale;
+  tbl.style.top=offset+'px';
+  if(m.direction==='rtl'){tbl.style.right=offset+'px';}else{tbl.style.left=offset+'px';}
+  tbl.style.width=(tableWidthMM(m)*scale)+'px';
+  tbl.dir=m.direction;
+
+  for(let r=0;r<m.rows;r++){
+    const tr=document.createElement('tr');
+    const isH=m.headerRow&&r===0;
+    for(let c=0;c<m.cols;c++){
+      const td=document.createElement(isH?'th':'td');
+      td.textContent=m.cells[r][c]||'';
+      td.style.border=m.borderW>0?`${Math.max(m.borderW*scale,0.5)}px solid ${m.borderColor}`:'none';
+      td.style.padding=(m.padding*scale)+'px';
+      td.style.height=(m.rowH*scale)+'px';
+      td.style.width=(m.colWidths[c]*scale)+'px';
+      td.style.fontFamily=m.fontFamily;
+      td.style.fontSize=(m.fontSize*scale*1.333)+'px';
+      td.style.verticalAlign='middle';
+      td.style.overflow='hidden';
+      td.style.textAlign = m.align==='start'?(m.direction==='rtl'?'right':'left'):m.align;
+      if(isH){
+        td.style.background=m.headerFill;td.style.color=m.headerText;
+        td.style.fontWeight=m.headerBold?'700':'400';
+      }else{
+        const bi=r-(m.headerRow?1:0);
+        td.style.background=(m.altRows&&bi%2===1)?m.rowB:m.rowA;
+        td.style.color=m.bodyText;
+      }
+      tr.appendChild(td);
+    }
+    tbl.appendChild(tr);
+  }
+  div.appendChild(tbl);
+  cont.innerHTML='';cont.appendChild(div);
+  el('pagemeta').textContent=noPage
+    ? `Table only · ${round(tableWidthMM(m),1)}×${round(tableHeightMM(m),1)} mm`
+    : `${m.pagePreset.toUpperCase()} · ${round(m.page.w,1)}×${round(m.page.h,1)} mm · margin ${m.margin} mm · ${m.direction.toUpperCase()}`;
+}
+
+/* =========================================================================
+   PAGE PRESETS
+   ========================================================================= */
+const PRESETS={a4:[210,297],a3:[297,420],a5:[148,210],letter:[215.9,279.4]};
+function applyPreset(){
+  const p=el('pagePreset').value;
+  const dis=(p==='none'||p==='custom');
+  if(PRESETS[p]){el('pageW').value=PRESETS[p][0];el('pageH').value=PRESETS[p][1];}
+  el('pageW').disabled=(p==='none'||PRESETS[p]);
+  el('pageH').disabled=(p==='none'||PRESETS[p]);
+  el('margin').disabled=(p==='none');
+  renderPreview();
+}
+
+/* =========================================================================
+   WIRE UP
+   ========================================================================= */
+function refreshAll(){renderEditor();}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  // control listeners -> live preview
+  ['pageW','pageH','margin','direction','fontFamily','fontSize','align','colMode',
+   'tableW','rowH','padding','headerFill','headerText','altRows','rowA','rowB',
+   'bodyText','borderW','borderColor','headerBold'].forEach(id=>{
+    el(id).addEventListener('input',renderPreview);
+    el(id).addEventListener('change',renderPreview);
+  });
+  el('headerRow').addEventListener('change',renderEditor);
+  el('orientL').addEventListener('change',renderPreview);
+  el('pagePreset').addEventListener('change',applyPreset);
+  el('colMode').addEventListener('change',()=>{
+    el('tableWwrap').style.opacity=el('colMode').value==='fixed'?0.5:1;
+    renderPreview();
+  });
+
+  el('addRow').onclick=()=>addRow(state.data.length-1);
+  el('addCol').onclick=()=>addCol(curCols()-1);
+
+  el('buildFromData').onclick=()=>{
+    const txt=el('pasteData').value.trim();
+    if(!txt){setStatus('Paste some data first.','danger');return;}
+    state.data=parseTabular(txt);state.colWidths=null;
+    renderEditor();setStatus('Built table from pasted data.','ok');
+  };
+  el('loadSample').onclick=()=>{
+    state.data=[
+      ["מוצר","כמות","מחיר","סה""כ"],
+      ["מחברת","3","12.0","36.0"],
+      ["עט","10","2.5","25.0"],
+      ["תיק","1","89.0","89.0"],
+    ];state.colWidths=null;renderEditor();setStatus('Sample loaded.','ok');
+  };
+
+  el('exportIdml').onclick=async()=>{
+    try{setStatus('Building .idml…');
+      const blob=await buildIdmlBlob(getModel());
+      downloadBlob(blob,'table.idml');
+      setStatus('Downloaded table.idml — open it in InDesign (File ▸ Open).','ok');
+    }catch(err){console.error(err);setStatus('IDML error: '+err.message,'danger');}
+  };
+  el('exportIdms').onclick=()=>{
+    try{const xml=buildIdmsString(getModel());
+      downloadBlob(new Blob([xml],{type:'application/xml'}),'table.idms');
+      setStatus('Downloaded table.idms — drag it onto an open InDesign layout.','ok');
+    }catch(err){console.error(err);setStatus('IDMS error: '+err.message,'danger');}
+  };
+  el('copyHtml').onclick=async()=>{
+    const html=el('pageContainer').querySelector('table').outerHTML;
+    try{await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'})})]);
+      setStatus('HTML table copied — paste into InDesign/Word.','ok');
+    }catch(e){await navigator.clipboard.writeText(html);setStatus('Copied as text.','ok');}
+  };
+  el('exportCsv').onclick=()=>{
+    const m=getModel();
+    const csv=m.cells.map(r=>r.map(c=>/[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c).join(',')).join('\n');
+    downloadBlob(new Blob([csv],{type:'text/csv'}),'table.csv');
+    setStatus('Downloaded table.csv','ok');
+  };
+
+  applyPreset();
+  renderEditor();
+});
+</script>
+</body>
+</html>
