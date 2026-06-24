@@ -154,6 +154,14 @@
         <label for="quality">איכות (JPG): <span id="qualityVal">92%</span></label>
         <input id="quality" type="range" min="50" max="100" value="92" step="1" />
       </div>
+      <div class="field">
+        <label for="sharpen">חדות / חידוד: <span id="sharpenVal">50%</span></label>
+        <input id="sharpen" type="range" min="0" max="100" value="50" step="1" />
+      </div>
+      <div class="field">
+        <label for="saturation">רוויית צבע: <span id="saturationVal">100%</span></label>
+        <input id="saturation" type="range" min="100" max="160" value="100" step="1" />
+      </div>
       <div class="field" id="bgField">
         <label for="bgColor">צבע רקע למילוי (JPG בלבד)</label>
         <input id="bgColor" type="color" value="#ffffff" />
@@ -169,7 +177,8 @@
     </div>
     <div class="hint">
       • התאמה במצב <b>fit</b>: כל התמונה נכנסת לתוך המידה תוך שמירה על הפרופורציה. ב-PNG השוליים יישארו שקופים; ב-JPG הם ימולאו בצבע הרקע.<br>
-      • <b>שקיפות נשמרת</b> ב-PNG אם המקור שקוף.
+      • <b>שקיפות נשמרת</b> ב-PNG אם המקור שקוף.<br>
+      • ההקטנה מתבצעת בשלבים (step-down) עם <b>חידוד</b> אופציונלי — כדי לקבל תוצאה חדה ורוויה כמו בפוטושופ. אם יוצא חד מדי, הורידי את אחוז החדות.
     </div>
   </div>
 
@@ -334,16 +343,26 @@ async function resizeOne(it) {
   if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) mime = "image/png";
   const isJpeg = mime === "image/jpeg";
 
+  const sharpenAmount = (parseInt($("sharpen").value, 10) || 0) / 100;
+  const saturation = (parseInt($("saturation").value, 10) || 100) / 100;
+
   const bmp = await createImageBitmap(it.file);
   const iw = bmp.width, ih = bmp.height;
 
   // חישוב fit (contain) תוך שמירת פרופורציה
   let scale = Math.min(targetW / iw, targetH / ih);
   if (noUpscale && scale > 1) scale = 1;
-  const drawW = Math.round(iw * scale);
-  const drawH = Math.round(ih * scale);
+  const drawW = Math.max(1, Math.round(iw * scale));
+  const drawH = Math.max(1, Math.round(ih * scale));
   const dx = Math.round((targetW - drawW) / 2);
   const dy = Math.round((targetH - drawH) / 2);
+
+  // הקטנה מדורגת (step-down) — חדה בהרבה מהקטנה בצעד אחד
+  const scaled = progressiveResize(bmp, drawW, drawH);
+  bmp.close && bmp.close();
+
+  // חידוד (unsharp) שמדמה Bicubic Sharper של פוטושופ
+  if (sharpenAmount > 0) sharpenCanvas(scaled, sharpenAmount * 0.7);
 
   const canvas = document.createElement("canvas");
   canvas.width = targetW;
@@ -357,9 +376,10 @@ async function resizeOne(it) {
     ctx.fillStyle = $("bgColor").value || "#ffffff";
     ctx.fillRect(0, 0, targetW, targetH);
   }
-  // PNG/WebP — נשאר שקוף (כולל שוליים) ושומר שקיפות מהמקור
-  ctx.drawImage(bmp, dx, dy, drawW, drawH);
-  bmp.close && bmp.close();
+  // PNG — נשאר שקוף (כולל שוליים) ושומר שקיפות מהמקור
+  if (saturation !== 1) ctx.filter = `saturate(${saturation})`;
+  ctx.drawImage(scaled, dx, dy);
+  ctx.filter = "none";
 
   const blob = await new Promise((res) => canvas.toBlob(res, mime, quality));
   if (!blob) throw new Error("encode failed");
@@ -385,6 +405,75 @@ async function resizeOne(it) {
 }
 
 function clampInt(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+/* ============================================================
+   הקטנה מדורגת (step-down) — מקטין בחצאים עד קרוב ליעד
+   ומסיים בצעד אחרון מדויק. חד בהרבה מהקטנה בקפיצה אחת.
+   שומר שקיפות (קנבס שקוף כברירת מחדל).
+   ============================================================ */
+function progressiveResize(bmp, destW, destH) {
+  let cw = bmp.width, ch = bmp.height;
+  let canvas = document.createElement("canvas");
+  canvas.width = cw; canvas.height = ch;
+  let ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(bmp, 0, 0);
+
+  // צעדי חצי כל עוד אנחנו גדולים מפי 2 מהיעד
+  while (cw > destW * 2 && ch > destH * 2) {
+    const nw = Math.max(destW, Math.floor(cw / 2));
+    const nh = Math.max(destH, Math.floor(ch / 2));
+    const c2 = document.createElement("canvas");
+    c2.width = nw; c2.height = nh;
+    const x2 = c2.getContext("2d");
+    x2.imageSmoothingEnabled = true;
+    x2.imageSmoothingQuality = "high";
+    x2.drawImage(canvas, 0, 0, cw, ch, 0, 0, nw, nh);
+    canvas = c2; cw = nw; ch = nh;
+  }
+
+  // צעד אחרון מדויק לגודל היעד
+  const out = document.createElement("canvas");
+  out.width = destW; out.height = destH;
+  const octx = out.getContext("2d");
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = "high";
+  octx.drawImage(canvas, 0, 0, cw, ch, 0, 0, destW, destH);
+  return out;
+}
+
+/* ============================================================
+   חידוד (unsharp) באמצעות גרעין לפלסיאן 3x3.
+   סכום הגרעין = 1 ולכן הבהירות נשמרת. ערוץ האלפא לא משתנה.
+   ============================================================ */
+function sharpenCanvas(canvas, a) {
+  const w = canvas.width, h = canvas.height;
+  if (w < 3 || h < 3 || a <= 0) return;
+  const ctx = canvas.getContext("2d");
+  const src = ctx.getImageData(0, 0, w, h);
+  const s = src.data;
+  const out = ctx.createImageData(w, h);
+  const d = out.data;
+  const center = 1 + 4 * a;
+  const row = w * 4;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) {
+        d[i] = s[i]; d[i+1] = s[i+1]; d[i+2] = s[i+2]; d[i+3] = s[i+3];
+        continue;
+      }
+      const iN = i - row, iS = i + row, iW = i - 4, iE = i + 4;
+      for (let c = 0; c < 3; c++) {
+        let v = center * s[i+c] - a * (s[iN+c] + s[iS+c] + s[iW+c] + s[iE+c]);
+        d[i+c] = v < 0 ? 0 : v > 255 ? 255 : v;
+      }
+      d[i+3] = s[i+3];
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+}
 
 /* ============================================================
    הזרקת dpi ל-JPEG (JFIF APP0 density)
@@ -609,6 +698,8 @@ clearBtn.addEventListener("click", () => { items = []; statusText.textContent = 
 
 // עדכון תצוגת ערכים
 $("quality").addEventListener("input", e => { $("qualityVal").textContent = e.target.value + "%"; });
+$("sharpen").addEventListener("input", e => { $("sharpenVal").textContent = e.target.value + "%"; });
+$("saturation").addEventListener("input", e => { $("saturationVal").textContent = e.target.value + "%"; });
 function syncFormatUI() {
   const f = $("format").value;
   const showQuality = (f === "image/jpeg" || f === "original");
@@ -631,6 +722,8 @@ function saveSettings() {
     dpi: $("dpi").value,
     format: $("format").value,
     quality: $("quality").value,
+    sharpen: $("sharpen").value,
+    saturation: $("saturation").value,
     bgColor: $("bgColor").value,
     noUpscale: $("noUpscale").checked,
   };
@@ -646,6 +739,8 @@ function loadSettings() {
     if (d.dpi != null) $("dpi").value = d.dpi;
     if (d.format != null) $("format").value = d.format;
     if (d.quality != null) { $("quality").value = d.quality; $("qualityVal").textContent = d.quality + "%"; }
+    if (d.sharpen != null) { $("sharpen").value = d.sharpen; $("sharpenVal").textContent = d.sharpen + "%"; }
+    if (d.saturation != null) { $("saturation").value = d.saturation; $("saturationVal").textContent = d.saturation + "%"; }
     if (d.bgColor != null) $("bgColor").value = d.bgColor;
     if (d.noUpscale != null) $("noUpscale").checked = d.noUpscale;
     $("rememberSettings").checked = true; // אם נשמרו הגדרות — הזיכרון פעיל
@@ -653,7 +748,7 @@ function loadSettings() {
 }
 
 // שמירה בכל שינוי של אחד הפקדים (רק אם "זכור" מסומן)
-["dpi", "format", "quality", "bgColor", "noUpscale"].forEach(id =>
+["dpi", "format", "quality", "sharpen", "saturation", "bgColor", "noUpscale"].forEach(id =>
   $(id).addEventListener("change", saveSettings));
 $("rememberSettings").addEventListener("change", saveSettings);
 
