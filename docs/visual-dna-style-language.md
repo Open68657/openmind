@@ -1,119 +1,105 @@
-# Visual DNA — "Everyday Abundance" Style Language
-### שפת השפע היומיומי — פרומפט-אב לייצור תמונות בקו ויזואלי אחיד
+# Visual DNA — Art Direction Fingerprint
+### טביעת האצבע של הארט-דיירקשן — פרומפט-אב לשימוש חוזר
 
-מסמך זה מפרק את ה-DNA הוויזואלי של סדרת התמונות ומספק פרומפט-אב (master prompt)
-עם משתנים, כך שאפשר לייצר תמונות בכל נושא שימשיכו בדיוק את אותו קו.
-
----
-
-## 1. הרעיון הגדול (The Big Idea)
-
-מותג "הכל-בחיים" / קוויק-קומרס רב-קטגוריה. אותן חמש קטגוריות חוזרות בכל פריים:
-**FOOD · PETS · SPORT · HOME · PHARM**. כל תמונה היא *אריזה אחת מלאה בחיים שלמים* —
-מצרכים + מוצרי בית + חיות מחמד + ספורט + פארמה + עציץ — מקובצים יחד במיכל אחד.
-המסר: "אנחנו נושאים הכל, לכל תחומי החיים שלך".
+**עיקרון על:** ה-DNA הוא **איך התמונה נראית (Art Direction)**, ולא **מה מצולם (תוכן)**.
+הנושא, החפצים, ואפילו סוג הרקע — יכולים להשתנות לגמרי בין קמפיינים. מה שחייב להישאר
+זהה זו הטביעת-אצבע הוויזואלית שלמטה.
 
 ---
 
-## 2. הקבועים (Constants) — אלה אף פעם לא משתנים
+## 1. טביעת האצבע (The Fingerprint) — זה תמיד קבוע
 
-| רכיב | מה קבוע |
-|------|---------|
-| **רקע** | צבע יחיד, שטוח, רווי לחלוטין (seamless), אחד לכל תמונה |
-| **הנושא (Hero)** | אשכול צפוף ושופע של מוצרי יומיום מכמה קטגוריות, ביחד |
-| **מיכל / מארגן** | ידיים בחיבוק, סל קניות פלסטיק, קופסת אקריל שקופה, או ארגונית עם תוויות |
-| **האדם** | נטול-פנים או עם הבעה נייטרלית/דדפאן (בלי חיוך). נשא נייטרלי — המוצרים הם הגיבור |
-| **לבוש** | נורמקור מינימלי בגוונים עמומים: ג'קט זית, מכנסי קמל, טי אפור/לבן, ג'ינס, כובע בז' |
-| **פלטת מוצרים** | פסטלים "סוכריה" + 1–2 פופ חם |
-| **תאורה** | תאורת אי-קומרס נקייה, key רך + צל כיווני חד על הרקע |
-| **מרקם** | פוטוגרפי אמיתי ומוחשי — לא איור, לא רנדר. רואים נקבוביות ספוג, אריג, אדים, קליפת פרי |
-| **קומפוזיציה** | מרוכזת, צפופה, "כמה דברים אפשר לדחוס", שופעת ומשועשעת |
-| **טון** | אופטימי אך קריר, שנון, מושקע, elevated-mundane (יומיומי מוגבה) |
+1. **ידיים/גוף מנותקים כמכשיר ההצגה.** בני אדם מצומצמים לידיים ואמות שנכנסות מקצוות
+   הפריים ומחזיקות/מגישות אובייקט — או זרועות שחובקות אשכול. **בלי פנים, או דדפאן בלי
+   חיוך.** גווני עור מגוונים. האדם הוא מגיש אנונימי ונייטרלי, לא הנושא.
+2. **האובייקט הוא הגיבור.** כל חפץ מוצג נקי — מורם, מרחף, או ניתן לו אוויר. תמיד יש
+   במה לאובייקט.
+3. **רקע בעל צבע דומיננטי אחד, עם הרבה שטח נשימה — אבל לא בהכרח שטוח.** יכול להיות
+   סטודיו צבע רווי (seamless), *או* סביבה טבעית פשוטה וחד-גונית (שמיים כחולים עם עננים
+   רכים). הקבוע הוא: **שדה נקי, לא עמוס, עם נגטיב-ספייס נדיב** — אף פעם לא סביבה מבולגנת.
+4. **תאורת יום מסחרית נקייה ובהירה.** key רך + צל מוגדר אך עדין. אופטימי, אף פעם לא
+   דרמטי/אפל.
+5. **פוטוגרפיה אמיתית ומוחשית**, מראה מדיום-פורמט, מרקמים קריאים (קליפה, אדים, אריג,
+   פלסטיק) — **לא איור, לא תלת-ממד.**
+6. **פלטה רוויה ואופטימית.** רקע בגוון בולט; אובייקטים בפסטל *או* עם פופ חם אחד
+   (חרדל/ochre, קורל). לבוש, כשמופיע: נורמקור עמום (זית, קמל, אפור, לבן).
+7. **קומפוזיציה גרפית ורגועה עם "ריחוף".** מרוכזת או נכנסת-מקצוות; תחושת השהיה באוויר;
+   נקייה ומאווררת. לעיתים כמה ידיים מקצוות שונים סביב מרכז ריק.
+8. **טון: שנון, קונספטואלי, אופטימי-אך-קריר, דדפאן.** שילוב סוריאליסטי-משועשע של חפצים
+   לא-קשורים (אבטיח + מנורת עיצוב + באבל-טי + קרטון משלוח). *Elevated-mundane* — יומיומי
+   מוגבה. אנרגיה של קמפיין לייף-סטייל / קוויק-קומרס עכשווי.
 
-### פלטת הצבעים המדויקת
-- **רקעים:** ירוק אביבי · מנטה · נייבי · תכלת שמיים · צהוב מרים (marigold)
-- **מוצרים (פסטל):** תכלת אבקתי, מנטה, לבנדר, ורוד בייבי, אפרסק, ליים/שרטרז, חרדל
-- **פופ חם (מבטא):** קורל, כתום
-- **בגדים (נייטרל):** זית, קמל, בז', אפור, לבן, כחול ג'ינס
-
-### ה"קאסט" של החפצים (אוצר מילים חוזר של אובייקטים)
-בגט · קרטון חלב · פטרוזיליה/חסה · תפוח ירוק · שקית "DOGS" קראפט עם טביעת כף · חטיפי כלב ·
-מזרן יוגה · כדור טניס · פוטבול · בקבוק מים · מנורת שולחן · כבל מאריך · מגבות · ספוג ·
-מברשת כלים · בקבוק תרסיס · כוס · בקבוק תרופות/תוסף ענברי · שמפו · סבון · לוף · עציץ.
-*הישנות של אותם חפצים בין הפריימים היא מה שיוצר את המשכיות המותג.*
-
----
-
-## 3. ה"מהלכים" החתומים (Signature Moves)
-1. רקע צבע שטוח ורווי אחד, נבחר מחדש לכל פריים.
-2. אשכול צפוף של מוצרי יומיום מרובי-קטגוריה בתור הנושא.
-3. מיכל/מארגן חכם: זרועות, סל, קופסה שקופה, או ארונית תיוק עם תוויות.
-4. אדם נטול-פנים או דדפאן כנשא נייטרלי, בלבוש נורמקור עמום.
-5. מוצרים פסטליים + פופ חם אחד-שניים, הכל פוטוגרפי ומוחשי.
-6. קאסט חפצים חוזר (בגט, חלב, שקית כלב עם כף, מזרן יוגה, בקבוק תרופות, עציץ, מנורה).
-7. תאורת אי-קומרס נקייה עם צל כיווני חד.
-8. קריצה קונספטואלית — דרך לא צפויה לארגן/להציג את הסחורה.
+### הפלטה (טווח, לא חוק נוקשה)
+- **רקעים:** תכלת שמיים · ירוק אביבי · מנטה · נייבי · צהוב מרים — שטוחים או טבעיים.
+- **אובייקטים:** פסטלים (תכלת, מנטה, לבנדר, ורוד, אפרסק) + פופ חם (חרדל/ochre, קורל, כתום).
+- **לבוש:** זית, קמל, בז', אפור, לבן, כחול ג'ינס.
 
 ---
 
-## 4. המשתנים (Variables) — אלה מה שמחליפים לכל נושא חדש
+## 2. מה שמשתנה (Variables) — התוכן, לא הסגנון
 
-- `[TOPIC]` — הנושא/התמה (למשל: חזרה ללימודים, טיסה, מטבח, גיימינג, תינוק חדש)
-- `[BACKGROUND COLOR]` — צבע רקע שטוח ורווי אחד
-- `[CARRIER]` — סל קניות צבעוני / חיבוק בשתי ידיים / קופסת אקריל שקופה / ארגונית עם תוויות / מיכל שנון אחר
-- `[PRODUCT LIST]` — 8–14 חפצים מוחשיים רלוונטיים ל-`[TOPIC]`, בפלטת פסטל + פופ חם
-- `[HUMAN CROP]` — סנטר-עד-מותן / צוואר-עד-רגליים / ידיים בלבד / בלי אדם
-- `[RATIO]` — 9:16 / 4:5 / 1:1 / 3:4
+- `[SUBJECT / THEME]` — הנושא. יכול להיות כל דבר (משלוחים, קיץ, טק, יופי, בית...).
+- `[OBJECTS]` — 1–5 חפצים מוחשיים. **לא חייבים להיות קשורים זה לזה** — היוקסטפוזיציה
+  היא חלק מהקסם. אין "קאסט קבוע"; החפצים חופשיים להשתנות.
+- `[BACKGROUND]` — צבע/סוג רקע: סטודיו שטוח רווי **או** שמיים/סביבה טבעית חד-גונית פשוטה.
+- `[PRESENTATION]` — ידיים נכנסות מקצוות מחזיקות פריטים בודדים / זרועות חובקות אשכול /
+  יד אחת מרימה אובייקט / בלי אדם (רק החפץ מרחף).
+- `[HUMAN CROP]` — ידיים ואמות בלבד / סנטר-עד-מותן / צוואר-עד-רגליים / ללא.
+- `[RATIO]` — 9:16 / 4:5 / 1:1 / 3:4.
 
 ---
 
-## 5. פרומפט-האב (Master Prompt — paste-ready, English)
+## 3. פרומפט-האב (Master Prompt — paste-ready, English)
 
 > Studio commercial photograph, medium-format look, hyper-real and tactile — a real
 > photograph, **not** illustration or 3D render.
 >
-> **SUBJECT:** an abundant, densely-packed cluster of everyday **[TOPIC]** products —
-> **[PRODUCT LIST]** — presented together as one curated bundle, carried in **[CARRIER]**.
-> The products are the hero.
+> **PRESENTATION:** **[PRESENTATION — e.g. several disembodied hands and forearms
+> entering from the frame edges, each holding up a single object]**. People are reduced to
+> **[HUMAN CROP]**, faceless or calm deadpan (no smiling), diverse skin tones; a neutral
+> anonymous presenter. The object is the hero.
 >
-> **CAST:** a real person shown **[HUMAN CROP]**, face hidden or with a calm deadpan
-> neutral expression (no smiling), wearing muted normcore basics (olive utility jacket,
-> camel trousers, grey/white tee, denim, beige cap). The human is a neutral carrier.
+> **SUBJECT:** **[OBJECTS]** — presented cleanly with generous space around each, a
+> playful deadpan juxtaposition of otherwise-unrelated everyday things. Optional wardrobe:
+> muted normcore basics (olive, camel, grey, white).
 >
-> **PALETTE:** one single flat, fully-saturated, seamless background of **[BACKGROUND
-> COLOR]**. Products in a soft candy-pastel palette (powder blue, mint, lavender, blush
-> pink, peach, chartreuse, mustard) with one or two hot accent pops (coral, orange).
+> **BACKGROUND:** **[BACKGROUND — a single flat saturated seamless color, OR a simple
+> naturalistic single-hue field such as a bright blue sky with soft real clouds]** —
+> uncluttered, lots of negative space, one dominant hue.
 >
-> **LIGHT:** clean modern e-commerce lighting, soft key with a crisp directional cast
-> shadow on the seamless backdrop.
+> **PALETTE:** saturated and optimistic. Objects in soft candy-pastels (powder blue, mint,
+> lavender, blush pink, peach) or with one warm accent pop (mustard/ochre, coral, orange).
 >
-> **COMPOSITION:** centered, object-dense, playful abundance; every surface texture
-> readable (fabric weave, sponge pores, condensation, fruit skin). Editorial, contemporary,
-> witty, optimistic-but-cool; premium CPG / quick-commerce campaign aesthetic.
-> **[RATIO]**. No text, no logos.
+> **LIGHT:** clean, bright, daylight-commercial lighting; soft key with a defined but gentle
+> cast shadow. Never moody.
+>
+> **COMPOSITION:** graphic, calm, floating/suspended feel; centered or edge-entering
+> elements around breathing space. Every texture readable (fruit skin, condensation, fabric
+> weave, plastic). Editorial, contemporary, witty, optimistic-but-cool; premium
+> lifestyle / quick-commerce campaign aesthetic. **[RATIO]**. No text, no logos.
 
 ---
 
-## 6. דוגמאות מיושמות (הוכחת המשכיות)
+## 4. דוגמאות מיושמות (נושא משתנה, ארט-דיירקשן זהה)
 
-**נושא: "חזרה ללימודים"**
-> …an abundant cluster of everyday **back-to-school** products — a lavender backpack, mint
-> pencil case, powder-blue notebooks, a chartreuse water bottle, colored markers, an apple,
-> a small potted plant, a coral stapler, headphones — cradled in both arms, chin-to-hip crop…
-> flat saturated **sky-blue** background… coral accent… 4:5.
+**נושא: "משלוחים מהיום למחר", רקע טבעי**
+> …four disembodied hands and forearms entering from the frame edges against a **bright
+> blue sky with soft clouds**, each holding up a single object — a kraft cardboard parcel,
+> an iced matcha bubble tea, a whole watermelon, a mustard designer table lamp — floating
+> with air around each, deadpan, diverse skin tones… clean daylight, gentle shadows… 4:5.
 
-**נושא: "פינת קפה"**
-> …a densely-packed bundle of everyday **coffee** objects — a pastel-pink moka pot, a mint
-> mug, a bag of beans, a powder-blue grinder, a small milk carton, a chartreuse tin, a
-> croissant, a potted plant — inside a **clear transparent acrylic tote** held by one hand…
-> flat saturated **marigold-yellow** background… one orange accent pop… 1:1.
+**נושא: "טק / גאדג'טים", רקע סטודיו שטוח**
+> …several disembodied hands entering from the edges against a **flat saturated marigold-
+> yellow** seamless backdrop, each holding up a single object — a pastel-mint keyboard, a
+> powder-blue earbud case, a coral phone, a clear cable — floating with generous negative
+> space, faceless, deadpan… bright commercial light + soft shadow… 1:1.
 
 ---
 
-## 7. טיפים לשמירה על הקו
-- החלף **צבע רקע** בין תמונות בסדרה, אבל שמור אותו **שטוח ורווי ובודד**.
-- שמור **1–2 פופ חם** בלבד מול הפסטלים — זה מה שנותן את המתח.
-- אל תיתן לאדם לחייך; פנים נייטרליות/מוסתרות = הקוד של הסדרה.
-- החזר **לפחות חפץ אחד מהקאסט הקבוע** (בגט / עציץ / שקית כלב / מזרן יוגה) לכל פריים —
-  זה מה ש"מדביק" נושא חדש לשפה הקיימת.
-- תמיד **פוטוגרפי ומוחשי**, אף פעם לא איור או תלת-ממד.
+## 5. כללי-ברזל לשמירה על הקו (גם כשהנושא מתחלף)
+- **ידיים/גוף מנותקים + בלי פנים/דדפאן** — זה הקוד המרכזי של השפה.
+- **רקע חד-גוני עם נגטיב-ספייס** — שטוח או שמיים, אבל תמיד נקי ומאוורר.
+- **פוטוגרפי ומוחשי בלבד**, אף פעם לא איור/תלת-ממד.
+- **פסטל + פופ חם אחד** מול הרקע הרווי — המתח שמחזיק את כל הסדרה.
+- **יוקסטפוזיציה דדפאן** — מותר וכדאי לצרף חפצים לא-קשורים; זה חלק מהחתימה.
+- גווני עור מגוונים בידיים.
