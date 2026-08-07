@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>INTENT — ניסוי 10: קו → חומר</title>
+<title>INTENT — ניסוי 12: קו → חומר</title>
 <style>
   :root {
     --ground: #e6e4dd;
@@ -114,7 +114,7 @@
 <!-- the number tracks the version: index.html is version 7, so this is 07.
      Bump it whenever the live file is frozen and a new version starts.
      Version 6 is frozen, untouched, in v06-materials-and-blocks.html. -->
-<div class="hud" id="title">INTENT — ניסוי 10<small>קו → חומר</small></div>
+<div class="hud" id="title">INTENT — ניסוי 12<small>קו → חומר</small></div>
 <div class="hud" id="tools">
   <button id="clear">נקה</button>
   <button id="spin">סיבוב</button>
@@ -800,9 +800,17 @@ const MATERIALS = [
        stone and the gold stay continuous underneath and the film still shifts
        colour across the curve. Checked at the overlap, which is the only place
        the fault ever showed. */
+    /* The white glints (requested 7 August: "more white highlights on the
+       bubble — reflections of light sources"). The lever is the clearcoat,
+       not specularIntensity: at ior 1.05 the base F0 is a few ten-thousandths
+       and scaling it moves nothing, while a clearcoat is a dielectric top
+       layer at full strength — it throws back small sharp images of the
+       lamps, which is most of how the eye finds a film in the air. Kept
+       glossy-tight so the glints stay glints and the middle stays legible. */
     finish: { transmission: 0.99, ior: 1.05, thickness: 0.015,
               iridescence: 0.45, iridescenceIOR: 1.55,
               iridescenceThicknessRange: [220, 720],
+              clearcoat: 1.0, clearcoatRoughness: 0.04,
               side: THREE.DoubleSide } },
 
   /* Beads. Warm, and running through the palette in order rather than mixing two
@@ -1829,9 +1837,22 @@ function renderGel() {
   for (const b of bodies) {
     if (b.glass) {
       if (!b.gelMat) {
+        /* How much light this body's gel takes out of the ground. It was a
+           flat 0.55 for every glass body, and sixteen clear bubbles then
+           stacked sixteen dimmings into one grey pool behind the cluster —
+           which the front bodies showed through themselves, and which read as
+           "the front bubbles are darker". A body that actually absorbs light
+           (a finite attenuation distance: jelly, seaglass, crystal, gem,
+           iris) keeps its patch; a clear film takes almost nothing, which is
+           what a film does. */
+        let gelDim = 0.08;
+        b.mesh.traverse(o => {
+          if (o.isMesh && o.material && o.material.transmission &&
+              o.material.attenuationDistance && isFinite(o.material.attenuationDistance)) gelDim = 0.55;
+        });
         b.gelMat = new THREE.MeshBasicMaterial({
           color: gelColour(b), toneMapped: false,
-          transparent: true, opacity: 0.55, depthWrite: false,
+          transparent: true, opacity: gelDim, depthWrite: false,
           blending: THREE.CustomBlending,
           // colour adds so overlapping bodies stack, alpha accumulates the same
           // way — one pass gives both the tint and how much was in the way
@@ -2080,16 +2101,15 @@ const GLASS_BODY = { amount: 0.035, lift: 0.85 };
    backdrop and the dial barely moves; 4 to 5 is where the neighbourhood is
    the size of what a bubble actually covers and the gap actually closes.
    Both live on the bench in tune.html. */
-/* 0.6, measured off the bench and not a compromise picked by feel. The two
-   ends pull against each other by design: at 0 the moss behind a bubble keeps
-   0.733 of its colour and the eight-body pile darkens the bubble by 73 points;
-   at 1 the pile gap closes to 16 and the moss fades to 0.421 — past the 0.55
-   the light checks stand guard over. 0.6 is the highest strength that keeps
-   what stands behind clearly itself (0.604) while cutting the crowd's
-   darkening in half (36). The dial is on the bench; moving it is a decision
-   about what glass IS here, and the guardrail that catches the far end is
-   devCheck's "glass shows what stands behind it". */
-const GLASS_EQ = { strength: 0.6, detail: 4.0 };
+/* 1.0 by an explicit decision, 7 August 2026: every pane at the same
+   exposure comes FIRST, and the version-9 guardrail on this axis was waived
+   in so many words — "the problem was never solved there". The trade is
+   real and measured, not painted over: at 1.0 the eight-body pile gap closes
+   to 16 points and a dark body behind a bubble keeps 0.421 of its colour
+   (at 0 it keeps 0.733 and the gap is 73). The bench slider spans the whole
+   axis for anyone who wants to look at the other end; the light checks below
+   still catch outright vanishing. */
+const GLASS_EQ = { strength: 1.0, detail: 4.0 };
 const glassBodyUniforms = {
   uGlassBody: { value: GLASS_BODY.amount },
   uGlassLift: { value: GLASS_BODY.lift },
@@ -5275,7 +5295,13 @@ window.devCheck = async (only) => {
     const through = await boxRGB(0.42, 0.58, 0.42, 0.58);
     const sig = (behind[1] - behind[0]) || 1;
     const showThrough = +(((through[1] - through[0]) / sig)).toFixed(3);
-    add('light', 'glass shows what stands behind it', showThrough >= 0.55, showThrough, '>= 0.55 (crystal 0.78, flat film 0.46)');
+    /* 0.35, down from 0.55, by the same 7 August decision that set the
+       exposure equaliser to full strength: equal exposure outranks how much
+       of a dark body's colour survives the lift, and at full strength the
+       healthy reading here is ~0.42. The row still guards the fault it was
+       born for — the film blowing out until the body reads as a hole — which
+       lives well below 0.35. */
+    add('light', 'glass shows what stands behind it', showThrough >= 0.35, showThrough, '>= 0.35 (crystal 0.78, flat film 0.46)');
     /* And the body has to BE there. A shader patch that fails to compile makes
        three drop the material silently, and a body that is not drawn scores a
        perfect 1.000 on the test above — which is exactly what happened once,
@@ -5507,6 +5533,42 @@ window.devMaterial = name => {
   if (i < 0) return 'no such material: ' + MATERIALS.map(m => m.name).join(', ');
   forcedMat = i;
   return 'next body: ' + name;
+};
+
+/* TEMPORARY — devScanMaterial(opts): register or update a scratch material
+   profile around a scan handed in as a data URI, and pin the next bodies to
+   it. This is the door texture-lab.html works through: a candidate scan gets
+   judged inside the real room — same cove, same lamps, same conditioning
+   (conditionScan), same triplanar — instead of in an imagined one. The scan
+   goes through the exact pipeline a shipped scan does; parameters land on
+   the NEXT body drawn, so the lab redraws its samples after every change.
+   Nothing here touches the shipped profiles: the scratch profile lives only
+   in this session, and adopting a texture for real means saving the jpg to
+   textures/ and adding a MATERIALS line — which the lab writes for you. */
+window.devScanMaterial = opts => {
+  opts = opts || {};
+  const name = opts.name || 'scan-lab';
+  let M = MATERIALS.find(m => m.name === name);
+  if (!M) {
+    M = { name, file: name, tint: 0xffffff, rough: 0.55, lumps: 0.22, grain: 0.3,
+          tile: 700, bump: 8, roughVar: 0.35, finish: {} };
+    MATERIALS.push(M);
+  }
+  for (const k of ['tint', 'rough', 'lumps', 'grain', 'tile', 'bump', 'roughVar', 'round', 'liquid'])
+    if (opts[k] !== undefined) M[k] = opts[k];
+  if (opts.finish !== undefined) M.finish = opts.finish;
+  if (opts.dataURI) {
+    const t = new THREE.Texture();
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = MAX_ANISO;
+    const img = new Image();
+    img.onload = () => { t.image = conditionScan(img); t.needsUpdate = true; };
+    img.src = opts.dataURI;
+    SCAN_CACHE[name] = t;
+  }
+  forcedMat = MATERIALS.findIndex(m => m.name === name);
+  return { name, pinned: true, profile: { ...M, finish: { ...M.finish } } };
 };
 
 /* ---------- the tuning panel ----------
