@@ -346,8 +346,8 @@
     </div>
 
     <div class="grp">אורך הסרטון (שניות)</div>
-    <input type="number" id="vid-secs" min="2" max="120" step="0.5" value="15" autocomplete="off">
-    <p class="sub" style="margin:7px 0 0">הסיבוב בקובץ הוא בדיוק הסיבוב שבתצוגה — סיבוב מלא לוקח 15 שניות, והסרטון ממשיך להסתובב עד שהוא מגיע לאורך שביקשת. ברירת המחדל, 15 שניות, היא בדיוק סיבוב אחד — לופ מושלם. ללופ ארוך יותר: כל כפולה של 15. GIF תמיד סיבוב אחד.</p>
+    <input type="number" id="vid-secs" min="2" max="120" step="0.5" value="20" autocomplete="off">
+    <p class="sub" style="margin:7px 0 0">הסיבוב בקובץ הוא בדיוק הסיבוב שבתצוגה — סיבוב מלא לוקח 20 שניות, והסרטון ממשיך להסתובב עד שהוא מגיע לאורך שביקשת. ברירת המחדל, 20 שניות, היא בדיוק סיבוב אחד — לופ מושלם. ללופ ארוך יותר: 40 או 60. GIF תמיד סיבוב אחד.</p>
 
     <button class="go" id="go">התחל</button>
     <div class="exp">
@@ -8504,11 +8504,12 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
    did, three and a half times over, when the exports carried a period of their
    own (14 Aug 26).
 
-   15 seconds, set by eye the same day: 30 — the preview's old idle rate made
-   round — read slow once it was watched as the piece's own tempo rather than
-   as a screensaver's. 15 also makes the default video length exactly one turn,
-   so the file a story wants is, at no extra asking, a seamless loop. */
-const TURN = { secs: 15 };
+   20 seconds, walked in by eye over a day: 30 — the preview's old idle rate
+   made round — read slow once it was watched as the piece's own tempo, 15
+   read a touch hurried, and 20 is where the eye settled. The default video
+   length moves with it (see VID), so the default file stays exactly one
+   turn — a seamless loop at no extra asking. */
+const TURN = { secs: 20 };
 const SPIN_RATE = Math.PI * 2 / TURN.secs;
 
 /* There is no depth squeeze any more, and removing it is the fix rather than a
@@ -10502,9 +10503,11 @@ let exporting = false;
    period is a property of the movement and an export is a recording of the
    movement — the note there says why. What is decided here is only how long
    the FILE is, which is a different question. */
-/* How long the FILE is, which is not how long a turn is. Fifteen seconds
-   because that is a story, and a story plays once — see the note on turn(). */
-const VID = { secs: 15 };
+/* How long the FILE is, which is not how long a turn is — but the default
+   follows the turn on purpose: one full turn, so the file that comes out
+   with no thought put into it is the seamless loop. Ask for less and it is
+   a story that plays once; ask for a multiple and it loops longer. */
+const VID = { secs: 20 };
 
 const cap = document.createElement('canvas');
 const capx = cap.getContext('2d', { willReadFrequently: true });
@@ -10533,8 +10536,8 @@ const raf = () => new Promise(r => requestAnimationFrame(r));
    and the file simply keeps turning until it has enough frames.
 
    A file that is not a whole number of turns does not loop, and that is a real
-   choice rather than an oversight: 20 seconds of a 15-second turn is a turn
-   and a third, and the last frame does not meet the first. For a story, which
+   choice rather than an oversight: 30 seconds of a 20-second turn is a turn
+   and a half, and the last frame does not meet the first. For a story, which
    plays once and then stops, that costs nothing. For anything that loops, ask
    for a multiple of the turn. */
 async function turn(n, onFrame, perTurn = n) {
@@ -10601,12 +10604,12 @@ const EXPORT_MAX = 4096;
    same weight, and the edges stop stepping.
 
    It costs four times the pixels PER FRAME, which a still does not notice and a
-   900-frame video certainly does. It is bounded rather than assumed: if twice
+   1200-frame video certainly does. It is bounded rather than assumed: if twice
    the width would pass the texture limit, the factor comes down until it fits,
    so a large format quietly gets less of it instead of failing. */
 let SS = 2;
 /* A handle rather than a constant, because the cost is real: four times the
-   pixels per frame is nothing for a still and is felt across a 900-frame video.
+   pixels per frame is nothing for a still and is felt across a 1200-frame video.
    tuneExport({ss: 1}) turns it off for a quick draft, {ss: 2} puts it back. */
 window.tuneExport = (v = {}) => {
   if (v.ss !== undefined) SS = Math.max(1, Math.min(3, v.ss));
@@ -10758,9 +10761,9 @@ async function exportVideo() {
   if (!window.VideoEncoder) { say('הדפדפן הזה לא מקודד וידאו — נסי GIF', 3600); return; }
   /* 60 AND NOT A SETTING (14 Aug 26), asked for plainly: no frame-rate control,
      just the best file at a weight the format can justify. The rate follows the
-     movement: at a 15-second turn a 30fps frame is 0.8° of rotation, which the
+     movement: at a 20-second turn a 30fps frame is 0.6° of rotation, which the
      eye starts to catch as stepping along hard edges, and 60 is the preview's
-     own 0.4°. The weight this costs is held down in the bitrate, not in the
+     own 0.3°. The weight this costs is held down in the bitrate, not in the
      motion — the note below says how. */
   const fps = 60;
   const perTurn = Math.max(8, Math.round(TURN.secs * fps));
@@ -10784,7 +10787,7 @@ async function exportVideo() {
      whole seconds and a few bodies turning slowly. So 0.035 bits per pixel
      per frame, variable-rate so the still parts are not paid for at the
      moving parts' price — 1080×1350 at 60fps lands near 3.1 Mb/s, and the
-     15-second loop around five megabytes before the encoder undershoots it
+     20-second loop around six megabytes before the encoder undershoots it
      further. The bitrate still follows the pixels, so a banner cut from a
      smaller upload gets proportionally lighter still.
 
@@ -11006,19 +11009,25 @@ function gifBytes(packets, w, h, pal, used, delayCs) {
 }
 
 /* A naive GIF is 256 colours times every pixel of every frame, no interframe
-   anything, and at 375 frames it lands in the tens of megabytes — which no
+   anything, and at 500 frames it lands in the tens of megabytes — which no
    story or banner gets to weigh (14 Aug 26: "a few single megabytes"). What
    the format does have is per-frame RECTANGLES, a transparent index, and a
-   disposal mode that leaves the previous frame standing. The backdrop here
-   never moves — with the clock frozen, only the pile and its shadow change —
-   so every frame after the first is written as just the rectangle that
-   changed, and inside it every pixel that did not change points at the
-   transparent index and lets the frame below show through. LZW then meets
-   long runs of one value wherever the picture is standing still, which is
-   most of it: the same pixels on screen for a fraction of them in the file.
-   Diffing happens on QUANTISED indices, which is what makes it exact — the
-   dither is positional and the quantiser is deterministic, so a pixel the
-   render did not change quantises to the same index every time.
+   disposal mode that leaves the previous frame standing. So every frame
+   after the first is written as just the rectangle that changed, and inside
+   it every pixel that did not change points at the transparent index and
+   lets the frame below show through. LZW then meets long runs of one value
+   wherever the picture is standing still: the same pixels on screen for a
+   fraction of them in the file.
+
+   "Did not change" is a judgement, not a comparison, and that is the part
+   that was learned the expensive way — see HOLD below: with the clock frozen
+   only the pile and its light actually move, but its soft shadow and its
+   reflections GRAZE nearly the whole frame, and a graze of a level or two
+   flips dithered indices everywhere. Diffed raw, a real composition came out
+   73MB. Held to HOLD, stillness is real again, and the diff is still exact
+   where it matters — the dither is positional and the quantiser
+   deterministic, so a pixel that is not rewritten shows exactly what it
+   showed before.
 
    25fps stays, and for the same two reasons as ever: it divides the GIF's
    hundredth-of-a-second clock exactly (4cs a frame — 12 did not divide it,
@@ -11026,8 +11035,20 @@ function gifBytes(packets, w, h, pal, used, delayCs) {
    little in hand. One index is held back from the palette to be the
    transparency, which is why the cut asks for 255 colours and not 256.
    The dials stay dials: tuneGif({max, fps}). */
-let GIF_MAX = 800, GIF_FPS = 25;
+let GIF_MAX = 600, GIF_FPS = 25;
 const TRANS = 255;   // the index that means "the frame below shows through"
+/* HOW STILL A PIXEL HAS TO STAND before the file believes it. The rectangle
+   trick alone was measured and was not enough (14 Aug 26, a real composition:
+   73MB): the pile's soft shadow, its occlusion and its reflections graze
+   nearly the whole frame, and a drift of one or two levels is enough to flip
+   a dithered pixel's index — so "what changed" was everything, every frame.
+   A pixel is rewritten only once it has moved more than HOLD levels in any
+   channel, measured against the value it was LAST WRITTEN AT, not against
+   the frame before — so slow drift cannot creep out from under the
+   threshold one invisible step at a time: the error is bounded at HOLD
+   levels forever, which at 5 is beneath the dither's own amplitude. Real
+   movement — the pile itself — clears 5 levels the moment it arrives. */
+const HOLD = 5;
 window.tuneGif = (v = {}) => {
   if (v.max !== undefined) GIF_MAX = Math.max(120, Math.min(2000, v.max));
   if (v.fps !== undefined) GIF_FPS = Math.max(5, Math.min(50, v.fps));
@@ -11038,12 +11059,14 @@ async function exportGIF() {
   const fps = GIF_FPS;
   const n = Math.max(8, Math.round(TURN.secs * fps));
   /* The format's proportion, and the format's size up to the GIF's own ceiling —
-     which is far lower than the video's and stays that way. A GIF is 256 colours
-     of unfiltered, palette-indexed pixels: doubling the side quadruples the file
-     with no interframe compression to absorb it, and 800 on the long side is
-     already a heavy file. So this is capped hard, but it is capped against the
-     FORMAT rather than against the window, so the same upload gives the same GIF
-     on any screen — which is the whole of what was asked for. */
+     which is far lower than the video's, and lower still since 14 Aug 26, by
+     choice: asked which way the GIF should fall, the answer was "light, and
+     give up a little" — the video carries the full format, so sharpness lost
+     here is lost nowhere else. A GIF is 256 colours of palette-indexed pixels:
+     doubling the side quadruples the file with no real interframe compression
+     to absorb it, and 600 on the long side is where a full turn stays
+     carryable. Capped against the FORMAT rather than the window, so the same
+     upload gives the same GIF on any screen. */
   const capK = Math.min(1, GIF_MAX / Math.max(FMT.w, FMT.h));
   const targetW = Math.max(2, Math.round(FMT.w * capK));
   await atFormatScale(targetW, async ({ w, h, ss }) => {
@@ -11060,30 +11083,50 @@ async function exportGIF() {
   const { pal, used } = medianCut(Uint8Array.from(sample), 255);
   const q = quantiser(pal, used);
 
-  /* One full frame, then differences. `prev` is the one whole frame kept in
-     hand; each new frame is quantised, compared against it index for index,
-     and goes into the file as the bounding rectangle of what changed — with
-     the unchanged pixels inside that rectangle made transparent, so even the
-     rectangle mostly compresses away. A frame that changed nothing (it can
-     happen at this frame rate) still has to exist to hold its 4cs of time,
-     and goes out as a single transparent pixel. */
+  /* One full frame, then differences. `prev` is the whole frame as indices;
+     `base` is the sRGB each pixel was last WRITTEN at, which is what HOLD
+     measures against. A pixel that has not moved past HOLD keeps its index —
+     no quantise, no dither flip, no entry in the diff — and one that has is
+     re-quantised and re-anchored. Each frame then goes into the file as the
+     bounding rectangle of what changed, with the unchanged pixels inside it
+     made transparent, so even the rectangle mostly compresses away. A frame
+     that changed nothing (it can happen at this frame rate) still has to
+     exist to hold its 4cs of time, and goes out as a single transparent
+     pixel. */
   const packets = [];
-  let prev = null;
+  let prev = null, base = null;
   await turn(n, async (i) => {
     blit(w, h);
     const d = capx.getImageData(0, 0, w, h).data;
     const cur = new Uint8Array(w * h);
-    for (let y = 0, o = 0; y < h; y++) {
-      for (let x = 0; x < w; x++, o++) {
-        const p = o * 4, dz = BAYER[(y & 3) * 4 + (x & 3)] * 14;
-        cur[o] = q(Math.min(255, Math.max(0, d[p] + dz)),
-                   Math.min(255, Math.max(0, d[p + 1] + dz)),
-                   Math.min(255, Math.max(0, d[p + 2] + dz)));
-      }
-    }
     if (!prev) {
+      for (let y = 0, o = 0; y < h; y++) {
+        for (let x = 0; x < w; x++, o++) {
+          const p = o * 4, dz = BAYER[(y & 3) * 4 + (x & 3)] * 14;
+          cur[o] = q(Math.min(255, Math.max(0, d[p] + dz)),
+                     Math.min(255, Math.max(0, d[p + 1] + dz)),
+                     Math.min(255, Math.max(0, d[p + 2] + dz)));
+        }
+      }
+      base = new Uint8ClampedArray(d);
       packets.push({ x: 0, y: 0, w, h, px: cur.slice(), trans: false });
     } else {
+      for (let y = 0, o = 0; y < h; y++) {
+        for (let x = 0; x < w; x++, o++) {
+          const p = o * 4;
+          if (Math.abs(d[p] - base[p]) > HOLD ||
+              Math.abs(d[p + 1] - base[p + 1]) > HOLD ||
+              Math.abs(d[p + 2] - base[p + 2]) > HOLD) {
+            const dz = BAYER[(y & 3) * 4 + (x & 3)] * 14;
+            cur[o] = q(Math.min(255, Math.max(0, d[p] + dz)),
+                       Math.min(255, Math.max(0, d[p + 1] + dz)),
+                       Math.min(255, Math.max(0, d[p + 2] + dz)));
+            base[p] = d[p]; base[p + 1] = d[p + 1]; base[p + 2] = d[p + 2];
+          } else {
+            cur[o] = prev[o];
+          }
+        }
+      }
       let lox = w, hix = -1, loy = h, hiy = -1;
       for (let y = 0, o = 0; y < h; y++) {
         for (let x = 0; x < w; x++, o++) {
@@ -11271,7 +11314,7 @@ function openSetup() {
 function closeSetup() {
   const w = Math.max(80, Math.min(8000, Math.round(+F('fmt-w').value || FMT.w)));
   const h = Math.max(80, Math.min(8000, Math.round(+F('fmt-h').value || FMT.h)));
-  VID.secs = Math.max(2, Math.min(120, +F('vid-secs').value || 15));
+  VID.secs = Math.max(2, Math.min(120, +F('vid-secs').value || 20));
   const moved = (w !== FMT.w || h !== FMT.h);
   FMT.w = w; FMT.h = h;
   setup.hidden = true;
