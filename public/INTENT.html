@@ -10931,7 +10931,7 @@ function quantiser(pal, used) {
 // 4x4 ordered dither, so a slow gradient across the backdrop does not band
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v / 16 - 0.5));
 
-function lzw(px, minCode) {
+function lzw(px, minCode, near) {
   const clear = 1 << minCode, eoi = clear + 1;
   let size = minCode + 1, next = eoi + 1;
   let dict = new Map();
@@ -10947,6 +10947,20 @@ function lzw(px, minCode) {
     const k = px[i], key = prefix * 4096 + k;
     const found = dict.get(key);
     if (found !== undefined) { prefix = found; continue; }
+    /* the lean — see LOSSY above: a close-enough colour that continues the
+       phrase beats the exact colour that ends it. Only ever sideways to a
+       real colour (near[TRANS] does not exist), and only when it hits. */
+    if (near) {
+      const alts = near[k];
+      if (alts) {
+        let cont = -1;
+        for (let a = 0; a < alts.length; a++) {
+          const f2 = dict.get(prefix * 4096 + alts[a]);
+          if (f2 !== undefined) { cont = f2; break; }
+        }
+        if (cont >= 0) { prefix = cont; continue; }
+      }
+    }
     put(prefix);
     dict.set(key, next++);
     /* One code LATER than the arithmetic says, and this is the whole of GIF
@@ -10977,7 +10991,7 @@ function lzw(px, minCode) {
    its pixels already palette indices, and whether it leans on the transparent
    index. Disposal is "leave in place" for every frame, so a delta only has to
    say what changed. */
-function gifBytes(packets, w, h, pal, used, delayCs) {
+function gifBytes(packets, w, h, pal, used, delayCs, near) {
   const b = [];
   const u16 = v => { b.push(v & 255, (v >> 8) & 255); };
   const str = t => { for (let i = 0; i < t.length; i++) b.push(t.charCodeAt(i)); };
@@ -10996,7 +11010,7 @@ function gifBytes(packets, w, h, pal, used, delayCs) {
     b.push(f.trans ? TRANS : 0x00, 0x00);
     b.push(0x2C); u16(f.x); u16(f.y); u16(f.w); u16(f.h); b.push(0x00);
     b.push(8);
-    const data = lzw(f.px, 8);
+    const data = lzw(f.px, 8, near);
     for (let i = 0; i < data.length; i += 255) {
       const n = Math.min(255, data.length - i);
       b.push(n);
@@ -11041,6 +11055,16 @@ function gifBytes(packets, w, h, pal, used, delayCs) {
    256. The dials stay dials: tuneGif({max, fps}). */
 let GIF_MAX = 800, GIF_FPS = 20;
 const TRANS = 255;   // the index that means "the frame below shows through"
+/* HOW FAR THE ENCODER MAY LEAN. The last of the GIF's weight is the dither
+   itself: LZW pays for every change of value, and a dithered surface changes
+   value at almost every pixel on purpose. So the encoder is allowed to pick
+   a neighbouring palette colour instead of the exact one WHEN AND ONLY WHEN
+   that keeps an existing phrase running (the gifsicle trick) — the picture
+   gives up at most LOSSY levels of weighted colour at a pixel, which is
+   under the dither's own amplitude, and the file stops paying dither prices
+   for dither noise. The transparent index is never leaned to or from: it is
+   not a colour, it is the delta's grammar. */
+const LOSSY = 8;
 /* HOW STILL A PIXEL HAS TO STAND before the file believes it. The rectangle
    trick alone was measured and was not enough (14 Aug 26, a real composition:
    73MB): the pile's soft shadow, its occlusion and its reflections graze
@@ -11086,6 +11110,23 @@ async function exportGIF() {
   });
   const { pal, used } = medianCut(Uint8Array.from(sample), 255);
   const q = quantiser(pal, used);
+
+  /* who counts as "a step sideways" for the lossy lean — for every palette
+     colour, its neighbours within LOSSY, nearest first. Six is plenty: past
+     that the phrases LZW could continue are not worth the walk. */
+  const near = [];
+  for (let i = 0; i < used; i++) {
+    const list = [];
+    for (let j = 0; j < used; j++) {
+      if (j === i) continue;
+      const dr = pal[i * 3] - pal[j * 3], dg = pal[i * 3 + 1] - pal[j * 3 + 1],
+            db = pal[i * 3 + 2] - pal[j * 3 + 2];
+      const d = dr * dr * 0.30 + dg * dg * 0.59 + db * db * 0.11;
+      if (d <= LOSSY * LOSSY) list.push([d, j]);
+    }
+    list.sort((a, b) => a[0] - b[0]);
+    near.push(list.slice(0, 6).map(e => e[1]));
+  }
 
   /* One full frame, then differences. `prev` is the whole frame as indices;
      `base` is the sRGB each pixel was last WRITTEN at, which is what HOLD
@@ -11163,7 +11204,7 @@ async function exportGIF() {
 
   say('GIF · אורז…');
   await raf();
-  const bytes = gifBytes(packets, w, h, pal, used, Math.max(2, Math.round(100 / fps)));
+  const bytes = gifBytes(packets, w, h, pal, used, Math.max(2, Math.round(100 / fps)), near);
   const blob = new Blob([bytes], { type: 'image/gif' });
   save(blob, stampName('gif'));
   say('נשמר GIF · ' + w + '×' + h + ' · דגימה ×' + ss.toFixed(1) + ' · '
