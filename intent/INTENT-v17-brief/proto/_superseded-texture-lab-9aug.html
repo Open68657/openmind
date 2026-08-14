@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>INTENT — מעבדת טקסטורות</title>
+<style>
+  :root { --ground:#e6e4dd; --ink:#1a1c19; --muted:#7d7f76; --line:rgba(26,28,25,.18); --warn:#9a5b2e; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--ground); color:var(--ink); overflow:hidden;
+    font:13px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  body { display:grid; grid-template-columns:340px 1fr; }
+
+  aside { border-inline-end:1px solid var(--line); padding:16px 18px; overflow-y:auto; }
+  h1 { margin:0 0 2px; font-size:14px; font-weight:600; }
+  h1 small { display:block; font-weight:400; color:var(--muted); font-size:12px; margin-top:3px; }
+
+  .drop { margin-top:14px; border:1.5px dashed var(--line); border-radius:12px; padding:18px 14px;
+    text-align:center; color:var(--muted); cursor:pointer; transition:border-color .15s; }
+  .drop.over, .drop:hover { border-color:var(--ink); color:var(--ink); }
+  .drop b { display:block; color:var(--ink); font-weight:600; margin-bottom:3px; }
+  .drop img { max-width:100%; max-height:120px; border-radius:8px; display:block; margin:8px auto 0; }
+  input[type=file] { display:none; }
+
+  .dials { margin-top:14px; display:flex; flex-direction:column; gap:9px; }
+  .slider { display:flex; align-items:center; gap:8px; }
+  .slider label { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); min-width:9ch; }
+  .slider input[type=range] { flex:1; margin:0; direction:ltr; accent-color:var(--ink); }
+  .slider output { font-variant-numeric:tabular-nums; direction:ltr; min-width:44px; font-size:12px; }
+  .slider input[type=color] { width:36px; height:24px; border:1px solid var(--line); border-radius:6px;
+    padding:1px; background:transparent; cursor:pointer; }
+  select { font:inherit; font-size:12px; padding:4px 8px; border:1px solid var(--line); border-radius:8px;
+    background:transparent; color:var(--ink); }
+
+  .row { margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
+  button { font:inherit; font-size:12px; padding:6px 13px; background:transparent; color:var(--ink);
+    border:1px solid var(--line); border-radius:999px; cursor:pointer; }
+  button:hover { background:rgba(26,28,25,.05); }
+  button.go { border-color:var(--ink); font-weight:500; }
+  button:disabled { opacity:.4; cursor:default; }
+
+  .note { margin-top:14px; color:var(--muted); font-size:12px; }
+  .note b { color:var(--ink); }
+  #out { margin-top:10px; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:11px;
+    direction:ltr; text-align:left; white-space:pre-wrap; background:rgba(255,255,255,.4);
+    border:1px solid var(--line); border-radius:10px; padding:10px; display:none; max-height:180px; overflow:auto; }
+
+  main { position:relative; min-height:0; }
+  iframe { border:0; width:100%; height:100%; display:block; }
+</style>
+</head>
+<body>
+
+<aside>
+  <h1>מעבדת טקסטורות
+    <small>עותק חי של הפרוטוטייפ — אותו חדר, אותה תאורה, אותה צנרת חומרים.
+      טוענים סריקה, מסובבים חוגות, והכלי כותב שורת פרופיל מוכנה להדבקה.</small>
+  </h1>
+
+  <label class="drop" id="drop">
+    <b>גררי סריקה לכאן, או לחצי לבחירה</b>
+    רצוי ריבועית, 768px ומעלה, מצולמת "לבן" כמו שאר הסריקות
+    <img id="preview" hidden />
+    <input id="file" type="file" accept="image/*" />
+  </label>
+
+  <div class="dials">
+    <div class="slider"><label for="tile">צפיפות</label>
+      <input id="tile" type="range" min="150" max="1400" step="10" value="700" /><output id="tileOut">700</output></div>
+    <div class="slider"><label for="bump">בליטה</label>
+      <input id="bump" type="range" min="0" max="24" step="0.5" value="8" /><output id="bumpOut">8.0</output></div>
+    <div class="slider"><label for="rough">חספוס</label>
+      <input id="rough" type="range" min="0" max="1" step="0.01" value="0.55" /><output id="roughOut">0.55</output></div>
+    <div class="slider"><label for="roughVar">גיוון חספוס</label>
+      <input id="roughVar" type="range" min="0" max="1" step="0.01" value="0.35" /><output id="roughVarOut">0.35</output></div>
+    <div class="slider"><label for="lumps">גושיות</label>
+      <input id="lumps" type="range" min="0" max="0.5" step="0.01" value="0.22" /><output id="lumpsOut">0.22</output></div>
+    <div class="slider"><label>גוון</label>
+      <input id="tint" type="color" value="#ffffff" />
+      <select id="finish">
+        <option value="matte">מאט</option>
+        <option value="glaze">מזוגג (clearcoat)</option>
+        <option value="metal">מתכת</option>
+      </select></div>
+  </div>
+
+  <div class="row">
+    <button class="go" id="redraw" disabled>צייר דוגמאות</button>
+    <button id="clear">נקה</button>
+    <button id="spin">סיבוב</button>
+  </div>
+  <div class="row">
+    <button class="go" id="copy" disabled>העתק שורת פרופיל</button>
+  </div>
+  <pre id="out"></pre>
+
+  <p class="note"><b>איך מאמצים טקסטורה:</b> שומרים את הקובץ ל־<code>textures/&lt;שם&gt;.jpg</code>,
+    מדביקים את שורת הפרופיל לרשימת <code>MATERIALS</code> ב־<code>index.html</code>, וזהו —
+    הבורר יכיר אותה. המעבדה עצמה לא נוגעת בכלי: אפשר למחוק את הקובץ הזה והפרוטוטייפ כמו שהיה.</p>
+</aside>
+
+<main><iframe id="proto" src="index.html" title="הפרוטוטייפ"></iframe></main>
+
+<script>
+/* A bench, not a feature — the tune.html precedent, pointed at materials.
+   The frame is an untouched copy of index.html; everything here goes through
+   devScanMaterial and pointer events, the same doors a hand and a console
+   already use. */
+const F = document.getElementById('proto');
+const $ = id => document.getElementById(id);
+
+const ready = () => new Promise(res => {
+  const check = () => (F.contentWindow && F.contentWindow.devScanMaterial && F.contentWindow.devMaterial)
+    ? res(F.contentWindow) : setTimeout(check, 100);
+  check();
+});
+
+let dataURI = null, texName = 'scan-lab';
+
+const readFile = f => {
+  if (!f || !f.type.startsWith('image/')) return;
+  /* prefixed, so a candidate file named moss.jpg cannot collide with the
+     shipped moss profile and quietly mutate it */
+  texName = 'lab-' + ((f.name || 'scan').replace(/\.[^.]+$/, '').replace(/[^\w-]/g, '-').toLowerCase() || 'scan');
+  const r = new FileReader();
+  r.onload = () => {
+    dataURI = r.result;
+    $('preview').src = dataURI; $('preview').hidden = false;
+    $('redraw').disabled = false; $('copy').disabled = false;
+    apply(true);
+  };
+  r.readAsDataURL(f);
+};
+
+$('file').addEventListener('change', e => readFile(e.target.files[0]));
+const drop = $('drop');
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('over');
+  readFile(e.dataTransfer.files[0]);
+});
+
+const FINISHES = {
+  matte: {},
+  glaze: { clearcoat: 1.0, clearcoatRoughness: 0.06 },
+  metal: { metalness: 1.0 }
+};
+
+function profile() {
+  return {
+    name: texName, dataURI,
+    tint: parseInt($('tint').value.slice(1), 16),
+    tile: +$('tile').value, bump: +$('bump').value,
+    rough: +$('rough').value, roughVar: +$('roughVar').value,
+    lumps: +$('lumps').value,
+    grain: 0.3,
+    finish: FINISHES[$('finish').value]
+  };
+}
+
+/* the same stroke door tune.html uses */
+function stroke(win, cx, cy, pts) {
+  const dc = win.document.getElementById('draw');
+  const fire = (type, p, target) => target.dispatchEvent(new win.PointerEvent(type, {
+    clientX: p.x, clientY: p.y, pointerId: 1, bubbles: true, pointerType: 'mouse'
+  }));
+  fire('pointerdown', pts[0], dc);
+  for (let i = 1; i < pts.length; i++) fire('pointermove', pts[i], dc);
+  fire('pointerup', pts[pts.length - 1], win);
+}
+const ring = (cx, cy, rf, n = 110) => {
+  const p = [];
+  for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2;
+    const r = typeof rf === 'function' ? rf(a) : rf;
+    p.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }); }
+  return p;
+};
+const box = (cx, cy, w, h, per = 26) => {
+  const p = [], c = [[-1,-1],[1,-1],[1,1],[-1,1]];
+  for (let s = 0; s < 4; s++) { const a = c[s], b = c[(s + 1) % 4];
+    for (let i = 0; i < per; i++) { const t = i / per;
+      p.push({ x: cx + (a[0] + (b[0]-a[0]) * t) * w / 2, y: cy + (a[1] + (b[1]-a[1]) * t) * h / 2 }); } }
+  p.push({ ...p[0] }); return p;
+};
+
+async function apply(redraw) {
+  const w = await ready();
+  w.devScanMaterial(profile());
+  if (redraw) drawSamples();
+}
+
+/* three bodies, because a texture reads differently on a ball, on a slab, and
+   on a blob — the sizes a hand actually draws */
+async function drawSamples() {
+  const w = await ready();
+  w.document.getElementById('clear').click();
+  w.devSpin(false); w.devAngle(0);
+  const cx = w.innerWidth / 2, cy = w.innerHeight / 2, u = Math.min(cx, cy);
+  w.devScanMaterial(profile());
+  stroke(w, 0, 0, ring(cx - u * 0.62, cy - u * 0.1, u * 0.30));
+  w.devScanMaterial(profile());
+  stroke(w, 0, 0, box(cx + u * 0.55, cy - u * 0.15, u * 0.52, u * 0.52));
+  w.devScanMaterial(profile());
+  stroke(w, 0, 0, ring(cx - u * 0.02, cy + u * 0.42,
+    a => u * 0.26 * (1 + 0.16 * Math.sin(a * 3 + 0.7) + 0.08 * Math.sin(a * 5))));
+  w.devMaterial();
+}
+
+for (const id of ['tile', 'bump', 'rough', 'roughVar', 'lumps']) {
+  $(id).addEventListener('input', () => {
+    $(id + 'Out').textContent = (+$(id).value).toFixed(id === 'tile' ? 0 : 2);
+    if (dataURI) apply(true);
+  });
+}
+$('tint').addEventListener('input', () => { if (dataURI) apply(true); });
+$('finish').addEventListener('change', () => { if (dataURI) apply(true); });
+
+$('redraw').addEventListener('click', drawSamples);
+$('clear').addEventListener('click', async () => (await ready()).document.getElementById('clear').click());
+let spinning = false;
+$('spin').addEventListener('click', async () => {
+  const w = await ready(); spinning = !spinning;
+  w.devSpin(spinning); if (!spinning) w.devAngle(0);
+});
+
+/* the line to paste — a decision, not a dump */
+$('copy').addEventListener('click', async () => {
+  const p = profile();
+  const fin = Object.keys(p.finish).length
+    ? `,\n    finish: { ${Object.entries(p.finish).map(([k, v]) => `${k}: ${v}`).join(', ')} }`
+    : '';
+  const line =
+`  { name: '${p.name}', file: '${p.name}', tint: 0x${p.tint.toString(16).padStart(6, '0')}, ` +
+`rough: ${p.rough}, lumps: ${p.lumps}, grain: ${p.grain}, tile: ${p.tile}, bump: ${p.bump}, roughVar: ${p.roughVar}${fin} },`;
+  const msg = `// שמרי את הסריקה בתור textures/${p.name}.jpg והדביקי ב-MATERIALS:\n${line}`;
+  $('out').style.display = 'block';
+  $('out').textContent = msg;
+  try { await navigator.clipboard.writeText(msg); } catch (e) {}
+});
+</script>
+</body>
+</html>

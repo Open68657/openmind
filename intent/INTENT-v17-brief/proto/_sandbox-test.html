@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>sandbox test — what decides whether a download reaches the disk</title>
+<style>body{font:13px/1.5 system-ui;margin:16px;background:#1b1b1a;color:#eee}</style>
+<!-- The page inside both frames is identical and does exactly what save() does:
+     make a Blob, make an object URL, click an <a download>. Only the sandbox
+     differs — which is the HOST's choice, not the page's. Chrome logs a warning
+     in the frame it blocks, so the console tells us which one reached the disk. -->
+<iframe id="a" sandbox="allow-scripts" srcdoc='
+  <script>
+    const b = new Blob(["sandbox test A"], { type: "text/plain" });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement("a");
+    a.href = u; a.download = "test-no-downloads.txt";
+    document.body.appendChild(a); a.click(); a.remove();
+    console.log("FRAME A (allow-scripts only): clicked the download");
+  <\/script>'></iframe>
+<iframe id="b" sandbox="allow-scripts allow-downloads" srcdoc='
+  <script>
+    const b = new Blob(["sandbox test B"], { type: "text/plain" });
+    const u = URL.createObjectURL(b);
+    const a = document.createElement("a");
+    a.href = u; a.download = "test-with-downloads.txt";
+    document.body.appendChild(a); a.click(); a.remove();
+    console.log("FRAME B (allow-downloads): clicked the download");
+  <\/script>'></iframe>

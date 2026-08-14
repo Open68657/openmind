@@ -1,0 +1,1788 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>INTENT — ניסוי 05: קו → חומר</title>
+<style>
+  :root {
+    --ground: #e6e4dd;
+    --ink: #1a1c19;
+    --muted: #7d7f76;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: var(--ground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    touch-action: none;
+    direction: rtl;   /* stated here too: a shareable build has no <html dir> */
+  }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; }
+  #draw {
+    position: fixed; inset: 0; z-index: 2; cursor: crosshair;
+  }
+  .hud {
+    position: fixed; z-index: 5; color: var(--ink);
+    font-size: 13px; letter-spacing: .01em;
+  }
+  #title { top: 22px; right: 24px; font-weight: 500; }
+  #title small { display: block; color: var(--muted); font-weight: 400; margin-top: 3px; }
+  #hint {
+    bottom: 24px; right: 24px; color: var(--muted); max-width: 40ch; line-height: 1.6;
+  }
+  @media (max-width: 720px) { #hint { display: none; } }
+  #readout {
+    bottom: 24px; left: 24px; color: var(--muted);
+    font-variant-numeric: tabular-nums; text-align: left; direction: ltr;
+    font-size: 12px; line-height: 1.7;
+  }
+  #tools { top: 20px; left: 24px; display: flex; gap: 8px; }
+  button {
+    font: inherit; font-size: 12px; padding: 7px 14px;
+    background: transparent; color: var(--ink);
+    border: 1px solid rgba(26,28,25,.28); border-radius: 999px;
+    cursor: pointer; transition: background .15s;
+  }
+  button:hover { background: rgba(26,28,25,.06); }
+  button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  button[aria-pressed="true"] { background: rgba(26,28,25,.10); border-color: rgba(26,28,25,.5); }
+
+  /* the tuning panel. Deliberately quiet: it sits over the picture it is
+     changing, so anything with weight of its own would compete with the thing
+     being judged */
+  #panel {
+    top: 62px; left: 24px; width: 216px;
+    background: rgba(255,255,255,.72); backdrop-filter: blur(12px);
+    border: 1px solid rgba(26,28,25,.12); border-radius: 12px;
+    padding: 12px 14px 14px;
+  }
+  #panel[hidden] { display: none; }
+  #panel .grp {
+    font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--muted); margin: 12px 0 6px;
+  }
+  #panel .grp:first-child { margin-top: 0; }
+  #panel label { display: block; margin: 0 0 7px; font-size: 11px; color: var(--ink); }
+  #panel .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+  #panel .row b {
+    font-weight: 400; color: var(--muted);
+    font-variant-numeric: tabular-nums; direction: ltr;
+  }
+  #panel input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 14px;
+    background: transparent; margin: 0; cursor: pointer; direction: ltr;
+  }
+  #panel input[type=range]::-webkit-slider-runnable-track {
+    height: 2px; background: rgba(26,28,25,.22); border-radius: 2px;
+  }
+  #panel input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--ink); margin-top: -4.5px;
+  }
+  #panel .reset {
+    width: 100%; margin-top: 12px; font-size: 11px; padding: 5px 0;
+  }
+  @media (max-height: 760px) { #panel { top: 62px; max-height: calc(100vh - 110px); overflow-y: auto; } }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<canvas id="draw"></canvas>
+
+<!-- the number tracks the version: index.html is version 5, so this is 05.
+     Bump it whenever the live file is frozen and a new version starts.
+     Version 4 is frozen, untouched, in v04-shadow-and-ground.html. -->
+<div class="hud" id="title">INTENT — ניסוי 05<small>קו → חומר</small></div>
+<div class="hud" id="tools">
+  <button id="clear">נקה</button>
+  <button id="spin">סיבוב</button>
+  <button id="export">ייצוא</button>
+  <button id="tune" aria-pressed="false">כוונון</button>
+</div>
+<div class="hud" id="panel" hidden>
+  <div class="grp">רקע</div>
+  <label><span class="row">חשיפה <b data-for="exposure"></b></span>
+    <input type="range" id="k-exposure" min="0.6" max="1.8" step="0.01"></label>
+  <label><span class="row">גוון רצפה <b data-for="floor"></b></span>
+    <input type="range" id="k-floor" min="0.55" max="1" step="0.01"></label>
+
+  <div class="grp">צל</div>
+  <label><span class="row">עומק הצל <b data-for="env"></b></span>
+    <input type="range" id="k-env" min="0.2" max="1.1" step="0.01"></label>
+  <label><span class="row">עוצמה <b data-for="key"></b></span>
+    <input type="range" id="k-key" min="0.2" max="1.6" step="0.01"></label>
+  <label><span class="row">רכוּת <b data-for="soft"></b></span>
+    <input type="range" id="k-soft" min="1" max="24" step="0.5"></label>
+  <label><span class="row">גובה המנורה <b data-for="elev"></b></span>
+    <input type="range" id="k-elev" min="12" max="65" step="1"></label>
+  <label><span class="row">כיוון המנורה <b data-for="azim"></b></span>
+    <input type="range" id="k-azim" min="-50" max="50" step="1"></label>
+  <label><span class="row">מרחק הרצפה <b data-for="dist"></b></span>
+    <input type="range" id="k-dist" min="1.4" max="3.2" step="0.05"></label>
+
+  <div class="grp">אוקלוזיה</div>
+  <label><span class="row">עוצמה <b data-for="ao"></b></span>
+    <input type="range" id="k-ao" min="0" max="1" step="0.01"></label>
+  <label><span class="row">טווח <b data-for="aor"></b></span>
+    <input type="range" id="k-aor" min="10" max="110" step="1"></label>
+
+  <button class="reset" id="k-reset">איפוס</button>
+</div>
+<div class="hud" id="hint">ציירי צורה. כשתרימי את האצבע היא תיוולד כגוף מחומר.<br>עיגול סגור → כדור. קו פתוח → גוף מוארך לאורך הקו.</div>
+<div class="hud" id="readout"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ---------- noise (value noise + fbm) ---------- */
+function hash3(x, y, z) {
+  let h = x * 374761393 + y * 668265263 + z * 1274126177;
+  h = (h ^ (h >> 13)) * 1274126177;
+  return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+}
+function smooth(t) { return t * t * (3 - 2 * t); }
+function vnoise(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const xf = x - xi, yf = y - yi, zf = z - zi;
+  const u = smooth(xf), v = smooth(yf), w = smooth(zf);
+  let r = 0;
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
+    const wx = i ? u : 1 - u, wy = j ? v : 1 - v, wz = k ? w : 1 - w;
+    r += hash3(xi + i, yi + j, zi + k) * wx * wy * wz;
+  }
+  return r * 2 - 1;
+}
+function fbm(x, y, z, oct = 4) {
+  let a = 1, f = 1, sum = 0, norm = 0;
+  for (let i = 0; i < oct; i++) { sum += a * vnoise(x * f, y * f, z * f); norm += a; a *= 0.5; f *= 2; }
+  return sum / norm;
+}
+
+/* ---------- material library (placeholder scans) ----------
+   These are procedural stand-ins. The real system uses photographed
+   material, shot neutral so it can be tinted here in code. */
+function tex(draw, size = 512) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+/* Triplanar projection: samples the material from three axes and blends.
+   Kills UV seams and stretching on organic bodies — the "gift wrap" problem.
+
+   It carries the whole material response, not only colour. An eye reads
+   material from the way light CHANGES across a surface, so the scan's own
+   luminance also drives a bump and a roughness break-up — one flat albedo
+   map is what makes a body read as default plastic. Two more things the
+   scans need: conditioning on load (see conditionScan), and sampling as two
+   layers at different scales and angles, so no repeat ever lines up. */
+function triplanar(mat, scale, o = {}) {
+  // the bump is computed from screen derivatives, which are core in WebGL2
+  // but an extension below it — declaring it costs nothing and keeps older
+  // builds of three from compiling a shader that cannot run
+  mat.extensions = { derivatives: true };
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTriScale = { value: scale };
+    shader.uniforms.uBump = { value: o.bump ?? 70 };
+    shader.uniforms.uRoughVar = { value: o.roughVar ?? 0.35 };
+    // hold the conditioned mean so layering cannot drift off it
+    shader.uniforms.uMean = { value: Math.pow(SCAN_MEAN, 2.2) };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vTriPos;\nvarying vec3 vTriNrm;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTriPos = position;\nvTriNrm = normal;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        varying vec3 vTriPos;
+        varying vec3 vTriNrm;
+        uniform float uTriScale;
+        uniform float uBump;
+        uniform float uRoughVar;
+        uniform float uMean;
+        float triLum = 0.0;
+        const mat2 TRI_ROT = mat2(0.7986, -0.6018, 0.6018, 0.7986);   // 37 degrees
+        vec4 triLayer(sampler2D t, vec2 uv, float bias) {
+          vec4 a = texture2D(t, uv, bias);
+          vec4 b = texture2D(t, TRI_ROT * uv * 0.43 + 7.3, bias);
+          return a + (b - uMean) * 0.85;
+        }`)
+      .replace('#include <map_fragment>', `
+        vec3 triW = pow(abs(normalize(vTriNrm)), vec3(4.0));
+        triW /= (triW.x + triW.y + triW.z);
+        vec4 triC = triLayer(map, vTriPos.yz * uTriScale, 0.0) * triW.x
+                  + triLayer(map, vTriPos.xz * uTriScale, 0.0) * triW.y
+                  + triLayer(map, vTriPos.xy * uTriScale, 0.0) * triW.z;
+        // height comes off a deliberately blurred mip: a screen-derivative
+        // bump on the sharp sample amplifies the scan's own JPEG noise into
+        // a fizz of pixel-sized dents
+        vec4 triH = triLayer(map, vTriPos.yz * uTriScale, 2.2) * triW.x
+                  + triLayer(map, vTriPos.xz * uTriScale, 2.2) * triW.y
+                  + triLayer(map, vTriPos.xy * uTriScale, 2.2) * triW.z;
+        triLum = dot(triH.rgb, vec3(0.2126, 0.7152, 0.0722));
+        diffuseColor *= triC;
+      `)
+      // crevices scatter, ridges catch — a single uniform highlight is the
+      // giveaway that nothing is actually varying across the surface
+      .replace('#include <roughnessmap_fragment>', `
+        float roughnessFactor = clamp(roughness + (uMean - triLum) * uRoughVar, 0.04, 1.0);
+      `)
+      // bump straight off the scan's luminance, via screen derivatives, so
+      // it needs no tangents and follows the triplanar sample exactly
+      .replace('#include <normal_fragment_maps>', `
+        vec3 triSurf = -vViewPosition;
+        vec3 triSx = dFdx(triSurf), triSy = dFdy(triSurf);
+        vec3 triR1 = cross(triSy, normal), triR2 = cross(normal, triSx);
+        float triDet = dot(triSx, triR1);
+        vec3 triGrad = sign(triDet) * (dFdx(triLum) * triR1 + dFdy(triLum) * triR2) * uBump;
+        // derivatives blow up along the silhouette; without this the rim
+        // turns into a ring of glitter
+        triGrad = clamp(triGrad, -1.5 * abs(triDet), 1.5 * abs(triDet));
+        normal = normalize(abs(triDet) * normal - triGrad);
+      `);
+    mat.userData.tri = shader.uniforms;   // live tuning handle, see tuneTri()
+  };
+  mat.customProgramCacheKey = () => 'tri2';
+  TRI_MATS.push(mat);
+}
+const TRI_MATS = [];
+// tuneTri({bump: 60}) from the console: retunes every material on screen at
+// once, so a value can be judged against the real thing before it is baked in
+function tuneTri(v) {
+  TRI_MATS.forEach(m => {
+    const u = m.userData.tri;
+    if (!u) return;
+    for (const k in v) if (u['u' + k[0].toUpperCase() + k.slice(1)]) u['u' + k[0].toUpperCase() + k.slice(1)].value = v[k];
+  });
+  return TRI_MATS.length + ' materials';
+}
+window.tuneTri = tuneTri;   // dev handle: the page is a module, so the
+                            // console cannot reach anything not hung here
+// tuneLight({exposure: .8, key: 1.2}) — same idea for the room, since exposure
+// and lamp strength can only really be judged against each other on screen
+window.tuneLight = v => {
+  if (v.exposure !== undefined) renderer.toneMappingExposure = v.exposure;
+  if (v.key !== undefined) key.intensity = v.key;
+  if (v.rim !== undefined) rim.intensity = v.rim;
+  if (v.back !== undefined) back.intensity = v.back;
+  return { exposure: renderer.toneMappingExposure, key: key.intensity,
+           rim: rim.intensity, back: back.intensity };
+};
+/* The scans are photographs, not tiles: 16:9, lit with a vignette, each with
+   its own big soft blob in the middle. Tiled raw, the vignette becomes a grid
+   of patches and the edges become hard straight lines across the body — the
+   "technical, patterned" read. So every scan is conditioned once on load:
+   cropped square, high-passed to strip everything at the scale of the shot
+   itself, normalised so a near-flat scan carries the same grain as a
+   contrasty one, and closed into a tile that actually repeats. */
+const SCAN_MEAN = 200 / 255;      // every conditioned scan is centred here
+function conditionScan(img) {
+  const S = 768;
+  const a = document.createElement('canvas'); a.width = a.height = S;
+  const ga = a.getContext('2d', { willReadFrequently: true });
+  ga.drawImage(img, (img.naturalWidth - S) / 2, (img.naturalHeight - S) / 2, S, S, 0, 0, S, S);
+
+  // the blur radius is the cut: wide enough to keep brush strokes and grain,
+  // narrow enough to take the lighting of the shot with it
+  const b = document.createElement('canvas'); b.width = b.height = S;
+  const gb = b.getContext('2d', { willReadFrequently: true });
+  gb.filter = `blur(${Math.round(S / 8)}px)`;
+  gb.drawImage(a, 0, 0);
+
+  const A = ga.getImageData(0, 0, S, S), B = gb.getImageData(0, 0, S, S);
+  const da = A.data, db = B.data;
+  let sum2 = 0, n = 0;
+  for (let i = 0; i < da.length; i += 4) {
+    const d = 0.299 * (da[i] - db[i]) + 0.587 * (da[i + 1] - db[i + 1]) + 0.114 * (da[i + 2] - db[i + 2]);
+    sum2 += d * d; n++;
+  }
+  const gain = Math.min(9, 26 / Math.max(1, Math.sqrt(sum2 / n)));
+  const base = SCAN_MEAN * 255;
+  const hp = new Float32Array(da.length);
+  for (let i = 0; i < da.length; i += 4) {
+    for (let k = 0; k < 3; k++) {
+      hp[i + k] = Math.max(0, Math.min(255, base + (da[i + k] - db[i + k]) * gain));
+    }
+  }
+
+  /* Close the tile. Mirrored wrapping also hides the seam, but it hides it
+     behind a kaleidoscope — an X across a small body, which reads as pattern
+     just as loudly as the seam did. So blend in a half-shifted copy of the
+     same scan near the borders: the shifted copy's edges are the original's
+     continuous middle, and the join disappears. */
+  const half = S / 2, band = S * 0.25;
+  const feather = d => { const t = Math.min(1, d / band); return t * t * (3 - 2 * t); };
+  for (let y = 0; y < S; y++) {
+    const wy = feather(Math.min(y, S - 1 - y));
+    for (let x = 0; x < S; x++) {
+      const w = feather(Math.min(x, S - 1 - x)) * wy;
+      const i = (y * S + x) * 4;
+      const j = (((y + half) % S) * S + ((x + half) % S)) * 4;
+      for (let k = 0; k < 3; k++) da[i + k] = hp[i + k] * w + hp[j + k] * (1 - w);
+    }
+  }
+  ga.putImageData(A, 0, 0);
+  return a;
+}
+function fileTex(name) {
+  const t = new THREE.Texture();
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;   // the scan tiles for real now
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  const img = new Image();
+  img.onload = () => { t.image = conditionScan(img); t.needsUpdate = true; };
+  // a shareable build bakes the scans in, since a published page cannot
+  // reach any file of its own (see build_artifact.py)
+  img.src = (window.TEX_DATA && window.TEX_DATA[name]) || `textures/${name}.jpg`;
+  return t;
+}
+
+/* Generated neutral-white material scans. Shot white on purpose so the
+   colour is applied here in code — real texture, unlimited palette. */
+/* tile: world units one scan spans. At 46 the 1408px photograph was being
+   shown as a 46px thumbnail, repeated — that alone reads as pattern, not
+   material. Contrast no longer varies per material because conditionScan
+   normalises it, so bump differences here are about the kind of surface:
+   clay holds a soft slump, sponge is all pitting. */
+/* `finish` is what the scans cannot carry: whether light stops at the surface,
+   catches in a nap of fibres, sits under a coat of lacquer, or goes through the
+   body entirely. The scan still supplies grain, bump and roughness break-up on
+   top of whichever of these is chosen. Lengths in here (thickness, attenuation)
+   are given as fractions of the body and scaled to it at birth, so one profile
+   works for a thumbnail and for something that fills the window. */
+const MATERIALS = [
+  { name: 'gouache', file: 'gouache', tint: 0xff8a4a, rough: 0.94, lumps: 0.16, grain: 0.35, tile: 620, bump: 16, roughVar: 0.40,
+    finish: { sheen: 0.30, sheenRoughness: 0.85, sheenColor: 0xffd8bc } },
+  { name: 'sponge',  file: 'sponge',  tint: 0xf2b13c, rough: 1.00, lumps: 0.30, grain: 1.00, tile: 430, bump: 18, roughVar: 0.30,
+    // sheen is the retroreflective nap that makes velvet and moss glow along
+    // the rim instead of going black there
+    finish: { sheen: 1.0, sheenRoughness: 0.95, sheenColor: 0xffe2a8 } },
+  { name: 'moss',    file: 'moss',    tint: 0x5f8f3a, rough: 1.00, lumps: 0.34, grain: 1.10, tile: 500, bump: 14, roughVar: 0.30,
+    finish: { sheen: 0.95, sheenRoughness: 0.9, sheenColor: 0xcfe89a } },
+  { name: 'clay',    file: 'clay',    tint: 0xd2604f, rough: 0.82, lumps: 0.20, grain: 0.25, tile: 700, bump: 10, roughVar: 0.55,
+    finish: { clearcoat: 0.30, clearcoatRoughness: 0.55 } },
+  { name: 'glaze',   file: 'clay',    tint: 0xe0483a, rough: 0.30, lumps: 0.22, grain: 0.30, tile: 700, bump: 10, roughVar: 0.45,
+    // a wet coat over a matte body: two speculars at once, the giveaway of
+    // anything lacquered, and it needs the room to have something to mirror
+    finish: { clearcoat: 1.0, clearcoatRoughness: 0.06 } },
+  // a polished surface magnifies the bump, because it reflects a sharp room
+  // rather than a soft one: the scan relief that reads as tooth on clay turns
+  // into glitter on metal, so it is taken right down here
+  { name: 'gilt',    file: 'clay',    tint: 0xffc45c, rough: 0.26, lumps: 0.24, grain: 0.30, tile: 700, bump: 3.5, roughVar: 0.16,
+    // metal has no diffuse at all: it is nothing but a reflection of the room,
+    // which is exactly why it was not possible here before
+    finish: { metalness: 1.0 } },
+  { name: 'crystal', file: 'crystal', tint: 0xbfe6f2, rough: 0.12, lumps: 0.26, grain: 0.80, tile: 520, bump: 8, roughVar: 0.30,
+    finish: { transmission: 0.94, ior: 1.46, thickness: 0.55,
+              attenuationColor: 0x6fbfd8, attenuationDistance: 1.4,
+              clearcoat: 0.6, clearcoatRoughness: 0.12 } },
+  { name: 'iris',    file: 'crystal', tint: 0xf0f4ff, rough: 0.10, lumps: 0.20, grain: 0.70, tile: 520, bump: 6, roughVar: 0.25,
+    // a thin film over glass, splitting the reflection into spectrum: the
+    // oil-slick edge in the spring reference
+    finish: { transmission: 0.88, ior: 1.42, thickness: 0.45,
+              attenuationColor: 0xc8b4ff, attenuationDistance: 1.8,
+              iridescence: 1.0, iridescenceIOR: 1.9,
+              iridescenceThicknessRange: [130, 560],
+              clearcoat: 1.0, clearcoatRoughness: 0.05 } }
+];
+MATERIALS.forEach(m => { m._tex = null; });
+// several profiles share a scan now, so cache by file and not by material
+const SCAN_CACHE = {};
+function materialTexture(m) {
+  if (!SCAN_CACHE[m.file]) SCAN_CACHE[m.file] = fileTex(m.file);
+  return SCAN_CACHE[m.file];
+}
+
+/* Anything the running three.js has never heard of is skipped rather than set.
+   That is what lets one profile list serve both the live page and the r128
+   build (see build_artifact.py), which predates sheen and iridescence: there
+   the glass still reads as glass, it just loses the oil-slick on top. */
+function applyFinish(mat, F, scale) {
+  if (!F) return;
+  for (const k in F) {
+    if (!(k in mat)) continue;
+    const v = F[k], cur = mat[k];
+    // Presence is not enough: r128 spells sheen as a Colour, where every
+    // version since takes a number and keeps the colour in sheenColor. Writing
+    // the number into the old slot puts a bare float where the shader expects
+    // three channels, so a name that has changed meaning is skipped outright.
+    if (cur && cur.isColor && !/Color$/.test(k)) continue;
+    if (k === 'thickness' || k === 'attenuationDistance') mat[k] = v * scale;
+    else if (/Color$/.test(k)) mat[k] = new THREE.Color(v);
+    else if (Array.isArray(v)) mat[k] = v.slice();
+    else mat[k] = v;
+  }
+}
+
+/* ---------- scene ---------- */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+/* Filmic response. Without it every highlight clips straight to pure white the
+   moment it passes 1.0, which is the flat blown-out dot that reads as "computer
+   graphics" rather than a lit surface. ACES rolls the top end off the way film
+   does, so a bright spot keeps its colour on the way up. */
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+/* Raised with the room. The old value was set against an environment that sat
+   near black, where 0.72 was what kept the lamps off the top of the scale. The
+   cove returns far more light than that void did, and holding the old exposure
+   against it just renders a bright studio as a dim one. */
+renderer.toneMappingExposure = 1.16;
+renderer.shadowMap.enabled = true;
+/* PCFSoft blurs by a fixed kernel in shadow-map texels, so its softness is
+   capped no matter what radius is asked for — it gave a shadow with a hard
+   edge, which is the single thing a cyclorama shot never has. VSM stores depth
+   statistics instead, so the map can genuinely be blurred, and `radius` below
+   then means what it says. */
+renderer.shadowMap.type = THREE.VSMShadowMap;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+/* `world` turns. Its own position is the axis it turns about, and a local
+   matrix is T·R·S, so that position is applied after the rotation and does not
+   turn with what is inside — which is exactly what makes it usable as a pivot
+   that can be moved anywhere on screen. See repivot(). */
+const world = new THREE.Group();
+scene.add(world);
+const pile = new THREE.Group();       // holds the bodies; stays at the origin of
+world.add(pile);                      // `world`, since the pivot is what moves
+
+let camera, VIEW = 1;      // world units per pixel
+function sizeUp() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h);
+  const halfH = h / 2 * VIEW, halfW = w / 2 * VIEW;
+  if (!camera) {
+    camera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, -4000, 4000);
+    camera.position.set(0, 0, 1000);
+    camera.lookAt(0, 0, 0);
+  } else {
+    camera.left = -halfW; camera.right = halfW;
+    camera.top = halfH; camera.bottom = -halfH;
+    camera.updateProjectionMatrix();
+  }
+  // The shadow frustum used to be sized to the pile alone, because the pile was
+  // the only thing that could receive a shadow. Now the cove has to fit inside
+  // it too, or the shadow simply stops at the edge of the box and the sculpture
+  // goes back to floating. The cove is much larger than the pile, so this is
+  // sized off it rather than off the window.
+  const reach = Math.max(Math.hypot(halfW, halfH) * 1.55, 5200);
+  const sc = key.shadow.camera;
+  sc.left = -reach; sc.right = reach; sc.top = reach; sc.bottom = -reach;
+  sc.far = 11000;                     // far enough to reach the floor below the pile
+  sc.updateProjectionMatrix();
+  placeCove(halfW, halfH);
+  dc.width = w * devicePixelRatio; dc.height = h * devicePixelRatio;
+  dc.style.width = w + 'px'; dc.style.height = h + 'px';
+  dctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+
+  // the occlusion pass unprojects with the camera's own half-extents, so they
+  // have to follow the window exactly or the samples land off the surface
+  aoUniforms.uHalf.value.set(halfW, halfH);
+  aoUniforms.uNear.value = blurUniforms.uNear.value = camera.near;
+  aoUniforms.uFar.value = blurUniforms.uFar.value = camera.far;
+  const pr = Math.min(devicePixelRatio, 2);
+  makeTargets(w * pr, h * pr);
+}
+
+/* ---------- the room ----------
+   The lamps below only ever told a surface how bright to be. What a glossy or
+   metallic surface actually shows you is a picture of its surroundings, and
+   this scene had no surroundings at all — so every highlight was a single
+   blown dot, and metal was impossible in principle, not just untuned.
+
+   This builds a small studio as real high-dynamic-range data: a float image
+   where the softbox sits at 14 and the room around it at 0.3. That ratio is
+   the whole point. A canvas cannot hold it (it stops at 1.0), and clamping the
+   sources to 1.0 is exactly what makes a render look synthetic. PMREM then
+   pre-blurs it per roughness level, so a rough body picks up the soft wash of
+   the room and a polished one picks up the shape of the softbox. */
+function studioEnvironment(renderer) {
+  const W = 256, H = 128;              // PMREM blurs this, so it needs no more
+  // azimuth, elevation, angular radius, then linear r,g,b well above 1
+  const lamps = [
+    [ 0.00,  1.15, 0.90, 13.0, 12.6, 11.8],   // overhead softbox, the main event
+    [-0.95,  0.55, 0.55,  8.0,  6.6,  4.8],   // warm key, high and to one side
+    [ 1.85, -0.10, 0.85,  1.4,  1.9,  2.6],   // cool fill, low, keeps shadows alive
+    [ 2.55,  0.90, 0.12, 24.0, 23.0, 22.0]    // small hard glint: the wet look
+  ].map(l => {
+    const ch = Math.cos(l[1]);
+    return { x: ch * Math.cos(l[0]), y: Math.sin(l[1]), z: ch * Math.sin(l[0]),
+             cos: Math.cos(l[2]), rad: l[2], r: l[3], g: l[4], b: l[5] };
+  });
+
+  const data = new Float32Array(W * H * 4);
+  for (let y = 0; y < H; y++) {
+    const theta = (y + 0.5) / H * Math.PI;
+    const dy = Math.cos(theta), st = Math.sin(theta);
+    for (let x = 0; x < W; x++) {
+      const phi = (x + 0.5) / W * Math.PI * 2;
+      const dx = st * Math.cos(phi), dz = st * Math.sin(phi);
+      // The room used to sit near black so the lamps would read. That is the
+      // lighting of an object in a void, and it is why the shading came out
+      // hard: nothing filled the side the key missed. A cyclorama is the
+      // opposite — big pale walls returning most of the light they are given —
+      // so the room is raised a lot here, and the contrast is bought back by
+      // dropping the lamps rather than by starving the fill.
+      const up = dy * 0.5 + 0.5;
+      let r = 0.150 + up * up * 0.420, g = 0.152 + up * up * 0.430, b = 0.160 + up * up * 0.470;
+      // bounce off the floor of the cove: weaker than the walls, and warm,
+      // which is what keeps the underside of a body from going to grey mud
+      if (dy < 0) { const f = -dy; r += f * 0.150; g += f * 0.128; b += f * 0.098; }
+      for (const L of lamps) {
+        const d = dx * L.x + dy * L.y + dz * L.z;
+        if (d <= L.cos) continue;
+        const t = 1 - Math.acos(Math.min(1, d)) / L.rad;
+        const f = t * t * (3 - 2 * t);
+        r += L.r * f; g += L.g * f; b += L.b * f;
+      }
+      const i = (y * W + x) * 4;
+      data[i] = r; data[i + 1] = g; data[i + 2] = b; data[i + 3] = 1;
+    }
+  }
+  const src = new THREE.DataTexture(data, W, H, THREE.RGBAFormat, THREE.FloatType);
+  src.mapping = THREE.EquirectangularReflectionMapping;
+  src.needsUpdate = true;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const env = pmrem.fromEquirectangular(src).texture;
+  pmrem.dispose();
+  src.dispose();
+  return env;
+}
+scene.environment = studioEnvironment(renderer);
+
+/* The lamps now sit on top of a room that is already lighting everything, so
+   they are here for direction and for the cast shadow, not for exposure. The
+   hemisphere light is gone: that job belongs to the environment, and keeping
+   both just flattened the result back out. */
+/* The key is what the cast shadow is made of — a shadow is only the absence of
+   this lamp, so how visible it is on the ground is set by how much of the
+   ground's light comes from here rather than from the environment. Softening
+   the sculpture meant dropping this, and dropping it to 0.62 also meant the
+   shadow all but vanished. This is the balance point: still soft on the bodies,
+   still enough of the floor's light to read when it is taken away. */
+const key = new THREE.DirectionalLight(0xfff6e8, 0.80);
+/* High and a little in front — around 38 degrees of elevation. Straight
+   overhead was the instinct, and it is wrong here: the shadow then drops almost
+   vertically and lands far below the frame, because the ground it has to reach
+   is set well back to clear the sculpture. Lowering the lamp lays the shadow
+   back along the ground instead of dropping it, which puts it under the body
+   and slightly behind — the read that says the piece is hanging in the room
+   rather than resting on anything. */
+key.position.set(-0.15, 0.42, 0.895).normalize().multiplyScalar(3000);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 200;
+key.shadow.camera.far = 4600;
+// world units here are screen pixels, so the usual hair-thin bias values do
+// nothing; the offset has to be measured on the same scale as the bodies
+key.shadow.bias = -0.0006;
+key.shadow.normalBias = 2.2;
+/* The softness of the cast shadow. A real softbox is wide, so its shadow loses
+   its edge within a body's width of the contact point; `radius` is that width
+   in shadow-map texels, and `blurSamples` is how many taps it is allowed to
+   spend getting there — too few and the gradient breaks into rings. */
+key.shadow.radius = 9;
+key.shadow.blurSamples = 24;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xbcd2e8, 0.16);
+rim.position.set(0.8, -0.35, -0.7);
+scene.add(rim);
+// back light: what makes translucent parts glow at their edges
+const back = new THREE.DirectionalLight(0xfff2dd, 0.26);
+back.position.set(0.1, 0.25, -1);
+scene.add(back);
+
+/* ---------- the cyclorama ----------
+   There was no surface in this scene at all: the canvas was transparent and the
+   pale field behind the sculpture was a CSS colour on the page. That is why the
+   bodies only ever shadowed each other — there was nothing for a shadow to land
+   on, and nothing to tell the eye how far back the far side of the pile was.
+
+   The first attempt here was a literal cyclorama — floor, sweep, wall. It was
+   wrong for this camera. The projection is orthographic and aimed straight down
+   -Z, and orthographic has no convergence: a floor does not narrow as it
+   recedes, so none of the cues that normally say "ground" survive. All that
+   arrives is the shading across the surface and the shadow lying on it. The
+   wall half of the cove therefore bought nothing, and its top edge showed up in
+   frame as a hard horizon — the one thing limbo must not have.
+
+   So: one plane, tilted, and large enough that every edge is outside the frame.
+   With no edge and no horizon it reads as ground continuing indefinitely, which
+   is what limbo is. The tilt is not for perspective, which does not exist here;
+   it is so the near-overhead key strikes the surface at a glancing angle and
+   lays a long soft shadow along it instead of a hard disc. */
+function limboGround() {
+  const g = new THREE.PlaneGeometry(1, 1);
+  /* Matte and slightly warm, like seamless paper: a backdrop of clean neutral
+     grey reads as a render default rather than as a lit surface.
+
+     The emissive is kept deliberately small. It is tempting as a brightness
+     control for the backdrop, because it lifts the ground without touching the
+     sculpture — but emitted light is not received light, so no shadow can
+     darken it. Turn it up far enough to set the backdrop tone and it erases
+     the very shadow the ground exists to catch. So the tone comes from
+     exposure, and this only warms the floor slightly out of pure grey. */
+  const m = new THREE.MeshStandardMaterial({
+    color: 0xf7f5ef, roughness: 0.97, metalness: 0, emissive: 0x14130f
+  });
+  const mesh = new THREE.Mesh(g, m);
+  mesh.receiveShadow = true;
+  return mesh;
+}
+const cove = limboGround();
+scene.add(cove);           // outside `world`, so the room does not turn with the pile
+
+/* Sits the ground behind and below the sculpture at whatever the current zoom
+   is. It has to clear the pile in depth — a body reaching back into the plane
+   would tear through it — while staying close enough that the shadow it catches
+   still reads as belonging to the sculpture rather than to something else. */
+/* Pushed further back than it looks like it needs to be. The ground rises
+   towards the camera as it descends the frame, so the point where it is
+   nearest the lens is the BOTTOM edge — and that is where a body reaching back
+   would disappear into it. The clearance that matters is measured there, not at
+   the centre, which is why this number looks too large for what is on screen. */
+let groundDist = 2.25;
+let frameHalf = { w: 1, h: 1 };        // kept so the panel can re-place the ground
+
+function placeCove(halfW, halfH) {
+  frameHalf = { w: halfW, h: halfH };
+  const s = Math.max(halfW, halfH);
+  cove.rotation.x = -0.42;             // tips the ground's normal up toward the camera
+  cove.scale.set(s * 22, s * 22, 1);   // every edge well outside the frame
+  cove.position.set(0, -s * 0.05, -s * groundDist);
+}
+
+/* ---------- ambient occlusion ----------
+   A lamp can only say how much light ARRIVES at a surface. It cannot say how
+   much of the sky that surface can actually see, and that is the whole of the
+   contact darkening the eye uses to read one form as touching another: the
+   crease where two bodies meet, the seam under a part, the ring where the pile
+   sits against the cove. Without it every body floats, however good the shading
+   on it is, and the picture reads as clean rather than as photographed.
+
+   three.js ships GTAO and SSAO as addons, and the bundle embedded here is the
+   core build only — no EffectComposer, no passes. So this is written directly.
+   It also means the beauty pass is left completely alone: the scene still goes
+   straight to the canvas with its own tone mapping and colour space, and the
+   occlusion arrives afterwards as a multiply, the way a multiply layer works
+   over a photograph. Routing the beauty through a render target instead would
+   have meant taking over tone mapping and the sRGB conversion as well. */
+const AO_SCALE = 0.5;                  // occlusion is low-frequency; half res is free quality
+let depthRT, aoRT;
+const normalMat = new THREE.MeshNormalMaterial();
+
+function makeTargets(w, h) {
+  const aw = Math.max(2, Math.round(w * AO_SCALE)), ah = Math.max(2, Math.round(h * AO_SCALE));
+  if (depthRT) { depthRT.dispose(); aoRT.dispose(); }
+  depthRT = new THREE.WebGLRenderTarget(aw, ah, {
+    minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter
+  });
+  // an ortho camera's depth is linear in view space, so this stays accurate
+  // even before the extra precision — but the pile is 8000 units deep and
+  // 16-bit would band across it
+  depthRT.depthTexture = new THREE.DepthTexture(aw, ah);
+  depthRT.depthTexture.type = THREE.UnsignedIntType;
+  aoRT = new THREE.WebGLRenderTarget(aw, ah, {
+    minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter
+  });
+  aoUniforms.tDepth.value = depthRT.depthTexture;
+  aoUniforms.tNormal.value = depthRT.texture;
+  blurUniforms.tAO.value = aoRT.texture;
+  blurUniforms.tDepth.value = depthRT.depthTexture;
+  aoUniforms.uRes.value.set(aw, ah);
+  blurUniforms.uTexel.value.set(1 / aw, 1 / ah);
+}
+
+const aoUniforms = {
+  tDepth: { value: null }, tNormal: { value: null },
+  uRes: { value: new THREE.Vector2() },
+  uHalf: { value: new THREE.Vector2() },
+  uNear: { value: 0 }, uFar: { value: 0 },
+  // how far out, in world units, a neighbouring surface still counts as
+  // occluding. Roughly the radius of the crease you want to see filled in
+  uRadius: { value: 46 },
+  uBias: { value: 1.4 },
+  uPower: { value: 1.5 }
+};
+const blurUniforms = {
+  tAO: { value: null }, tDepth: { value: null }, uTexel: { value: new THREE.Vector2() },
+  uNear: { value: 0 }, uFar: { value: 0 },
+  uStrength: { value: 0.85 },
+  // how far apart in depth two pixels can be and still be blurred together
+  uDepthTol: { value: 90 }
+};
+
+const QUAD_VERT = `
+varying vec2 vUv;
+void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
+`;
+
+const aoMat = new THREE.ShaderMaterial({
+  uniforms: aoUniforms, vertexShader: QUAD_VERT, toneMapped: false, depthTest: false, depthWrite: false,
+  fragmentShader: `
+    uniform sampler2D tDepth, tNormal;
+    uniform vec2 uRes, uHalf;
+    uniform float uNear, uFar, uRadius, uBias, uPower;
+    varying vec2 vUv;
+
+    // the projection is orthographic, so depth maps to view Z by a straight
+    // line and the inverse needs no divide — the awkward part of screen-space
+    // occlusion under perspective simply is not here
+    float viewZ(float d) { return d * (uNear - uFar) - uNear; }
+    vec3 viewPos(vec2 uv, float d) {
+      return vec3((uv * 2.0 - 1.0) * uHalf, viewZ(d));
+    }
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+    void main() {
+      float d = texture2D(tDepth, vUv).r;
+      if (d >= 0.9999) { gl_FragColor = vec4(1.0); return; }   // nothing here at all
+
+      vec3 P = viewPos(vUv, d);
+      vec3 N = normalize(texture2D(tNormal, vUv).xyz * 2.0 - 1.0);
+
+      /* The samples have to sit in a hemisphere around the SURFACE NORMAL, not
+         in a disc in screen space. A disc is the version that is quicker to
+         write, and on anything tilted away from the camera half of its samples
+         fall behind the surface itself: the plane then occludes itself, at
+         roughly a constant half, and the whole backdrop comes out grey and
+         crawling with noise. Turning the sample set to face along the normal is
+         the entire fix — a flat surface of any orientation then reports no
+         occlusion at all, which is correct. */
+      float rot = hash(gl_FragCoord.xy) * 6.2831853;
+      vec3 rv = vec3(cos(rot), sin(rot), 0.0);
+      vec3 T = normalize(rv - N * dot(rv, N));
+      vec3 B = cross(N, T);
+      mat3 TBN = mat3(T, B, N);
+
+      float occ = 0.0;
+      const int N_S = 16;
+      for (int i = 0; i < N_S; i++) {
+        float fi = (float(i) + 0.5) / float(N_S);
+        float phi = rot + float(i) * 2.39996323;       // golden angle: even coverage
+        // cosine-weighted, so the sample density matches how much each
+        // direction actually contributes to the light a surface receives
+        float sinT = sqrt(fi), cosT = sqrt(1.0 - fi);
+        vec3 h = vec3(cos(phi) * sinT, sin(phi) * sinT, cosT);
+        // packed towards the centre: contact darkening is a close-range effect,
+        // and spending samples out at full radius wastes most of them
+        vec3 S = P + (TBN * h) * (uRadius * mix(0.22, 1.0, fi));
+
+        vec2 sUv = (S.xy / uHalf) * 0.5 + 0.5;
+        if (sUv.x < 0.0 || sUv.x > 1.0 || sUv.y < 0.0 || sUv.y > 1.0) continue;
+        float sd = texture2D(tDepth, sUv).r;
+        if (sd >= 0.9999) continue;
+        float sZ = viewZ(sd);
+
+        // larger view Z is nearer the camera: the surface found there is in
+        // front of our sample, so it blocks it
+        if (sZ - S.z > uBias) {
+          // and it only counts while it is near enough to be part of the same
+          // form — otherwise a body floating well clear of the ground would
+          // smear a dark halo across it
+          occ += smoothstep(0.0, 1.0, uRadius / max(uRadius, abs(P.z - sZ)));
+        }
+      }
+      float ao = 1.0 - occ / float(N_S);
+      gl_FragColor = vec4(vec3(pow(clamp(ao, 0.0, 1.0), uPower)), 1.0);
+    }
+  `
+});
+
+/* The blur, and the multiply onto the canvas, in one draw. Occlusion computed
+   from 16 rays per pixel is noisy by construction; the noise is the price of
+   not taking 200 samples, and a wide blur is how it is paid off.
+
+   The blur has to be depth-aware, and that is not a refinement — it is what
+   stops the pass from drawing a halo. A plain box blur mixes every neighbour
+   equally, so along the silhouette the deep occlusion computed in the
+   sculpture's own creases is smeared out over the backdrop behind it, and the
+   backdrop picks up a dark fringe that the eye reads as a bright rim just
+   inside it. Weighting each tap by how close it is in depth to the centre pixel
+   keeps the sculpture's occlusion on the sculpture and the ground's on the
+   ground, and the fringe disappears. */
+const blurMat = new THREE.ShaderMaterial({
+  uniforms: blurUniforms, vertexShader: QUAD_VERT, toneMapped: false,
+  depthTest: false, depthWrite: false,
+  blending: THREE.CustomBlending,
+  blendSrc: THREE.DstColorFactor, blendDst: THREE.ZeroFactor,   // dst * src = multiply
+  fragmentShader: `
+    uniform sampler2D tAO, tDepth;
+    uniform vec2 uTexel;
+    uniform float uStrength, uNear, uFar, uDepthTol;
+    varying vec2 vUv;
+    float viewZ(float d) { return d * (uNear - uFar) - uNear; }
+    void main() {
+      float zc = viewZ(texture2D(tDepth, vUv).r);
+      float s = 0.0, w = 0.0;
+      for (int y = -3; y <= 3; y++) {
+        for (int x = -3; x <= 3; x++) {
+          vec2 uv = vUv + vec2(float(x), float(y)) * uTexel;
+          float zs = viewZ(texture2D(tDepth, uv).r);
+          // a tap from a surface at a very different distance is a different
+          // object, and averaging the two is exactly what makes the fringe
+          float k = exp(-abs(zs - zc) / uDepthTol);
+          s += texture2D(tAO, uv).r * k;
+          w += k;
+        }
+      }
+      float ao = s / max(w, 1e-4);
+      // never let it reach black: real occlusion is filled by bounced light,
+      // and crushing the creases is the other way to look synthetic
+      gl_FragColor = vec4(vec3(mix(1.0, ao, uStrength)), 1.0);
+    }
+  `
+});
+
+const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const quadScene = new THREE.Scene();
+const quadMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), aoMat);
+quadMesh.frustumCulled = false;
+quadScene.add(quadMesh);
+
+function renderAO() {
+  // one pass buys both channels: the override material writes view-space
+  // normals into colour while the target's depth attachment fills by itself
+  scene.overrideMaterial = normalMat;
+  renderer.setRenderTarget(depthRT);
+  renderer.clear();
+  renderer.render(scene, camera);
+  scene.overrideMaterial = null;
+
+  quadMesh.material = aoMat;
+  renderer.setRenderTarget(aoRT);
+  renderer.render(quadScene, quadCam);
+  renderer.setRenderTarget(null);
+}
+
+function compositeAO() {
+  quadMesh.material = blurMat;
+  const auto = renderer.autoClear;
+  renderer.autoClear = false;          // the beauty pass is already on the canvas
+  renderer.render(quadScene, quadCam);
+  renderer.autoClear = auto;
+}
+
+/* How far back the pile actually reaches, which is what decides how close the
+   ground is allowed to come before a body starts poking through it. */
+window.pileDepth = () => {
+  let lo = Infinity, hi = -Infinity;
+  for (const b of bodies) {
+    lo = Math.min(lo, b.mesh.position.z - b.radius);
+    hi = Math.max(hi, b.mesh.position.z + b.radius);
+  }
+  return { back: Math.round(lo + world.position.z), front: Math.round(hi + world.position.z),
+           groundZ: Math.round(cove.position.z), bodies: bodies.length };
+};
+
+// walks every live body's material, so a finish parameter can be judged by eye
+window.eachBodyMat = f => {
+  for (const b of bodies) b.mesh.traverse(o => { if (o.isMesh && o.material) f(o.material); });
+};
+
+// tuneAO({radius: 60, strength: 1, power: 2}) from the console, same idea as tuneLight
+window.tuneAO = v => {
+  if (v.radius !== undefined) aoUniforms.uRadius.value = v.radius;
+  if (v.strength !== undefined) blurUniforms.uStrength.value = v.strength;
+  if (v.power !== undefined) aoUniforms.uPower.value = v.power;
+  if (v.bias !== undefined) aoUniforms.uBias.value = v.bias;
+  return { radius: aoUniforms.uRadius.value, strength: blurUniforms.uStrength.value,
+           power: aoUniforms.uPower.value, bias: aoUniforms.uBias.value };
+};
+
+/* ---------- drawing surface ---------- */
+const dc = document.getElementById('draw');
+const dctx = dc.getContext('2d');
+let pts = [], drawing = false;
+
+function toWorld(x, y) { return { x: (x - innerWidth / 2) * VIEW, y: -(y - innerHeight / 2) * VIEW }; }
+
+/* Graphite v2. Constant-width core drawn as quadratic curves through
+   segment midpoints (no joins, no width steps), pressure only modulates
+   OPACITY and is smoothed over time. Grain is fine and hugs the core. */
+function tooth(x, y) {
+  return fbm(x * 0.11, y * 0.11, 3.1, 2) * 0.5 + 0.5;
+}
+let pressS = 0.75;                                   // smoothed pressure
+function strokeSegment(p0, p1, p2, speed) {
+  const target = Math.max(0.35, Math.min(1, 1 - speed / 90));
+  pressS += (target - pressS) * 0.12;                // slow, pencil-like response
+  const press = pressS;
+
+  const m1 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+  const m2 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+
+  // core: one smooth curve, fixed width
+  dctx.strokeStyle = `rgba(40,38,35,${0.34 * press + 0.08})`;
+  dctx.lineWidth = 1.6;
+  dctx.lineCap = 'round';
+  dctx.beginPath();
+  dctx.moveTo(m1.x, m1.y);
+  dctx.quadraticCurveTo(p1.x, p1.y, m2.x, m2.y);
+  dctx.stroke();
+
+  // grain: sparse, tight to the line, gated by fixed paper tooth
+  const d = Math.hypot(m2.x - m1.x, m2.y - m1.y);
+  const steps = Math.max(1, Math.round(d));
+  for (let i = 0; i < steps; i++) {
+    const t = i / steps;
+    const x = m1.x + (m2.x - m1.x) * t, y = m1.y + (m2.y - m1.y) * t;
+    for (let k = 0; k < 3; k++) {
+      const gx = x + (Math.random() - 0.5) * 3.2;
+      const gy = y + (Math.random() - 0.5) * 3.2;
+      if (tooth(gx, gy) < 0.42) continue;
+      const fall = 1 - Math.hypot(gx - x, gy - y) / 2.4;
+      if (fall <= 0) continue;
+      dctx.fillStyle = `rgba(46,44,41,${(0.05 + Math.random() * 0.08) * press * fall})`;
+      dctx.fillRect(gx, gy, 1, 1);
+    }
+  }
+}
+function clearStroke() { dctx.clearRect(0, 0, innerWidth, innerHeight); }
+
+let lastT = 0;
+dc.addEventListener('pointerdown', e => {
+  drawing = true; pts = [{ x: e.clientX, y: e.clientY }];
+  lastT = performance.now();
+  try { dc.setPointerCapture(e.pointerId); } catch (_) {}
+  idle = 0; spinning = false;
+});
+dc.addEventListener('pointermove', e => {
+  if (!drawing) return;
+  const p = { x: e.clientX, y: e.clientY }, last = pts[pts.length - 1];
+  const d = Math.hypot(p.x - last.x, p.y - last.y);
+  if (d < 2) return;
+  const now = performance.now();
+  const speed = d / Math.max(1, now - lastT) * 16;
+  lastT = now;
+  // the core is a quadratic through segment midpoints, so it needs three
+  // consecutive points — the first move only seeds them
+  if (pts.length > 1) strokeSegment(pts[pts.length - 2], last, p, speed);
+  pts.push(p);
+});
+function endStroke() {
+  if (!drawing) return;
+  drawing = false;
+  if (pts.length > 3) birth(pts.slice());
+  pts = []; clearStroke();
+}
+// listen on window: a pointerup that lands outside the canvas must still
+// end the stroke, or the drawn line is stranded on screen forever
+addEventListener('pointerup', endStroke);
+addEventListener('pointercancel', endStroke);
+
+/* ---------- stroke analysis ---------- */
+function analyse(p) {
+  let len = 0;
+  for (let i = 1; i < p.length; i++) len += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y);
+  let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, cx = 0, cy = 0;
+  p.forEach(q => {
+    minx = Math.min(minx, q.x); maxx = Math.max(maxx, q.x);
+    miny = Math.min(miny, q.y); maxy = Math.max(maxy, q.y);
+    cx += q.x; cy += q.y;
+  });
+  cx /= p.length; cy /= p.length;
+  // shoelace area
+  let area = 0;
+  for (let i = 0; i < p.length; i++) {
+    const a = p[i], b = p[(i + 1) % p.length];
+    area += a.x * b.y - b.x * a.y;
+  }
+  area = Math.abs(area) / 2;
+  const gap = Math.hypot(p[0].x - p[p.length - 1].x, p[0].y - p[p.length - 1].y);
+  const closed = gap / Math.max(len, 1) < 0.28;
+  // isoperimetric quotient: 1 = perfect circle
+  const round = Math.min(1, (4 * Math.PI * area) / Math.max(len * len, 1));
+  return { len, cx, cy, w: maxx - minx, h: maxy - miny, area, closed, round };
+}
+
+/* ---------- geometry generators ---------- */
+/* Light smoothing + decimation so the extruded outline stays clean
+   without drifting away from what was actually drawn. */
+function smoothPath(p, passes = 2) {
+  let q = p.slice();
+  for (let s = 0; s < passes; s++) {
+    const r = [q[0]];
+    for (let i = 1; i < q.length - 1; i++) {
+      r.push({ x: (q[i - 1].x + q[i].x * 2 + q[i + 1].x) / 4,
+               y: (q[i - 1].y + q[i].y * 2 + q[i + 1].y) / 4 });
+    }
+    r.push(q[q.length - 1]); q = r;
+  }
+  const out = [q[0]];
+  for (let i = 1; i < q.length; i++) {
+    const l = out[out.length - 1];
+    if (Math.hypot(q[i].x - l.x, q[i].y - l.y) > 3) out.push(q[i]);
+  }
+  return out;
+}
+
+/* ---------- inflation ----------
+   The move that turns a drawing into a body. An extrude gives constant depth
+   with a bevel, which is a coin: the front silhouette is right and the side
+   view gives the whole thing away.
+
+   Here the outline is triangulated as drawn, the triangles are subdivided so
+   the inside gains vertices the outline never had, and every vertex is pushed
+   out of the page by how far it sits from the drawn edge. The edge keeps a
+   distance of zero and therefore never moves, so the front silhouette is still
+   exactly the line the hand made, while the middle swells to its own
+   thickness. Thickness follows the shape instead of being dialled in: a fat
+   blob comes out fat, a thin sliver comes out thin.
+
+   The profile is the sphere's, sqrt(t(2-t)). Its slope at the rim is vertical,
+   so the surface leaves the outline perpendicular to the page and the edge
+   reads as a rolled lip rather than a knife. Drawn round, it returns a ball. */
+function segDist2(px, py, ax, ay, bx, by) {
+  const vx = bx - ax, vy = by - ay, wx = px - ax, wy = py - ay;
+  const vv = vx * vx + vy * vy;
+  let t = vv > 1e-12 ? (wx * vx + wy * vy) / vv : 0;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  const dx = px - (ax + vx * t), dy = py - (ay + vy * t);
+  return dx * dx + dy * dy;
+}
+
+function inflate(poly, o = {}) {
+  const aspect = o.aspect ?? 0.9;    // half-thickness as a fraction of the inradius
+  const puff   = o.puff   ?? 1.0;    // 1 = sphere, below 1 = flatter top, rounder rim
+  const wob    = o.wob    ?? 0;      // fbm break-up, as a fraction of thickness
+  const seed   = o.seed   ?? 0;
+  // subdivision quadruples the triangle count each pass, and the distance pass
+  // below is vertices times edges, so a long outline takes one level less
+  const levels = o.levels ?? (poly.length > 150 ? 2 : 3);
+
+  const shape = new THREE.Shape();
+  poly.forEach((p, i) => i ? shape.lineTo(p.x, p.y) : shape.moveTo(p.x, p.y));
+  shape.closePath();
+  const flat = new THREE.ShapeGeometry(shape);      // earcut: outline vertices only
+  const fp = flat.attributes.position;
+  let P = [];
+  for (let i = 0; i < fp.count; i++) P.push({ x: fp.getX(i), y: fp.getY(i) });
+  let I = Array.from(flat.index.array);
+  flat.dispose();
+  if (!I.length) return new THREE.BufferGeometry();
+
+  // 1 -> 4 split, sharing midpoints so the surface cannot crack. A midpoint of
+  // an outline edge lands back on the outline, which is what keeps the
+  // silhouette exact however many times this runs.
+  for (let L = 0; L < levels; L++) {
+    const mid = new Map(), J = [];
+    const midpoint = (a, b) => {
+      const k = a < b ? a * 4194304 + b : b * 4194304 + a;
+      let m = mid.get(k);
+      if (m === undefined) {
+        m = P.length;
+        P.push({ x: (P[a].x + P[b].x) / 2, y: (P[a].y + P[b].y) / 2 });
+        mid.set(k, m);
+      }
+      return m;
+    };
+    for (let t = 0; t < I.length; t += 3) {
+      const a = I[t], b = I[t + 1], c = I[t + 2];
+      const ab = midpoint(a, b), bc = midpoint(b, c), ca = midpoint(c, a);
+      J.push(a, ab, ca, ab, b, bc, ca, bc, c, ab, bc, ca);
+    }
+    I = J;
+  }
+
+  const n = poly.length;
+  const dist = new Float32Array(P.length);
+  let dmax = 0;
+  for (let i = 0; i < P.length; i++) {
+    let best = Infinity;
+    for (let e = 0; e < n; e++) {
+      const a = poly[e], b = poly[(e + 1) % n];
+      const d2 = segDist2(P[i].x, P[i].y, a.x, a.y, b.x, b.y);
+      if (d2 < best) best = d2;
+    }
+    dist[i] = Math.sqrt(best);
+    if (dist[i] > dmax) dmax = dist[i];
+  }
+  if (dmax < 1e-6) return new THREE.BufferGeometry();
+
+  const H = dmax * aspect;
+  const RIM = dmax * 1e-4;             // only vertices actually on the outline
+  const verts = [], tris = [];
+  const fIdx = new Int32Array(P.length), bIdx = new Int32Array(P.length);
+  const push = (x, y, z) => { verts.push(x, y, z); return verts.length / 3 - 1; };
+
+  for (let i = 0; i < P.length; i++) {
+    if (dist[i] <= RIM) {
+      // front and back share this vertex, so the rim welds shut and the
+      // averaged normal rounds it instead of leaving a hard seam
+      fIdx[i] = bIdx[i] = push(P[i].x, P[i].y, 0);
+      continue;
+    }
+    const t = Math.min(1, dist[i] / dmax);
+    let h = H * Math.pow(t * (2 - t), 0.5 * puff);
+    if (wob) h *= 1 + wob * fbm(P[i].x * 0.011 + seed, P[i].y * 0.011, seed * 0.31, 3);
+    fIdx[i] = push(P[i].x, P[i].y, h);
+    bIdx[i] = push(P[i].x, P[i].y, -h);
+  }
+  for (let t = 0; t < I.length; t += 3) {
+    const a = I[t], b = I[t + 1], c = I[t + 2];
+    tris.push(fIdx[a], fIdx[b], fIdx[c]);
+    // a sliver lying wholly on the rim has the same three welded vertices on
+    // both sides; emitting it twice would leave two coplanar faces fighting
+    if (fIdx[a] === bIdx[a] && fIdx[b] === bIdx[b] && fIdx[c] === bIdx[c]) continue;
+    tris.push(bIdx[c], bIdx[b], bIdx[a]);
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  g.setIndex(tris);
+  g.computeVertexNormals();
+  return g;
+}
+
+/* Body whose FRONT SILHOUETTE IS the drawn outline, with the volume to match. */
+function bodyFromOutline(p, cx, cy, span, seed) {
+  const poly = p.map(q => ({ x: (q.x - cx) * VIEW, y: -(q.y - cy) * VIEW }));
+  const g = inflate(poly, { aspect: 0.9, puff: 0.92, wob: 0.2, seed });
+  g.center();
+  return g;
+}
+
+function lumpySphere(radius, lumps, grain, seed) {
+  const g = new THREE.IcosahedronGeometry(radius, 38);
+  const pos = g.attributes.position;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const n = v.clone().normalize();
+    const big = fbm(n.x * 1.7 + seed, n.y * 1.7 + seed, n.z * 1.7, 3);
+    const mid = fbm(n.x * 6.5 + seed, n.y * 6.5, n.z * 6.5 + seed, 3);
+    // real geometric micro-relief — reads as texture under raking light,
+    // and needs no bump map, so it survives rotation honestly
+    const fine = fbm(n.x * 26 + seed, n.y * 26, n.z * 26 + seed, 2);
+    const micro = fbm(n.x * 64, n.y * 64 + seed, n.z * 64, 2);
+    const d = radius * (1 + lumps * (big * 0.72 + mid * 0.26))
+            + radius * grain * (fine * 0.05 + micro * 0.022);
+    v.copy(n).multiplyScalar(d);
+    pos.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/* An open stroke, given a body that actually closes.
+
+   TubeGeometry builds no end caps at all. With front faces only you looked
+   straight through the opening and out the far side, and the shape collapsed
+   into a flat diagonal facet the moment it turned — the single loudest tell
+   in the whole piece. Building the tube by hand fixes it at the source: the
+   radius is driven along the path and taken to zero at both ends, so each end
+   converges to a point and the surface is closed by construction, with no cap
+   to fake and no seam to hide. A stroke thickens where the hand pressed
+   through and thins as it leaves, the way a brush actually unloads. */
+function lumpyTube(path3, radius, lumps, seed) {
+  const curve = new THREE.CatmullRomCurve3(path3, false, 'centripetal', 0.5);
+  const STEPS = Math.max(30, Math.min(180, path3.length * 2));
+  const RING = 22;
+  const frames = curve.computeFrenetFrames(STEPS, false);
+  const verts = [], tris = [];
+  const P = new THREE.Vector3();
+
+  for (let i = 0; i <= STEPS; i++) {
+    const t = i / STEPS;
+    curve.getPointAt(t, P);
+    const N = frames.normals[i], B = frames.binormals[i];
+    // sin to the 0.45 holds most of the length near full width and then drops
+    // away fast, so the body stays substantial and still comes to a tip
+    const taper = Math.pow(Math.sin(Math.PI * t), 0.45);
+    const swell = 1 + lumps * fbm(t * 4.2 + seed, seed * 0.7, 1.9, 3) * 0.9;
+    for (let j = 0; j < RING; j++) {
+      const a = j / RING * Math.PI * 2;
+      const cs = Math.cos(a), sn = Math.sin(a);
+      // the section itself wanders, so this is not a cylinder swept down a line
+      const r = radius * taper * swell *
+        (1 + lumps * 0.55 * fbm(cs * 1.6 + seed, sn * 1.6, t * 5.5, 2));
+      verts.push(P.x + (N.x * cs + B.x * sn) * r,
+                 P.y + (N.y * cs + B.y * sn) * r,
+                 P.z + (N.z * cs + B.z * sn) * r);
+    }
+  }
+  // Wind the rings so the faces point OUT. three builds its Frenet frames with
+  // binormal = tangent cross normal, and going round the ring from the normal
+  // towards the binormal with the path as the other edge gives a face normal of
+  // exactly minus the radial direction. Wound the other way the whole tube is
+  // inside out: front faces get culled, you see the inner wall of the far side
+  // through it, and a solid stroke reads as a half-open pipe.
+  for (let i = 0; i < STEPS; i++) {
+    for (let j = 0; j < RING; j++) {
+      const a = i * RING + j, b = i * RING + (j + 1) % RING;
+      tris.push(a, b, a + RING, b, b + RING, a + RING);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  g.setIndex(tris);
+  g.computeVertexNormals();
+  return g;
+}
+
+/* ---------- colony ----------
+   A stroke spawns many small parts along its own path, not one solid.
+   This is the structural move: silhouette richness, growth and scatter
+   all fall out of it. Gouache shards are flat and unlit — the scanned
+   paint carries them, exactly like the cut-paper references. */
+let gouacheTex = null;
+function gouache() {
+  if (!gouacheTex) gouacheTex = fileTex('gouache');
+  return gouacheTex;
+}
+function _unusedGouache() {
+  if (gouacheTex) return gouacheTex;
+  // stand-in for a real scanned gouache sheet
+  gouacheTex = tex((g, s) => {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 190; i++) {
+      const y = Math.random() * s;
+      g.strokeStyle = `rgba(255,255,255,0)`;
+      g.fillStyle = `rgba(${60 + Math.random() * 60},${58 + Math.random() * 60},${54 + Math.random() * 60},${Math.random() * 0.10})`;
+      g.fillRect(0, y, s, Math.random() * 5 + 1);
+    }
+    for (let i = 0; i < 2600; i++) {
+      g.fillStyle = `rgba(255,255,255,${Math.random() * 0.5})`;
+      g.fillRect(Math.random() * s, Math.random() * s, Math.random() * 26 + 2, 1.2);
+    }
+  }, 256);
+  return gouacheTex;
+}
+
+/* A torn, curled shard of paint. It used to be a ShapeGeometry, which is a
+   plane of no thickness: seen edge-on it vanished to a one-pixel line, and a
+   colony of two dozen of them flickering in and out as the sculpture turned
+   read as cardboard. Same torn outline, run through the inflation so it has a
+   body, then curled so it is a leaf and not a cut-out. */
+function shardGeometry(len, wid, seed) {
+  const N = 14, poly = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    poly.push({ x: Math.sin(t * Math.PI) * wid * (0.75 + 0.45 * fbm(t * 5, seed, 0.5, 2)),
+                y: t * len });
+  }
+  // stop one short at each end: both tips are already in the loop above, and a
+  // repeated point is what makes the triangulator hand back nothing
+  for (let i = N - 1; i >= 1; i--) {
+    const t = i / N;
+    poly.push({ x: -Math.sin(t * Math.PI) * wid * (0.75 + 0.45 * fbm(t * 5, seed + 9, 2.5, 2)),
+                y: t * len });
+  }
+  const g = inflate(poly, { aspect: 0.5, puff: 0.72, wob: 0.28, seed, levels: 2 });
+  const pos = g.attributes.position;
+  const L = Math.max(len, 1e-6);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i);
+    // lengthwise arc plus a cross-curl, the way a drying flake lifts
+    pos.setZ(i, pos.getZ(i) + Math.pow(y / L, 2) * len * 0.17 + (x * x) / L * 0.11);
+  }
+  pos.needsUpdate = true;
+  g.computeVertexNormals();
+  return g;
+}
+
+function sproutColony(path, cx, cy, span, M, seed) {
+  const parts = [];
+  const n = Math.min(26, Math.max(6, Math.round(span / 16)));
+  const gTex = gouache();
+  for (let i = 0; i < n; i++) {
+    const t = i / n;
+    const idx = Math.floor(t * (path.length - 1));
+    const q = path[idx];
+    const nx = path[Math.min(path.length - 1, idx + 2)] || q;
+    const ang = Math.atan2(-(nx.y - q.y), nx.x - q.x);
+
+    const x = (q.x - cx) * VIEW, y = -(q.y - cy) * VIEW;
+    const scatter = fbm(i * 1.7, seed, 4.2, 2);
+    const len = (span * 0.30 + span * 0.28 * Math.abs(scatter)) * VIEW;
+    const wid = len * (0.16 + 0.13 * Math.abs(fbm(i * 2.3, seed + 3, 1.1, 2)));
+
+    const hue = new THREE.Color(M.tint).offsetHSL(scatter * 0.06, 0.05, scatter * 0.10);
+    // lit, not unlit: the scanned gouache is a field of thick ridges, and an
+    // unlit material throws away every one of them — no light, no shadow,
+    // no ridge, just a flat coloured triangle
+    // a shard is a closed solid now, so it is lit from the outside like every
+    // other body — DoubleSide would only pay to shade backfaces nobody sees
+    const mat = new THREE.MeshStandardMaterial({
+      map: gTex, color: hue,
+      roughness: 0.95, metalness: 0.0
+    });
+    mat.name = M.name + '-shard';
+    triplanar(mat, 1 / 260, { bump: 22, roughVar: 0.45 });
+    const mesh = new THREE.Mesh(shardGeometry(len, wid, seed + i), mat);
+    mesh.position.set(x, y, (fbm(i * 3.1, seed, 6.6, 2)) * span * VIEW * 0.16);
+    mesh.rotation.z = ang - Math.PI / 2 + scatter * 0.9;
+    mesh.rotation.y = scatter * 1.3;
+    mesh.rotation.x = fbm(i * 0.9, seed + 5, 3.3, 2) * 0.6;
+    mesh.scale.setScalar(0.001);
+    parts.push({ mesh, delay: t * 0.55 + Math.random() * 0.18, grow: 0 });
+  }
+  return parts;
+}
+
+/* ---------- birth ---------- */
+const bodies = [];
+let matIndex = Math.floor(Math.random() * MATERIALS.length);
+let zCursor = 0;   // running depth so each new body sits in front of the last
+
+function birth(screenPts) {
+  const a = analyse(screenPts);
+  const M = MATERIALS[matIndex % MATERIALS.length];
+  matIndex++;
+  const seed = Math.random() * 100;
+
+  const map = materialTexture(M);
+  const mat = new THREE.MeshPhysicalMaterial({
+    map,
+    color: new THREE.Color(M.tint),
+    roughness: M.rough, metalness: 0.0
+  });
+  const span0 = Math.max(a.w, a.h) * VIEW;
+  applyFinish(mat, M.finish, span0);
+  // set after the finish, which is where sheen and clearcoat come from, so a
+  // body born later matches the ones already standing rather than reverting
+  // to a full-strength room reflection
+  mat.envMapIntensity = state.env;
+  mat.name = M.name;        // carried into the GLB, so C4D gets named slots
+  // Transmission costs a whole extra pass over the scene every frame, so the
+  // glass is rationed: past a few live bodies the newest one is served as a
+  // polished solid instead. It still reads as the same family of material.
+  let glass = mat.transmission > 0;
+  if (glass && bodies.reduce((n, b) => n + (b.glass ? 1 : 0), 0) >= 3) {
+    mat.transmission = 0;
+    mat.roughness = Math.max(mat.roughness, 0.2);
+    glass = false;
+  }
+  // world-space grain: the same physical texture size on every body,
+  // so a big shape and a small shape read as the same material
+  triplanar(mat, 1 / M.tile, { bump: M.bump, roughVar: M.roughVar });
+
+  const path = smoothPath(screenPts);
+  const span = Math.max(a.w, a.h);
+  // exact drawn centre — bbox centre, not centre of mass
+  const bcx = (Math.min(...path.map(q => q.x)) + Math.max(...path.map(q => q.x))) / 2;
+  const bcy = (Math.min(...path.map(q => q.y)) + Math.max(...path.map(q => q.y))) / 2;
+
+  const group = new THREE.Group();
+  let geo, label;
+
+  if (a.closed && path.length > 5) {
+    geo = bodyFromOutline(path, bcx, bcy, span, seed);
+    label = 'outline';
+  } else {
+    const p3 = path.map(q => {
+      const w = toWorld(q.x, q.y);
+      return new THREE.Vector3(w.x - (bcx - innerWidth / 2) * VIEW, w.y + (bcy - innerHeight / 2) * VIEW, 0);
+    });
+    if (p3.length < 2) return;
+    const r = Math.max(5, Math.min(26, span / 11)) * VIEW;
+    geo = lumpyTube(p3, r, M.lumps * 0.5, seed);
+    label = 'line';
+  }
+
+  const core = new THREE.Mesh(geo, mat);
+  // bodies throw and catch light on each other. Without this the colony just
+  // floated in front of the core with nothing to say they were touching, which
+  // is most of why the pile read as pasted-together layers instead of a solid.
+  // glass is the exception: the shadow map knows nothing about refraction, so
+  // a transmissive body would stamp a flat black disc where it should be
+  // throwing light through itself
+  core.castShadow = !glass;
+  core.receiveShadow = true;
+  group.add(core);
+
+  // colony: parts sprouting along the same path the hand drew
+  const parts = sproutColony(path, bcx, bcy, span, M, seed);
+  parts.forEach(p => {
+    p.mesh.castShadow = p.mesh.receiveShadow = true;
+    group.add(p.mesh);
+  });
+
+  // Born where the hand drew it, on screen — regardless of how far the
+  // sculpture has already turned. Convert the screen point into the
+  // rotated group's local space, and counter-rotate so it faces front.
+  // Each new body must clear everything already there, so the depth step
+  // scales with the drawing — a fixed step lands new shapes inside old ones.
+  // depth is what swings widest when the sculpture turns, so the step is kept
+  // tight — enough to clear the body in front, not enough to throw this one
+  // out of frame on the quarter turn
+  zCursor += span * VIEW * 0.32 + 16;
+  const w = toWorld(bcx, bcy);
+  pile.updateMatrixWorld();
+  const target = pile.worldToLocal(new THREE.Vector3(w.x, w.y, zCursor));
+  /* What the frame is asked to hold is the shape that was drawn — not the
+     colony that sprouts off it, which throws parts further sideways than the
+     stroke is long. Counting those in makes any large shape wider than half the
+     window, and then a line down the side of the frame is impossible to draw:
+     there is no position that fits, so it gets hauled inward. So the drawn
+     outline is what is guaranteed to stay in view, and colony parts are allowed
+     to run off the edge. A sculpture that bleeds out of frame is a picture; one
+     that has been slid to the middle is a broken tool. */
+  group.position.copy(placeInFrame(target, a.w * 0.5 * VIEW, a.h * 0.5 * VIEW));
+  group.rotation.y = -world.rotation.y;
+  group.scale.setScalar(0.001);
+  pile.add(group);
+
+  bodies.push({
+    mesh: group, parts, glass, born: performance.now(), dur: 620 + Math.random() * 200,
+    phase: Math.random() * 6.283, breathe: 0.010 + Math.random() * 0.012,
+    // generous: the colony throws parts well past the drawn outline
+    radius: span * VIEW * 0.95,
+    // the drawn outline's own half-width: what the pivot and the frame are
+    // measured on, so neither is thrown off by a colony that sprouts to one side
+    reachX: a.w * 0.5 * VIEW
+  });
+  compressDepth();
+
+  document.getElementById('readout').textContent =
+    `${label}  ·  ${M.name}  ·  ${parts.length} parts\nround ${a.round.toFixed(2)}  closed ${a.closed}\nbodies ${bodies.length}`;
+  idle = 0; spinning = false;
+}
+
+/* ---------- loop ---------- */
+const easeOutBack = t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+let idle = 0, spinning = false, spinVel = 0;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Keep the whole pile inside the window it was drawn in — without ever
+   resizing what is already there. What throws a body out of frame is depth:
+   on a quarter turn it swings out by exactly the distance it sits down the
+   axis. The camera is orthographic, so depth costs nothing on the front
+   view — squeezing the pile flat changes the turn and leaves the drawing
+   itself untouched, pixel for pixel. */
+function depthCap() { return Math.min(innerWidth, innerHeight) * 0.22 * VIEW; }
+function compressDepth() {
+  if (bodies.length < 2) return;
+  let lo = Infinity, hi = -Infinity;
+  for (const b of bodies) { lo = Math.min(lo, b.mesh.position.z); hi = Math.max(hi, b.mesh.position.z); }
+  const range = hi - lo, cap = depthCap();
+  if (range <= cap) return;
+  const k = cap / range, m = (lo + hi) / 2;
+  for (const b of bodies) b.mesh.position.z = m + (b.mesh.position.z - m) * k;
+  zCursor = m + (zCursor - m) * k;
+}
+
+/* Move the axis to the sculpture, never the sculpture to the axis.
+
+   The turn needs its axis to run through the middle of the cluster, or the
+   whole composition orbits the centre of the window instead of turning in
+   place. The obvious way to get that is to slide the cluster onto the axis —
+   which is what this did, and it is why a shape drawn at the side crept to the
+   middle a second later. The drawing was being moved to suit the axis.
+
+   The axis can be moved instead, and for free. A body's screen position is
+   world.position + R·local, so shifting the pivot by R·c while taking c off
+   every local position leaves every term of that sum unchanged: nothing moves
+   by a pixel, and the turn is now about c. The rotation has to be applied to
+   the shift because the pivot sits outside it — that is the whole point of it.
+
+   x and z only. y is left alone: a turn about y never moves it, and nudging it
+   would slide the composition up and down for no reason. */
+function repivot() {
+  if (!bodies.length) return;
+  let lox = Infinity, hix = -Infinity, loz = Infinity, hiz = -Infinity;
+  for (const b of bodies) {
+    // reachX, not radius: a tall stroke is narrow, and calling it as wide as it
+    // is long pushes the pivot off the middle of what is actually on screen
+    lox = Math.min(lox, b.mesh.position.x - b.reachX); hix = Math.max(hix, b.mesh.position.x + b.reachX);
+    loz = Math.min(loz, b.mesh.position.z); hiz = Math.max(hiz, b.mesh.position.z);
+  }
+  const cx = (lox + hix) / 2, cz = (loz + hiz) / 2;
+  // it converges to nothing the moment the cluster is centred on its own pivot,
+  // so this runs every frame and costs a compare for all but the first one
+  if (Math.abs(cx) < 0.01 && Math.abs(cz) < 0.01) return;
+
+  for (const b of bodies) { b.mesh.position.x -= cx; b.mesh.position.z -= cz; }
+  const shift = new THREE.Vector3(cx, 0, cz).applyQuaternion(world.quaternion);
+  world.position.x += shift.x;
+  world.position.z += shift.z;
+}
+
+/* Where a new body is allowed to land, so that it can never swing out of frame.
+
+   The choice here was between zooming the whole sculpture out to make room, and
+   pulling the new shape in. Zooming out is the easy one to write and the wrong
+   one to look at: every stroke visibly shrinks everything already standing, so
+   the piece keeps retreating from you as you work on it. Pulling in costs one
+   thing only, and only at the edges — a shape drawn right at the border lands a
+   little inside it — and everything already placed is left exactly as it was.
+
+   What crops a body is not where it sits but how far it swings. The turn is
+   about y, so a body travels a circle about the pivot whose radius is its own
+   distance from it: a shape sitting happily inside the window head-on can be
+   well outside it a quarter turn later. Clamping that radius rather than the
+   current x is what makes this hold for the whole rotation instead of for one
+   frame of it.
+
+   Since repivot() keeps the pivot in the middle of the cluster and the pivot
+   itself does not turn, the widest a body ever reaches is the pivot's own
+   offset plus that radius — so the room left for it is measured from there.
+   The bound is honest for the composition as it stands and no further: putting
+   the next shape down moves the pivot, and an earlier body can end up reaching
+   a little wider than it was cleared for. Nothing already placed is touched to
+   fix that up, which is the trade this whole function is built on. */
+function placeInFrame(local, reachX, reachY) {
+  const halfW = innerWidth / 2 * VIEW, halfH = innerHeight / 2 * VIEW;
+
+  const maxY = Math.max(reachY * 0.4, halfH * 0.94 - reachY);
+  if (Math.abs(local.y) > maxY) local.y = Math.sign(local.y) * maxY;
+
+  /* The swing has to be measured against the pivot as it will be once repivot()
+     has taken this body in — which happens on the very next frame. Measuring it
+     against the pivot as it stands now is measuring a swing that is about to be
+     redistributed, and it is why a lone shape drawn near the edge was hauled
+     inward: the axis was about to land on it, so it was never going to swing at
+     all. Two passes, because moving the shape moves the pivot it was measured
+     against; the second one is already within a pixel or two. */
+  for (let pass = 0; pass < 2; pass++) {
+    let lox = local.x - reachX, hix = local.x + reachX;
+    let loz = local.z, hiz = local.z;
+    for (const b of bodies) {
+      lox = Math.min(lox, b.mesh.position.x - b.reachX); hix = Math.max(hix, b.mesh.position.x + b.reachX);
+      loz = Math.min(loz, b.mesh.position.z); hiz = Math.max(hiz, b.mesh.position.z);
+    }
+    const cx = (lox + hix) / 2, cz = (loz + hiz) / 2;
+    const shift = new THREE.Vector3(cx, 0, cz).applyQuaternion(world.quaternion);
+    const dx = local.x - cx, dz = local.z - cz;
+    const rho = Math.hypot(dx, dz);
+    const room = halfW * 0.94 - Math.abs(world.position.x + shift.x) - reachX;
+    // and it is allowed to take a fifth of the drawn offset, no more. Past that
+    // the composition is simply wider than the window and gets to say so:
+    // clipping at the edge beats a composition folded into its own middle.
+    const maxRho = Math.max(rho * 0.8, room);
+    if (rho <= maxRho) break;
+    const k = maxRho / rho;
+    local.x = cx + dx * k;
+    local.z = cz + dz * k;
+  }
+  return local;
+}
+
+let prev = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - prev) / 1000); prev = now;
+  idle += dt;
+  if (idle > 1.4 && bodies.length) spinning = true;
+  spinVel += ((spinning && !reduce ? 0.22 : 0) - spinVel) * 0.03;
+  world.rotation.y += spinVel * dt;
+  repivot();
+
+  for (const b of bodies) {
+    const age = (now - b.born) / b.dur;
+    const t = Math.min(1, age);
+    const grow = easeOutBack(t);
+    const br = reduce ? 1 : 1 + Math.sin(now * 0.0011 + b.phase) * b.breathe;
+    b.mesh.scale.setScalar(grow * br);
+    // parts sprout one after another along the path, not all at once
+    if (b.parts) for (const p of b.parts) {
+      const pt = Math.max(0, Math.min(1, (age - p.delay) / 0.8));
+      p.mesh.scale.setScalar(easeOutBack(pt) * 0.999 + 0.001);
+    }
+  }
+  renderAO();
+  renderer.render(scene, camera);
+  compositeAO();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- handing the sculpture to a real renderer ----------
+   Everything above is as far as a browser goes. The references this is chasing
+   are path-traced: the light in them bounces, and that is a different technique
+   rather than a setting, so the last stretch has to happen offline.
+
+   This writes the pile out as a GLB to open in Cinema 4D and light with an HDRI
+   under Redshift. Geometry and transforms only, deliberately. The look here is
+   carried by a triplanar shader patched in through onBeforeCompile, which no
+   interchange format can describe, and these bodies carry no UVs at all — the
+   whole point of projecting from three axes is that they never needed any. So
+   the materials travel as names on empty slots, and get rebuilt on the other
+   side against the same scans in textures/, where C4D's own triplanar projection
+   picks up where this leaves off.
+
+   The turn is divided back out, so the file opens in the orientation it was
+   drawn in rather than wherever the idle spin happened to be. */
+async function exportGLB() {
+  const btn = document.getElementById('export');
+  const was = btn.textContent;
+  let GLTFExporter;
+  try {
+    ({ GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js'));
+  } catch (e) {
+    // the shareable build is a classic script with no importmap behind it, so
+    // there is nothing to resolve this against there
+    btn.textContent = 'לא זמין כאן';
+    setTimeout(() => { btn.textContent = was; }, 2200);
+    return;
+  }
+  if (!bodies.length) return;
+  btn.textContent = 'מייצא…';
+
+  const out = new THREE.Scene();
+  out.name = 'INTENT';
+  world.updateMatrixWorld(true);
+  const unturn = world.matrixWorld.clone().invert();
+  const m4 = new THREE.Matrix4();
+  // one slot per material name. Every shard builds its own material instance so
+  // it can carry its own hue, and exported as-is that arrives in C4D as two
+  // dozen near-identical slots to assign by hand. The variation gets rebuilt on
+  // the Redshift side anyway, so what is worth carrying across is the family.
+  const slots = new Map();
+  pile.traverse(o => {
+    if (!o.isMesh) return;
+    const src = o.material;
+    const name = src.name || 'part';
+    let slot = slots.get(name);
+    if (!slot) {
+      slot = new THREE.MeshStandardMaterial({
+        name,
+        color: src.color ? src.color.clone() : new THREE.Color(0xffffff),
+        roughness: src.roughness ?? 0.8,
+        metalness: src.metalness ?? 0
+      });
+      slots.set(name, slot);
+    }
+    const copy = new THREE.Mesh(o.geometry, slot);
+    copy.name = name + '_' + out.children.length;
+    m4.multiplyMatrices(unturn, o.matrixWorld).decompose(copy.position, copy.quaternion, copy.scale);
+    out.add(copy);
+  });
+
+  new GLTFExporter().parse(out, buf => {
+    const url = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
+    const a = document.createElement('a');
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    a.href = url;
+    a.download = `intent-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.glb`;
+    a.click();
+    URL.revokeObjectURL(url);
+    btn.textContent = was;
+  }, err => {
+    console.error(err);
+    btn.textContent = 'נכשל';
+    setTimeout(() => { btn.textContent = was; }, 2200);
+  }, { binary: true });
+}
+
+/* ---------- controls ---------- */
+document.getElementById('export').addEventListener('click', exportGLB);
+document.getElementById('clear').addEventListener('click', () => {
+  // a body is a group — the core plus its colony of parts — so freeing it
+  // means walking it. Reaching for .geometry on the group itself threw on
+  // the first body and left every other one standing.
+  bodies.forEach(b => {
+    b.mesh.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+    pile.remove(b.mesh);
+  });
+  bodies.length = 0; TRI_MATS.length = 0;
+  world.rotation.y = 0; spinning = false; idle = 0; zCursor = 0;
+  // the pivot has wandered to wherever the last composition stood, and an empty
+  // canvas has no cluster to put it back on: park it at the centre by hand
+  world.position.set(0, 0, 0);
+  pile.position.set(0, 0, 0); world.scale.setScalar(1);
+  document.getElementById('readout').textContent = '';
+});
+document.getElementById('spin').addEventListener('click', () => { spinning = !spinning; idle = 0; });
+// dev handle: park the turn at an exact angle to check the framing, which
+// the idle spin is too slow (and, in a background tab, too throttled) to show
+window.devAngle = a => { spinning = false; world.rotation.y = a; };
+
+/* ---------- the tuning panel ----------
+   Everything here was tuned by editing numbers, reloading, and looking. That is
+   a bad way to judge light: by the time the page is back the previous frame is
+   gone from your eye, and what you are actually comparing is two memories. The
+   panel exists so the picture moves while the hand does.
+
+   The two that are not simple pass-throughs are the lamp's height and bearing.
+   A directional light is aimed by its position, so they are stored as the
+   angles a photographer would use and turned back into a vector on each
+   change — and height is the one that decides where on the floor the shadow
+   lands, because a lower lamp lays the shadow out along the ground instead of
+   dropping it straight down. */
+const FLOOR_BASE = new THREE.Color(0xf7f5ef);
+/* `env` is how strongly a body reflects the room, and it is the control for
+   whether a shadow reads as a deeper version of the colour or as a grey film
+   laid over it.
+
+   In shadow there is no key light, so the surface is lit by the room alone, and
+   the room reaches it two ways. One is diffuse — the room's light times the
+   body's own colour — and that darkens exactly like a multiply, which is the
+   wanted behaviour. The other is specular and sheen: a reflection of a pale
+   room, ADDED on top, tinted by the room rather than by the body. Softening the
+   light meant raising the room sevenfold, and that raised the added pale term
+   with it, so every shadow picked up a grey veil that did not belong to the
+   colour underneath. Pulling this down takes the veil off; pulling it to 1
+   puts it back. */
+const DEFAULTS = {
+  exposure: 1.16, floor: 1, env: 0.55, key: 0.80, soft: 9,
+  elev: 24.8, azim: -9.5, dist: 2.25, ao: 0.85, aor: 46
+};
+const state = { ...DEFAULTS };
+
+function aimKey() {
+  const e = state.elev * Math.PI / 180, a = state.azim * Math.PI / 180;
+  const ch = Math.cos(e);
+  key.position.set(ch * Math.sin(a), Math.sin(e), ch * Math.cos(a))
+     .normalize().multiplyScalar(3000);
+}
+
+function applyState() {
+  renderer.toneMappingExposure = state.exposure;
+  cove.material.color.copy(FLOOR_BASE).multiplyScalar(state.floor);
+  eachBodyMat(m => { m.envMapIntensity = state.env; });
+  key.intensity = state.key;
+  key.shadow.radius = state.soft;
+  aimKey();
+  groundDist = state.dist;
+  placeCove(frameHalf.w, frameHalf.h);
+  blurUniforms.uStrength.value = state.ao;
+  aoUniforms.uRadius.value = state.aor;
+
+  for (const k in state) {
+    const el = document.getElementById('k-' + k);
+    if (el && document.activeElement !== el) el.value = state[k];
+    const out = document.querySelector('b[data-for="' + k + '"]');
+    // degrees read as degrees; everything else is a bare number, and two
+    // decimals on a slider that steps by one is just noise
+    if (out) out.textContent = (k === 'elev' || k === 'azim')
+      ? Math.round(state[k]) + '°'
+      : (state[k] % 1 ? state[k].toFixed(2) : state[k]);
+  }
+}
+
+for (const k in DEFAULTS) {
+  const el = document.getElementById('k-' + k);
+  if (el) el.addEventListener('input', () => { state[k] = +el.value; applyState(); });
+}
+document.getElementById('k-reset').addEventListener('click', () => {
+  Object.assign(state, DEFAULTS); applyState();
+});
+const panel = document.getElementById('panel'), tuneBtn = document.getElementById('tune');
+tuneBtn.addEventListener('click', () => {
+  panel.hidden = !panel.hidden;
+  tuneBtn.setAttribute('aria-pressed', String(!panel.hidden));
+});
+
+addEventListener('resize', sizeUp);
+sizeUp();
+applyState();          // after sizeUp, which is what first gives placeCove a frame
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

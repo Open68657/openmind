@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>INTENT — השוואת תאורה</title>
+<style>
+  :root {
+    --ground: #e6e4dd;
+    --ink: #1a1c19;
+    --muted: #7d7f76;
+    --line: rgba(26,28,25,.18);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; background: var(--ground); color: var(--ink);
+    font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+  }
+  body { display: grid; grid-template-rows: auto 1fr; }
+
+  header { padding: 14px 20px 12px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0 0 2px; font-size: 14px; font-weight: 600; letter-spacing: .01em; }
+  h1 small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  .rows { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 12px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field > label {
+    font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted);
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; max-width: 430px; }
+  button {
+    font: inherit; font-size: 12px; padding: 5px 11px; background: transparent; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+  }
+  button:hover { background: rgba(26,28,25,.05); }
+  button[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+  button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  button.go { border-color: var(--ink); font-weight: 500; }
+
+  .slider { display: flex; align-items: center; gap: 8px; }
+  .track { position: relative; width: 118px; }
+  .track input { width: 100%; margin: 0; display: block; direction: ltr; accent-color: var(--ink); }
+  /* where the proposed value sits, marked on the track itself so it can be found
+     again by eye without reading a number */
+  .tick {
+    position: absolute; bottom: -3px; width: 1px; height: 7px;
+    background: var(--ink); opacity: .45; transform: translateX(-50%); pointer-events: none;
+  }
+  .slider output {
+    font-variant-numeric: tabular-nums; direction: ltr; min-width: 34px;
+    font-size: 11px; color: var(--muted);
+  }
+  /* clicking the proposed value puts this one slider back, and only this one */
+  .reset {
+    border: 0; background: none; padding: 1px 3px; border-radius: 4px; cursor: pointer;
+    color: var(--muted); font-size: 11px; direction: ltr; font-variant-numeric: tabular-nums;
+  }
+  .reset:hover { color: var(--ink); background: rgba(26,28,25,.07); }
+  .reset:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .reset[data-at="1"] { visibility: hidden; }   /* already there, nothing to undo */
+
+  main { display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+  .pane { position: relative; min-width: 0; display: grid; grid-template-rows: auto 1fr; }
+  .pane + .pane { border-inline-start: 1px solid var(--line); }
+  .tag {
+    padding: 7px 16px; font-size: 11px; letter-spacing: .04em; color: var(--muted);
+    display: flex; justify-content: space-between; gap: 10px;
+  }
+  .tag b { color: var(--ink); font-weight: 600; }
+  .tag span { direction: ltr; font-variant-numeric: tabular-nums; }
+  iframe { border: 0; width: 100%; height: 100%; display: block; }
+
+  #note { padding: 6px 20px 0; color: var(--muted); font-size: 11px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>INTENT — השוואת תאורה<small>אותה צורה, אותו רעש, אותה זווית. רק התאורה שונה.</small></h1>
+
+  <div class="rows">
+    <div class="field">
+      <label>חומר</label>
+      <div class="chips" id="mats"></div>
+    </div>
+
+    <div class="field">
+      <label>צורה</label>
+      <div class="chips" id="shapes">
+        <button data-shape="circle" aria-pressed="true">עיגול</button>
+        <button data-shape="square" aria-pressed="false">ריבוע</button>
+        <button data-shape="stroke" aria-pressed="false">משיכה</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>זווית</label>
+      <div class="slider">
+        <div class="track"><input id="angle" type="range" min="0" max="90" step="1" value="25" /></div>
+        <output id="angleOut">25°</output>
+        <button class="reset" id="angleReset" type="button" title="חזרה למוצע"></button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>אור מפתח (ימין)</label>
+      <div class="slider">
+        <div class="track"><input id="key" type="range" min="0.2" max="2.4" step="0.05" value="1.60" /></div>
+        <output id="keyOut">1.60</output>
+        <button class="reset" id="keyReset" type="button" title="חזרה למוצע"></button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>סביבה על מאטיים (ימין)</label>
+      <div class="slider">
+        <div class="track"><input id="env" type="range" min="0" max="1.4" step="0.05" value="0.35" /></div>
+        <output id="envOut">0.35</output>
+        <button class="reset" id="envReset" type="button" title="חזרה למוצע"></button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>חשיפה (ימין)</label>
+      <div class="slider">
+        <div class="track"><input id="exp" type="range" min="0.4" max="1.6" step="0.02" value="0.86" /></div>
+        <output id="expOut">0.86</output>
+        <button class="reset" id="expReset" type="button" title="חזרה למוצע"></button>
+      </div>
+    </div>
+
+    <button class="go" id="draw">צייר מחדש</button>
+    <button id="copy" type="button" title="להעתיק את המספרים כדי לשלוח אותם">העתק ערכים</button>
+  </div>
+
+  <p id="note">טוען…</p>
+</header>
+
+<main>
+  <div class="pane">
+    <div class="tag"><b>כמו היום</b><span id="tagA">—</span></div>
+    <iframe id="a" src="index.html" title="התאורה הנוכחית"></iframe>
+  </div>
+  <div class="pane">
+    <div class="tag"><b>מוצע</b><span id="tagB">—</span></div>
+    <iframe id="b" src="index.html" title="התאורה המוצעת"></iframe>
+  </div>
+</main>
+
+<script>
+/* A side-by-side rig, and the point of it is that only ONE thing differs.
+
+   Both panes are the real prototype, loaded twice from the same file — not a
+   reconstruction of it, which would be a third thing to keep in sync and would
+   be answering a question about itself rather than about the piece.
+
+   The hard part is sameness. A body's geometry is built from Math.random on
+   every birth: the noise on the surface, the scatter of the colony, the tilt of
+   every shard. Draw the same outline twice and you get two different bodies, and
+   then any difference between the panes is unreadable. So the generator is
+   replaced in both frames with the same seeded one immediately before the stroke
+   is dispatched, which makes the two sides identical down to the last grain. The
+   only variable left is the light.
+
+   The proposal being tested: matte materials lost their modelling because the
+   room's ambient went up four to seven times while the key light halved, and
+   ambient carries no form — it lifts every surface equally whichever way it
+   faces. Rather than dim the room, which is what metal and glass need to have
+   anything to reflect, the right pane leaves the room alone and turns it down
+   per material through envMapIntensity, on the matte ones only, while giving the
+   key back its strength. */
+
+const MATERIALS = ['gouache', 'sponge', 'moss', 'clay', 'tuff', 'glaze', 'gilt',
+                   'crystal', 'iris', 'seaglass', 'jelly', 'bubble', 'beads', 'gem', 'chrome'];
+// the ones that live on diffuse shading, and so the ones the change is aimed at
+const MATTE = ['gouache', 'sponge', 'moss', 'clay', 'tuff'];
+
+let material = 'clay', shape = 'circle';
+
+const $ = id => document.getElementById(id);
+const A = $('a'), B = $('b');
+const note = $('note');
+
+const mats = $('mats');
+MATERIALS.forEach(m => {
+  const el = document.createElement('button');
+  el.textContent = m;
+  el.dataset.mat = m;
+  el.setAttribute('aria-pressed', String(m === material));
+  mats.appendChild(el);
+});
+
+function pressGroup(container, attr, value) {
+  container.querySelectorAll('button').forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset[attr] === value)));
+}
+
+mats.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  material = b.dataset.mat; pressGroup(mats, 'mat', material); run();
+});
+$('shapes').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  shape = b.dataset.shape; pressGroup($('shapes'), 'shape', shape); run();
+});
+
+/* Each slider remembers what was proposed for it: a tick on the track so it can
+   be found by eye, and the number itself as a button that puts that ONE slider
+   back. Per axis on purpose — the whole point of the rig is to move one thing at
+   a time, and a single reset-everything button would undo the comparison being
+   made rather than the guess being abandoned. */
+const sliders = [['angle', '°', 0], ['key', '', 2], ['env', '', 2], ['exp', '', 2]];
+for (const [id, suffix, dp] of sliders) {
+  const input = $(id), out = $(id + 'Out'), reset = $(id + 'Reset');
+  const proposed = +input.value;
+  const fmt = v => v.toFixed(dp) + suffix;
+
+  const tick = document.createElement('i');
+  tick.className = 'tick';
+  // the thumb travels between half a thumb-width in from each end, so the track
+  // a value maps onto is inset; without this the tick drifts off at the extremes
+  const pct = (proposed - +input.min) / (+input.max - +input.min);
+  tick.style.left = `calc(${(pct * 100).toFixed(2)}% + ${(0.5 - pct) * 14}px)`;
+  input.parentNode.appendChild(tick);
+
+  reset.textContent = '↺ ' + fmt(proposed);
+  const sync = () => {
+    out.textContent = fmt(+input.value);
+    reset.dataset.at = (+input.value).toFixed(4) === proposed.toFixed(4) ? '1' : '0';
+  };
+  input.addEventListener('input', () => { sync(); id === 'angle' ? setAngle() : applyLight(); });
+  reset.addEventListener('click', () => {
+    input.value = proposed;
+    sync();
+    id === 'angle' ? setAngle() : applyLight();
+  });
+  sync();
+}
+
+/* The values live in whichever browser window the rig happens to be open in, and
+   that is not necessarily the one being driven from outside. Rather than have
+   them read off the screen and retyped, hand over a line that can be pasted. */
+$('copy').addEventListener('click', async () => {
+  const g = id => +$(id).value;
+  const line = `key ${g('key').toFixed(2)} · env ${g('env').toFixed(2)} · exposure ${g('exp').toFixed(2)} · angle ${g('angle')}° · ${material}/${shape}`;
+  const btn = $('copy');
+  try {
+    await navigator.clipboard.writeText(line);
+    btn.textContent = 'הועתק';
+  } catch (_) {
+    // clipboard needs permission and a secure context; falling back to showing
+    // the line beats failing silently and leaving nothing to copy by hand
+    note.textContent = line;
+    btn.textContent = 'למעלה בשורה';
+  }
+  setTimeout(() => { btn.textContent = 'העתק ערכים'; }, 1600);
+});
+
+const ready = f => new Promise(res => {
+  const check = () => (f.contentWindow && f.contentWindow.devMaterial)
+    ? res(f.contentWindow) : setTimeout(check, 60);
+  check();
+});
+
+/* The same stream of numbers in both frames. Without this the two bodies differ
+   in every grain of noise and the comparison is worthless. */
+function seed(win, s) {
+  let x = s >>> 0;
+  win.Math.random = () => {
+    x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
+    return x / 4294967296;
+  };
+}
+
+function strokeFor(win) {
+  const W = win.innerWidth, H = win.innerHeight;
+  const cx = W / 2, cy = H / 2, S = Math.min(W, H) * 0.24;
+  const p = [];
+  if (shape === 'square') {
+    const k = [[-S, -S], [S, -S], [S, S], [-S, S], [-S, -S]];
+    for (let e = 0; e < 4; e++) {
+      const a = k[e], b = k[e + 1];
+      for (let i = 0; i < 16; i++) {
+        const t = i / 16;
+        p.push([cx + a[0] + (b[0] - a[0]) * t, cy + a[1] + (b[1] - a[1]) * t]);
+      }
+    }
+    p.push([cx + k[0][0], cy + k[0][1]]);
+  } else if (shape === 'stroke') {
+    for (let i = 0; i <= 50; i++) {
+      const t = i / 50;
+      p.push([cx - S * 1.3 + 2.6 * S * t, cy - Math.sin(t * Math.PI) * S * 0.55]);
+    }
+  } else {
+    for (let i = 0; i <= 70; i++) {
+      const a = i / 70 * Math.PI * 2;
+      const rr = S * (1 + 0.03 * Math.sin(a * 2.7 + 0.6));
+      p.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr]);
+    }
+  }
+  return p;
+}
+
+function drawInto(win) {
+  const c = win.document.getElementById('draw');
+  const ev = (type, x, y, target) => target.dispatchEvent(
+    new win.PointerEvent(type, { clientX: x, clientY: y, pointerId: 1, bubbles: true, isPrimary: true }));
+  const p = strokeFor(win);
+  ev('pointerdown', p[0][0], p[0][1], c);
+  for (let i = 1; i < p.length; i++) ev('pointermove', p[i][0], p[i][1], c);
+  ev('pointerup', p[p.length - 1][0], p[p.length - 1][1], win);
+}
+
+function setAngle() {
+  const rad = (+$('angle').value) * Math.PI / 180;
+  [A, B].forEach(f => f.contentWindow && f.contentWindow.devAngle && f.contentWindow.devAngle(rad));
+}
+
+/* Left pane is never touched: it is the control, and it has to stay whatever the
+   file currently says. Everything below applies to the right pane only. */
+function applyLight() {
+  const win = B.contentWindow;
+  if (!win || !win.tuneLight) return;
+  const key = +$('key').value, env = +$('env').value, exp = +$('exp').value;
+  // the rim and back lights are lifted with the key, in the ratio version 3 held
+  // them at, so the change is one decision and not four
+  win.tuneLight({ key, rim: key * 0.23, back: key * 0.37, exposure: exp });
+  if (win.eachBodyMat) {
+    win.eachBodyMat(m => {
+      if (!m) return;
+      if (MATTE.includes(material) && m.envMapIntensity !== undefined) m.envMapIntensity = env;
+    });
+  }
+  $('tagB').textContent = `key ${key.toFixed(2)} · env ${env.toFixed(2)} · exp ${exp.toFixed(2)}`;
+}
+
+async function run() {
+  note.textContent = 'מצייר…';
+  const [wa, wb] = await Promise.all([ready(A), ready(B)]);
+
+  for (const w of [wa, wb]) {
+    // the prototype's own HUD is noise in a comparison: two material pickers and
+    // two sets of buttons competing with the one thing being looked at
+    if (!w.__hudHidden) {
+      const s = w.document.createElement('style');
+      s.textContent = '.hud{display:none!important}';
+      w.document.head.appendChild(s);
+      w.__hudHidden = true;
+    }
+    w.document.getElementById('clear').click();
+    seed(w, 20260804);            // identical bodies on both sides
+    w.devMaterial(material);
+  }
+  drawInto(wa);
+  drawInto(wb);
+
+  // the textures load asynchronously, so give them a moment before judging
+  await new Promise(r => setTimeout(r, 260));
+  setAngle();
+  applyLight();
+
+  const la = wa.tuneLight({});
+  $('tagA').textContent = `key ${la.key.toFixed(2)} · env 1.00 · exp ${la.exposure.toFixed(2)}`;
+  note.textContent = MATTE.includes(material)
+    ? 'החומר הזה חי על פיזור, אז השינוי אמור להיראות עליו.'
+    : 'החומר הזה חי על השתקפויות, אז השינוי כמעט לא אמור לגעת בו. זה חלק מהבדיקה.';
+}
+
+addEventListener('load', () => { pressGroup(mats, 'mat', material); run(); });
+</script>
+</body>
+</html>

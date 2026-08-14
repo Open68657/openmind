@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>INTENT — ניסוי 01: קו → חומר</title>
+<style>
+  :root {
+    --ground: #e6e4dd;
+    --ink: #1a1c19;
+    --muted: #7d7f76;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: var(--ground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    touch-action: none;
+    direction: rtl;   /* stated here too: a shareable build has no <html dir> */
+  }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; }
+  #draw {
+    position: fixed; inset: 0; z-index: 2; cursor: crosshair;
+  }
+  .hud {
+    position: fixed; z-index: 5; color: var(--ink);
+    font-size: 13px; letter-spacing: .01em;
+  }
+  #title { top: 22px; right: 24px; font-weight: 500; }
+  #title small { display: block; color: var(--muted); font-weight: 400; margin-top: 3px; }
+  #hint {
+    bottom: 24px; right: 24px; color: var(--muted); max-width: 40ch; line-height: 1.6;
+  }
+  @media (max-width: 720px) { #hint { display: none; } }
+  #readout {
+    bottom: 24px; left: 24px; color: var(--muted);
+    font-variant-numeric: tabular-nums; text-align: left; direction: ltr;
+    font-size: 12px; line-height: 1.7;
+  }
+  #tools { top: 20px; left: 24px; display: flex; gap: 8px; }
+  button {
+    font: inherit; font-size: 12px; padding: 7px 14px;
+    background: transparent; color: var(--ink);
+    border: 1px solid rgba(26,28,25,.28); border-radius: 999px;
+    cursor: pointer; transition: background .15s;
+  }
+  button:hover { background: rgba(26,28,25,.06); }
+  button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<canvas id="draw"></canvas>
+
+<div class="hud" id="title">INTENT — ניסוי 01<small>קו → חומר</small></div>
+<div class="hud" id="tools">
+  <button id="clear">נקה</button>
+  <button id="spin">סיבוב</button>
+</div>
+<div class="hud" id="hint">ציירי צורה. כשתרימי את האצבע היא תיוולד כגוף מחומר.<br>עיגול סגור → כדור. קו פתוח → גוף מוארך לאורך הקו.</div>
+<div class="hud" id="readout"></div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ---------- noise (value noise + fbm) ---------- */
+function hash3(x, y, z) {
+  let h = x * 374761393 + y * 668265263 + z * 1274126177;
+  h = (h ^ (h >> 13)) * 1274126177;
+  return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+}
+function smooth(t) { return t * t * (3 - 2 * t); }
+function vnoise(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const xf = x - xi, yf = y - yi, zf = z - zi;
+  const u = smooth(xf), v = smooth(yf), w = smooth(zf);
+  let r = 0;
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
+    const wx = i ? u : 1 - u, wy = j ? v : 1 - v, wz = k ? w : 1 - w;
+    r += hash3(xi + i, yi + j, zi + k) * wx * wy * wz;
+  }
+  return r * 2 - 1;
+}
+function fbm(x, y, z, oct = 4) {
+  let a = 1, f = 1, sum = 0, norm = 0;
+  for (let i = 0; i < oct; i++) { sum += a * vnoise(x * f, y * f, z * f); norm += a; a *= 0.5; f *= 2; }
+  return sum / norm;
+}
+
+/* ---------- material library (placeholder scans) ----------
+   These are procedural stand-ins. The real system uses photographed
+   material, shot neutral so it can be tinted here in code. */
+function tex(draw, size = 512) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+/* Triplanar projection: samples the material from three axes and blends.
+   Kills UV seams and stretching on organic bodies — the "gift wrap" problem.
+
+   It carries the whole material response, not only colour. An eye reads
+   material from the way light CHANGES across a surface, so the scan's own
+   luminance also drives a bump and a roughness break-up — one flat albedo
+   map is what makes a body read as default plastic. Two more things the
+   scans need: conditioning on load (see conditionScan), and sampling as two
+   layers at different scales and angles, so no repeat ever lines up. */
+function triplanar(mat, scale, o = {}) {
+  // the bump is computed from screen derivatives, which are core in WebGL2
+  // but an extension below it — declaring it costs nothing and keeps older
+  // builds of three from compiling a shader that cannot run
+  mat.extensions = { derivatives: true };
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTriScale = { value: scale };
+    shader.uniforms.uBump = { value: o.bump ?? 70 };
+    shader.uniforms.uRoughVar = { value: o.roughVar ?? 0.35 };
+    // hold the conditioned mean so layering cannot drift off it
+    shader.uniforms.uMean = { value: Math.pow(SCAN_MEAN, 2.2) };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vTriPos;\nvarying vec3 vTriNrm;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTriPos = position;\nvTriNrm = normal;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        varying vec3 vTriPos;
+        varying vec3 vTriNrm;
+        uniform float uTriScale;
+        uniform float uBump;
+        uniform float uRoughVar;
+        uniform float uMean;
+        float triLum = 0.0;
+        const mat2 TRI_ROT = mat2(0.7986, -0.6018, 0.6018, 0.7986);   // 37 degrees
+        vec4 triLayer(sampler2D t, vec2 uv, float bias) {
+          vec4 a = texture2D(t, uv, bias);
+          vec4 b = texture2D(t, TRI_ROT * uv * 0.43 + 7.3, bias);
+          return a + (b - uMean) * 0.85;
+        }`)
+      .replace('#include <map_fragment>', `
+        vec3 triW = pow(abs(normalize(vTriNrm)), vec3(4.0));
+        triW /= (triW.x + triW.y + triW.z);
+        vec4 triC = triLayer(map, vTriPos.yz * uTriScale, 0.0) * triW.x
+                  + triLayer(map, vTriPos.xz * uTriScale, 0.0) * triW.y
+                  + triLayer(map, vTriPos.xy * uTriScale, 0.0) * triW.z;
+        // height comes off a deliberately blurred mip: a screen-derivative
+        // bump on the sharp sample amplifies the scan's own JPEG noise into
+        // a fizz of pixel-sized dents
+        vec4 triH = triLayer(map, vTriPos.yz * uTriScale, 2.2) * triW.x
+                  + triLayer(map, vTriPos.xz * uTriScale, 2.2) * triW.y
+                  + triLayer(map, vTriPos.xy * uTriScale, 2.2) * triW.z;
+        triLum = dot(triH.rgb, vec3(0.2126, 0.7152, 0.0722));
+        diffuseColor *= triC;
+      `)
+      // crevices scatter, ridges catch — a single uniform highlight is the
+      // giveaway that nothing is actually varying across the surface
+      .replace('#include <roughnessmap_fragment>', `
+        float roughnessFactor = clamp(roughness + (uMean - triLum) * uRoughVar, 0.04, 1.0);
+      `)
+      // bump straight off the scan's luminance, via screen derivatives, so
+      // it needs no tangents and follows the triplanar sample exactly
+      .replace('#include <normal_fragment_maps>', `
+        vec3 triSurf = -vViewPosition;
+        vec3 triSx = dFdx(triSurf), triSy = dFdy(triSurf);
+        vec3 triR1 = cross(triSy, normal), triR2 = cross(normal, triSx);
+        float triDet = dot(triSx, triR1);
+        vec3 triGrad = sign(triDet) * (dFdx(triLum) * triR1 + dFdy(triLum) * triR2) * uBump;
+        // derivatives blow up along the silhouette; without this the rim
+        // turns into a ring of glitter
+        triGrad = clamp(triGrad, -1.5 * abs(triDet), 1.5 * abs(triDet));
+        normal = normalize(abs(triDet) * normal - triGrad);
+      `);
+    mat.userData.tri = shader.uniforms;   // live tuning handle, see tuneTri()
+  };
+  mat.customProgramCacheKey = () => 'tri2';
+  TRI_MATS.push(mat);
+}
+const TRI_MATS = [];
+// tuneTri({bump: 60}) from the console: retunes every material on screen at
+// once, so a value can be judged against the real thing before it is baked in
+function tuneTri(v) {
+  TRI_MATS.forEach(m => {
+    const u = m.userData.tri;
+    if (!u) return;
+    for (const k in v) if (u['u' + k[0].toUpperCase() + k.slice(1)]) u['u' + k[0].toUpperCase() + k.slice(1)].value = v[k];
+  });
+  return TRI_MATS.length + ' materials';
+}
+window.tuneTri = tuneTri;   // dev handle: the page is a module, so the
+                            // console cannot reach anything not hung here
+/* The scans are photographs, not tiles: 16:9, lit with a vignette, each with
+   its own big soft blob in the middle. Tiled raw, the vignette becomes a grid
+   of patches and the edges become hard straight lines across the body — the
+   "technical, patterned" read. So every scan is conditioned once on load:
+   cropped square, high-passed to strip everything at the scale of the shot
+   itself, normalised so a near-flat scan carries the same grain as a
+   contrasty one, and closed into a tile that actually repeats. */
+const SCAN_MEAN = 200 / 255;      // every conditioned scan is centred here
+function conditionScan(img) {
+  const S = 768;
+  const a = document.createElement('canvas'); a.width = a.height = S;
+  const ga = a.getContext('2d', { willReadFrequently: true });
+  ga.drawImage(img, (img.naturalWidth - S) / 2, (img.naturalHeight - S) / 2, S, S, 0, 0, S, S);
+
+  // the blur radius is the cut: wide enough to keep brush strokes and grain,
+  // narrow enough to take the lighting of the shot with it
+  const b = document.createElement('canvas'); b.width = b.height = S;
+  const gb = b.getContext('2d', { willReadFrequently: true });
+  gb.filter = `blur(${Math.round(S / 8)}px)`;
+  gb.drawImage(a, 0, 0);
+
+  const A = ga.getImageData(0, 0, S, S), B = gb.getImageData(0, 0, S, S);
+  const da = A.data, db = B.data;
+  let sum2 = 0, n = 0;
+  for (let i = 0; i < da.length; i += 4) {
+    const d = 0.299 * (da[i] - db[i]) + 0.587 * (da[i + 1] - db[i + 1]) + 0.114 * (da[i + 2] - db[i + 2]);
+    sum2 += d * d; n++;
+  }
+  const gain = Math.min(9, 26 / Math.max(1, Math.sqrt(sum2 / n)));
+  const base = SCAN_MEAN * 255;
+  const hp = new Float32Array(da.length);
+  for (let i = 0; i < da.length; i += 4) {
+    for (let k = 0; k < 3; k++) {
+      hp[i + k] = Math.max(0, Math.min(255, base + (da[i + k] - db[i + k]) * gain));
+    }
+  }
+
+  /* Close the tile. Mirrored wrapping also hides the seam, but it hides it
+     behind a kaleidoscope — an X across a small body, which reads as pattern
+     just as loudly as the seam did. So blend in a half-shifted copy of the
+     same scan near the borders: the shifted copy's edges are the original's
+     continuous middle, and the join disappears. */
+  const half = S / 2, band = S * 0.25;
+  const feather = d => { const t = Math.min(1, d / band); return t * t * (3 - 2 * t); };
+  for (let y = 0; y < S; y++) {
+    const wy = feather(Math.min(y, S - 1 - y));
+    for (let x = 0; x < S; x++) {
+      const w = feather(Math.min(x, S - 1 - x)) * wy;
+      const i = (y * S + x) * 4;
+      const j = (((y + half) % S) * S + ((x + half) % S)) * 4;
+      for (let k = 0; k < 3; k++) da[i + k] = hp[i + k] * w + hp[j + k] * (1 - w);
+    }
+  }
+  ga.putImageData(A, 0, 0);
+  return a;
+}
+function fileTex(name) {
+  const t = new THREE.Texture();
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;   // the scan tiles for real now
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  const img = new Image();
+  img.onload = () => { t.image = conditionScan(img); t.needsUpdate = true; };
+  // a shareable build bakes the scans in, since a published page cannot
+  // reach any file of its own (see build_artifact.py)
+  img.src = (window.TEX_DATA && window.TEX_DATA[name]) || `textures/${name}.jpg`;
+  return t;
+}
+
+/* Generated neutral-white material scans. Shot white on purpose so the
+   colour is applied here in code — real texture, unlimited palette. */
+/* tile: world units one scan spans. At 46 the 1408px photograph was being
+   shown as a 46px thumbnail, repeated — that alone reads as pattern, not
+   material. Contrast no longer varies per material because conditionScan
+   normalises it, so bump differences here are about the kind of surface:
+   clay holds a soft slump, sponge is all pitting. */
+const MATERIALS = [
+  { name: 'gouache', file: 'gouache', tint: 0xff8a4a, rough: 0.94, lumps: 0.16, grain: 0.35, tile: 620, bump: 16, roughVar: 0.40 },
+  { name: 'sponge',  file: 'sponge',  tint: 0xf2b13c, rough: 1.00, lumps: 0.30, grain: 1.00, tile: 430, bump: 18, roughVar: 0.30 },
+  { name: 'moss',    file: 'moss',    tint: 0x5f8f3a, rough: 1.00, lumps: 0.34, grain: 1.10, tile: 500, bump: 14, roughVar: 0.30 },
+  { name: 'clay',    file: 'clay',    tint: 0xd2604f, rough: 0.82, lumps: 0.20, grain: 0.25, tile: 700, bump: 10, roughVar: 0.55 },
+  { name: 'crystal', file: 'crystal', tint: 0x9fd8e8, rough: 0.30, lumps: 0.26, grain: 0.80, tile: 520, bump: 12, roughVar: 0.45 }
+];
+MATERIALS.forEach(m => { m._tex = null; });
+function materialTexture(m) { if (!m._tex) m._tex = fileTex(m.file); return m._tex; }
+
+/* ---------- scene ---------- */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const world = new THREE.Group();      // turns, and scales to keep the pile in frame
+scene.add(world);
+const pile = new THREE.Group();       // holds the bodies, offset so the cluster's
+world.add(pile);                      // own centre sits on the axis of rotation
+
+let camera, VIEW = 1;      // world units per pixel
+function sizeUp() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h);
+  const halfH = h / 2 * VIEW, halfW = w / 2 * VIEW;
+  if (!camera) {
+    camera = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, -4000, 4000);
+    camera.position.set(0, 0, 1000);
+    camera.lookAt(0, 0, 0);
+  } else {
+    camera.left = -halfW; camera.right = halfW;
+    camera.top = halfH; camera.bottom = -halfH;
+    camera.updateProjectionMatrix();
+  }
+  dc.width = w * devicePixelRatio; dc.height = h * devicePixelRatio;
+  dc.style.width = w + 'px'; dc.style.height = h + 'px';
+  dctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x9a978c, 1.15));
+const key = new THREE.DirectionalLight(0xfff6e8, 2.3);
+key.position.set(-0.55, 0.9, 0.85);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xbcd2e8, 1.0);
+rim.position.set(0.8, -0.35, -0.7);
+scene.add(rim);
+// back light: what makes translucent parts glow at their edges
+const back = new THREE.DirectionalLight(0xfff2dd, 1.9);
+back.position.set(0.1, 0.25, -1);
+scene.add(back);
+
+/* ---------- drawing surface ---------- */
+const dc = document.getElementById('draw');
+const dctx = dc.getContext('2d');
+let pts = [], drawing = false;
+
+function toWorld(x, y) { return { x: (x - innerWidth / 2) * VIEW, y: -(y - innerHeight / 2) * VIEW }; }
+
+/* Graphite v2. Constant-width core drawn as quadratic curves through
+   segment midpoints (no joins, no width steps), pressure only modulates
+   OPACITY and is smoothed over time. Grain is fine and hugs the core. */
+function tooth(x, y) {
+  return fbm(x * 0.11, y * 0.11, 3.1, 2) * 0.5 + 0.5;
+}
+let pressS = 0.75;                                   // smoothed pressure
+function strokeSegment(p0, p1, p2, speed) {
+  const target = Math.max(0.35, Math.min(1, 1 - speed / 90));
+  pressS += (target - pressS) * 0.12;                // slow, pencil-like response
+  const press = pressS;
+
+  const m1 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+  const m2 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+
+  // core: one smooth curve, fixed width
+  dctx.strokeStyle = `rgba(40,38,35,${0.34 * press + 0.08})`;
+  dctx.lineWidth = 1.6;
+  dctx.lineCap = 'round';
+  dctx.beginPath();
+  dctx.moveTo(m1.x, m1.y);
+  dctx.quadraticCurveTo(p1.x, p1.y, m2.x, m2.y);
+  dctx.stroke();
+
+  // grain: sparse, tight to the line, gated by fixed paper tooth
+  const d = Math.hypot(m2.x - m1.x, m2.y - m1.y);
+  const steps = Math.max(1, Math.round(d));
+  for (let i = 0; i < steps; i++) {
+    const t = i / steps;
+    const x = m1.x + (m2.x - m1.x) * t, y = m1.y + (m2.y - m1.y) * t;
+    for (let k = 0; k < 3; k++) {
+      const gx = x + (Math.random() - 0.5) * 3.2;
+      const gy = y + (Math.random() - 0.5) * 3.2;
+      if (tooth(gx, gy) < 0.42) continue;
+      const fall = 1 - Math.hypot(gx - x, gy - y) / 2.4;
+      if (fall <= 0) continue;
+      dctx.fillStyle = `rgba(46,44,41,${(0.05 + Math.random() * 0.08) * press * fall})`;
+      dctx.fillRect(gx, gy, 1, 1);
+    }
+  }
+}
+function clearStroke() { dctx.clearRect(0, 0, innerWidth, innerHeight); }
+
+let lastT = 0;
+dc.addEventListener('pointerdown', e => {
+  drawing = true; pts = [{ x: e.clientX, y: e.clientY }];
+  lastT = performance.now();
+  try { dc.setPointerCapture(e.pointerId); } catch (_) {}
+  idle = 0; spinning = false;
+});
+dc.addEventListener('pointermove', e => {
+  if (!drawing) return;
+  const p = { x: e.clientX, y: e.clientY }, last = pts[pts.length - 1];
+  const d = Math.hypot(p.x - last.x, p.y - last.y);
+  if (d < 2) return;
+  const now = performance.now();
+  const speed = d / Math.max(1, now - lastT) * 16;
+  lastT = now;
+  // the core is a quadratic through segment midpoints, so it needs three
+  // consecutive points — the first move only seeds them
+  if (pts.length > 1) strokeSegment(pts[pts.length - 2], last, p, speed);
+  pts.push(p);
+});
+function endStroke() {
+  if (!drawing) return;
+  drawing = false;
+  if (pts.length > 3) birth(pts.slice());
+  pts = []; clearStroke();
+}
+// listen on window: a pointerup that lands outside the canvas must still
+// end the stroke, or the drawn line is stranded on screen forever
+addEventListener('pointerup', endStroke);
+addEventListener('pointercancel', endStroke);
+
+/* ---------- stroke analysis ---------- */
+function analyse(p) {
+  let len = 0;
+  for (let i = 1; i < p.length; i++) len += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y);
+  let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9, cx = 0, cy = 0;
+  p.forEach(q => {
+    minx = Math.min(minx, q.x); maxx = Math.max(maxx, q.x);
+    miny = Math.min(miny, q.y); maxy = Math.max(maxy, q.y);
+    cx += q.x; cy += q.y;
+  });
+  cx /= p.length; cy /= p.length;
+  // shoelace area
+  let area = 0;
+  for (let i = 0; i < p.length; i++) {
+    const a = p[i], b = p[(i + 1) % p.length];
+    area += a.x * b.y - b.x * a.y;
+  }
+  area = Math.abs(area) / 2;
+  const gap = Math.hypot(p[0].x - p[p.length - 1].x, p[0].y - p[p.length - 1].y);
+  const closed = gap / Math.max(len, 1) < 0.28;
+  // isoperimetric quotient: 1 = perfect circle
+  const round = Math.min(1, (4 * Math.PI * area) / Math.max(len * len, 1));
+  return { len, cx, cy, w: maxx - minx, h: maxy - miny, area, closed, round };
+}
+
+/* ---------- geometry generators ---------- */
+/* Light smoothing + decimation so the extruded outline stays clean
+   without drifting away from what was actually drawn. */
+function smoothPath(p, passes = 2) {
+  let q = p.slice();
+  for (let s = 0; s < passes; s++) {
+    const r = [q[0]];
+    for (let i = 1; i < q.length - 1; i++) {
+      r.push({ x: (q[i - 1].x + q[i].x * 2 + q[i + 1].x) / 4,
+               y: (q[i - 1].y + q[i].y * 2 + q[i + 1].y) / 4 });
+    }
+    r.push(q[q.length - 1]); q = r;
+  }
+  const out = [q[0]];
+  for (let i = 1; i < q.length; i++) {
+    const l = out[out.length - 1];
+    if (Math.hypot(q[i].x - l.x, q[i].y - l.y) > 3) out.push(q[i]);
+  }
+  return out;
+}
+
+/* Body whose FRONT SILHOUETTE IS the drawn outline.
+   bevelOffset cancels bevelSize, so the outer edge sits exactly on the path. */
+function bodyFromOutline(p, cx, cy, span) {
+  const shape = new THREE.Shape();
+  p.forEach((q, i) => {
+    const x = (q.x - cx) * VIEW, y = -(q.y - cy) * VIEW;
+    i ? shape.lineTo(x, y) : shape.moveTo(x, y);
+  });
+  shape.closePath();
+  const s = span * VIEW;
+  const bevel = Math.max(2, s * 0.16);
+  const g = new THREE.ExtrudeGeometry(shape, {
+    depth: Math.max(3, s * 0.10),
+    bevelEnabled: true,
+    bevelThickness: bevel,
+    bevelSize: bevel,
+    bevelOffset: -bevel,
+    bevelSegments: 7,
+    steps: 1
+  });
+  g.center();
+  return g;
+}
+
+function lumpySphere(radius, lumps, grain, seed) {
+  const g = new THREE.IcosahedronGeometry(radius, 38);
+  const pos = g.attributes.position;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const n = v.clone().normalize();
+    const big = fbm(n.x * 1.7 + seed, n.y * 1.7 + seed, n.z * 1.7, 3);
+    const mid = fbm(n.x * 6.5 + seed, n.y * 6.5, n.z * 6.5 + seed, 3);
+    // real geometric micro-relief — reads as texture under raking light,
+    // and needs no bump map, so it survives rotation honestly
+    const fine = fbm(n.x * 26 + seed, n.y * 26, n.z * 26 + seed, 2);
+    const micro = fbm(n.x * 64, n.y * 64 + seed, n.z * 64, 2);
+    const d = radius * (1 + lumps * (big * 0.72 + mid * 0.26))
+            + radius * grain * (fine * 0.05 + micro * 0.022);
+    v.copy(n).multiplyScalar(d);
+    pos.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+function lumpyTube(path3, radius, lumps, seed) {
+  const curve = new THREE.CatmullRomCurve3(path3, false, 'centripetal', 0.5);
+  const g = new THREE.TubeGeometry(curve, Math.max(24, path3.length * 2), radius, 20, false);
+  const pos = g.attributes.position;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const n = fbm(v.x * 0.012 + seed, v.y * 0.012, v.z * 0.012 + seed, 3);
+    const s = 1 + lumps * n * 0.85;
+    pos.setXYZ(i, v.x * s, v.y * s, v.z * s);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/* ---------- colony ----------
+   A stroke spawns many small parts along its own path, not one solid.
+   This is the structural move: silhouette richness, growth and scatter
+   all fall out of it. Gouache shards are flat and unlit — the scanned
+   paint carries them, exactly like the cut-paper references. */
+let gouacheTex = null;
+function gouache() {
+  if (!gouacheTex) gouacheTex = fileTex('gouache');
+  return gouacheTex;
+}
+function _unusedGouache() {
+  if (gouacheTex) return gouacheTex;
+  // stand-in for a real scanned gouache sheet
+  gouacheTex = tex((g, s) => {
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, s, s);
+    for (let i = 0; i < 190; i++) {
+      const y = Math.random() * s;
+      g.strokeStyle = `rgba(255,255,255,0)`;
+      g.fillStyle = `rgba(${60 + Math.random() * 60},${58 + Math.random() * 60},${54 + Math.random() * 60},${Math.random() * 0.10})`;
+      g.fillRect(0, y, s, Math.random() * 5 + 1);
+    }
+    for (let i = 0; i < 2600; i++) {
+      g.fillStyle = `rgba(255,255,255,${Math.random() * 0.5})`;
+      g.fillRect(Math.random() * s, Math.random() * s, Math.random() * 26 + 2, 1.2);
+    }
+  }, 256);
+  return gouacheTex;
+}
+
+function shardGeometry(len, wid, seed) {
+  // a torn, slightly curled leaf-ish shard
+  const shape = new THREE.Shape();
+  const N = 14;
+  shape.moveTo(0, 0);
+  for (let i = 1; i <= N; i++) {
+    const t = i / N;
+    const w = Math.sin(t * Math.PI) * wid * (0.75 + 0.45 * fbm(t * 5, seed, 0.5, 2));
+    shape.lineTo(w, t * len);
+  }
+  for (let i = N; i >= 1; i--) {
+    const t = i / N;
+    const w = Math.sin(t * Math.PI) * wid * (0.75 + 0.45 * fbm(t * 5, seed + 9, 2.5, 2));
+    shape.lineTo(-w, t * len);
+  }
+  shape.closePath();
+  return new THREE.ShapeGeometry(shape, 6);
+}
+
+function sproutColony(path, cx, cy, span, M, seed) {
+  const parts = [];
+  const n = Math.min(26, Math.max(6, Math.round(span / 16)));
+  const gTex = gouache();
+  for (let i = 0; i < n; i++) {
+    const t = i / n;
+    const idx = Math.floor(t * (path.length - 1));
+    const q = path[idx];
+    const nx = path[Math.min(path.length - 1, idx + 2)] || q;
+    const ang = Math.atan2(-(nx.y - q.y), nx.x - q.x);
+
+    const x = (q.x - cx) * VIEW, y = -(q.y - cy) * VIEW;
+    const scatter = fbm(i * 1.7, seed, 4.2, 2);
+    const len = (span * 0.30 + span * 0.28 * Math.abs(scatter)) * VIEW;
+    const wid = len * (0.16 + 0.13 * Math.abs(fbm(i * 2.3, seed + 3, 1.1, 2)));
+
+    const hue = new THREE.Color(M.tint).offsetHSL(scatter * 0.06, 0.05, scatter * 0.10);
+    // lit, not unlit: the scanned gouache is a field of thick ridges, and an
+    // unlit material throws away every one of them — no light, no shadow,
+    // no ridge, just a flat coloured triangle
+    const mat = new THREE.MeshStandardMaterial({
+      map: gTex, color: hue, side: THREE.DoubleSide,
+      roughness: 0.95, metalness: 0.0
+    });
+    triplanar(mat, 1 / 260, { bump: 22, roughVar: 0.45 });
+    const mesh = new THREE.Mesh(shardGeometry(len, wid, seed + i), mat);
+    mesh.position.set(x, y, (fbm(i * 3.1, seed, 6.6, 2)) * span * VIEW * 0.16);
+    mesh.rotation.z = ang - Math.PI / 2 + scatter * 0.9;
+    mesh.rotation.y = scatter * 1.3;
+    mesh.rotation.x = fbm(i * 0.9, seed + 5, 3.3, 2) * 0.6;
+    mesh.scale.setScalar(0.001);
+    parts.push({ mesh, delay: t * 0.55 + Math.random() * 0.18, grow: 0 });
+  }
+  return parts;
+}
+
+/* ---------- birth ---------- */
+const bodies = [];
+let matIndex = Math.floor(Math.random() * MATERIALS.length);
+let zCursor = 0;   // running depth so each new body sits in front of the last
+
+function birth(screenPts) {
+  const a = analyse(screenPts);
+  const M = MATERIALS[matIndex % MATERIALS.length];
+  matIndex++;
+  const seed = Math.random() * 100;
+
+  const map = materialTexture(M);
+  const mat = new THREE.MeshStandardMaterial({
+    map,
+    color: new THREE.Color(M.tint),
+    roughness: M.rough, metalness: 0.0
+  });
+  // world-space grain: the same physical texture size on every body,
+  // so a big shape and a small shape read as the same material
+  triplanar(mat, 1 / M.tile, { bump: M.bump, roughVar: M.roughVar });
+
+  const path = smoothPath(screenPts);
+  const span = Math.max(a.w, a.h);
+  // exact drawn centre — bbox centre, not centre of mass
+  const bcx = (Math.min(...path.map(q => q.x)) + Math.max(...path.map(q => q.x))) / 2;
+  const bcy = (Math.min(...path.map(q => q.y)) + Math.max(...path.map(q => q.y))) / 2;
+
+  const group = new THREE.Group();
+  let geo, label;
+
+  if (a.closed && path.length > 5) {
+    geo = bodyFromOutline(path, bcx, bcy, span);
+    label = 'outline';
+  } else {
+    const p3 = path.map(q => {
+      const w = toWorld(q.x, q.y);
+      return new THREE.Vector3(w.x - (bcx - innerWidth / 2) * VIEW, w.y + (bcy - innerHeight / 2) * VIEW, 0);
+    });
+    if (p3.length < 2) return;
+    const r = Math.max(5, Math.min(26, span / 11)) * VIEW;
+    geo = lumpyTube(p3, r, M.lumps * 0.5, seed);
+    label = 'line';
+  }
+
+  const core = new THREE.Mesh(geo, mat);
+  group.add(core);
+
+  // colony: parts sprouting along the same path the hand drew
+  const parts = sproutColony(path, bcx, bcy, span, M, seed);
+  parts.forEach(p => group.add(p.mesh));
+
+  // Born where the hand drew it, on screen — regardless of how far the
+  // sculpture has already turned. Convert the screen point into the
+  // rotated group's local space, and counter-rotate so it faces front.
+  // Each new body must clear everything already there, so the depth step
+  // scales with the drawing — a fixed step lands new shapes inside old ones.
+  // depth is what swings widest when the sculpture turns, so the step is kept
+  // tight — enough to clear the body in front, not enough to throw this one
+  // out of frame on the quarter turn
+  zCursor += span * VIEW * 0.32 + 16;
+  const w = toWorld(bcx, bcy);
+  pile.updateMatrixWorld();
+  const target = pile.worldToLocal(new THREE.Vector3(w.x, w.y, zCursor));
+  group.position.copy(target);
+  group.rotation.y = -world.rotation.y;
+  group.scale.setScalar(0.001);
+  pile.add(group);
+
+  bodies.push({
+    mesh: group, parts, born: performance.now(), dur: 620 + Math.random() * 200,
+    phase: Math.random() * 6.283, breathe: 0.010 + Math.random() * 0.012,
+    // generous: the colony throws parts well past the drawn outline
+    radius: span * VIEW * 0.95
+  });
+  compressDepth();
+
+  document.getElementById('readout').textContent =
+    `${label}  ·  ${M.name}  ·  ${parts.length} parts\nround ${a.round.toFixed(2)}  closed ${a.closed}\nbodies ${bodies.length}`;
+  idle = 0; spinning = false;
+}
+
+/* ---------- loop ---------- */
+const easeOutBack = t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+let idle = 0, spinning = false, spinVel = 0;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Keep the whole pile inside the window it was drawn in — without ever
+   resizing what is already there. What throws a body out of frame is depth:
+   on a quarter turn it swings out by exactly the distance it sits down the
+   axis. The camera is orthographic, so depth costs nothing on the front
+   view — squeezing the pile flat changes the turn and leaves the drawing
+   itself untouched, pixel for pixel. */
+function depthCap() { return Math.min(innerWidth, innerHeight) * 0.22 * VIEW; }
+function compressDepth() {
+  if (bodies.length < 2) return;
+  let lo = Infinity, hi = -Infinity;
+  for (const b of bodies) { lo = Math.min(lo, b.mesh.position.z); hi = Math.max(hi, b.mesh.position.z); }
+  const range = hi - lo, cap = depthCap();
+  if (range <= cap) return;
+  const k = cap / range, m = (lo + hi) / 2;
+  for (const b of bodies) b.mesh.position.z = m + (b.mesh.position.z - m) * k;
+  zCursor = m + (zCursor - m) * k;
+}
+
+/* The turn happens about the pile's own axis, so the cluster is centred on
+   it — in x and z only. y is left alone: a turn about y never moves it, and
+   nudging it would slide the composition up and down for no reason. */
+function refit(dt) {
+  if (!bodies.length) return;
+  let lox = Infinity, hix = -Infinity, loz = Infinity, hiz = -Infinity;
+  for (const b of bodies) {
+    lox = Math.min(lox, b.mesh.position.x - b.radius); hix = Math.max(hix, b.mesh.position.x + b.radius);
+    loz = Math.min(loz, b.mesh.position.z); hiz = Math.max(hiz, b.mesh.position.z);
+  }
+  const k = 1 - Math.exp(-dt * 3.5);            // ease, so nothing jumps
+  pile.position.x += (-(lox + hix) / 2 - pile.position.x) * k;
+  pile.position.z += (-(loz + hiz) / 2 - pile.position.z) * k;
+}
+
+let prev = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - prev) / 1000); prev = now;
+  idle += dt;
+  if (idle > 1.4 && bodies.length) spinning = true;
+  spinVel += ((spinning && !reduce ? 0.22 : 0) - spinVel) * 0.03;
+  world.rotation.y += spinVel * dt;
+  refit(dt);
+
+  for (const b of bodies) {
+    const age = (now - b.born) / b.dur;
+    const t = Math.min(1, age);
+    const grow = easeOutBack(t);
+    const br = reduce ? 1 : 1 + Math.sin(now * 0.0011 + b.phase) * b.breathe;
+    b.mesh.scale.setScalar(grow * br);
+    // parts sprout one after another along the path, not all at once
+    if (b.parts) for (const p of b.parts) {
+      const pt = Math.max(0, Math.min(1, (age - p.delay) / 0.8));
+      p.mesh.scale.setScalar(easeOutBack(pt) * 0.999 + 0.001);
+    }
+  }
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- controls ---------- */
+document.getElementById('clear').addEventListener('click', () => {
+  // a body is a group — the core plus its colony of parts — so freeing it
+  // means walking it. Reaching for .geometry on the group itself threw on
+  // the first body and left every other one standing.
+  bodies.forEach(b => {
+    b.mesh.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+    pile.remove(b.mesh);
+  });
+  bodies.length = 0; TRI_MATS.length = 0;
+  world.rotation.y = 0; spinning = false; idle = 0; zCursor = 0;
+  pile.position.set(0, 0, 0); world.scale.setScalar(1);
+  document.getElementById('readout').textContent = '';
+});
+document.getElementById('spin').addEventListener('click', () => { spinning = !spinning; idle = 0; });
+// dev handle: park the turn at an exact angle to check the framing, which
+// the idle spin is too slow (and, in a background tab, too throttled) to show
+window.devAngle = a => { spinning = false; world.rotation.y = a; };
+
+addEventListener('resize', sizeUp);
+sizeUp();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

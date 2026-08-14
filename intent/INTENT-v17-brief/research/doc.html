@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>INTENT — ניתוח שפה חזותית</title>
+<style>
+  @page { size: A4 portrait; margin: 0; }
+
+  :root {
+    --ink:      #16181B;
+    --ink-70:   #4A4E54;
+    --muted:    #7A7D78;
+    --hair:     #D2D3CE;
+    --plaster:  #EBEBE7;
+    --paper:    #FFFFFF;
+    --gel:      #B23A26;
+    --screen:   #46596B;
+    --f-he: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    --f-la: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --f-mo: "SF Mono", Menlo, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    font-family: var(--f-he);
+    color: var(--ink);
+    background: var(--paper);
+    font-size: 10.2pt;
+    line-height: 1.62;
+  }
+
+  .page {
+    width: 210mm; height: 297mm;
+    padding: 18mm 17mm 21mm;
+    page-break-after: always;
+    position: relative;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  .folio {
+    position: absolute; bottom: 9mm; left: 17mm; right: 17mm;
+    display: flex; justify-content: space-between;
+    font-family: var(--f-mo);
+    font-size: 6.6pt; letter-spacing: .09em;
+    color: var(--muted); text-transform: uppercase;
+    border-top: .5pt solid var(--hair); padding-top: 2.5mm;
+  }
+  .folio .n { font-variant-numeric: tabular-nums; }
+
+  .eyebrow {
+    font-family: var(--f-mo);
+    font-size: 7pt; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--muted);
+  }
+
+  /* ---------- cover ---------- */
+  .cover { justify-content: space-between; }
+  .cover-mark {
+    font-family: var(--f-la); direction: ltr;
+    font-size: 82pt; font-weight: 700;
+    letter-spacing: -.045em; line-height: .9;
+    text-align: left;
+  }
+  .cover-mark .caret { color: var(--gel); }
+  .cover h1 {
+    font-size: 21pt; font-weight: 600; line-height: 1.32;
+    letter-spacing: -.015em; max-width: 128mm; margin-top: 7mm;
+  }
+  .cover .lede {
+    font-size: 11.2pt; color: var(--ink-70);
+    max-width: 120mm; margin-top: 5mm; line-height: 1.68;
+  }
+  .cover-foot { display: flex; gap: 14mm; border-top: 1.2pt solid var(--ink); padding-top: 4mm; }
+  .cover-foot div { flex: 1; }
+  .cover-foot .k {
+    font-family: var(--f-mo); font-size: 6.8pt;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 1.5mm;
+  }
+  .cover-foot .v { font-size: 9.4pt; }
+
+  /* ---------- generic heads ---------- */
+  h2 {
+    font-size: 16pt; font-weight: 600;
+    letter-spacing: -.015em; line-height: 1.3;
+    margin-top: 3mm;
+  }
+  h3 {
+    font-size: 11.4pt; font-weight: 600;
+    letter-spacing: -.01em; margin-bottom: 1.5mm;
+  }
+  p + p { margin-top: 2.6mm; }
+  .body { font-size: 10.2pt; color: var(--ink-70); }
+  .body strong { color: var(--ink); font-weight: 600; }
+
+  .rule { height: 1.2pt; background: var(--ink); margin: 5mm 0; }
+  .rule-thin { height: .5pt; background: var(--hair); margin: 5mm 0; }
+
+  /* ---------- argument blocks ---------- */
+  .args { display: flex; flex-direction: column; gap: 5.5mm; margin-top: 5mm; }
+  .arg { display: flex; gap: 5mm; }
+  .arg-num {
+    font-family: var(--f-mo); font-size: 7.4pt;
+    color: var(--gel); padding-top: 1.2mm;
+    min-width: 7mm; font-variant-numeric: tabular-nums;
+  }
+  .arg-body { flex: 1; }
+
+  .pull {
+    background: var(--plaster);
+    padding: 5mm 6mm; margin-top: 4.5mm;
+    border-right: 2.2pt solid var(--gel);
+  }
+  .pull p { font-size: 12.4pt; line-height: 1.5; font-weight: 500; letter-spacing: -.012em; }
+
+  /* ---------- camp legend ---------- */
+  .legend { display: flex; gap: 4mm; margin-top: auto; padding-top: 6mm; }
+  .lg { flex: 1; border-top: 2.2pt solid; padding-top: 3mm; }
+  .lg.c1 { border-color: var(--screen); }
+  .lg.c2 { border-color: var(--gel); }
+  .lg.c3 { border-color: var(--ink); }
+  .lg .t { font-size: 9.6pt; font-weight: 600; margin-bottom: 1.5mm; line-height: 1.35; }
+  .lg .d { font-size: 8.6pt; color: var(--muted); line-height: 1.5; }
+
+  /* ---------- reference page ---------- */
+  .ref-head { display: flex; align-items: baseline; gap: 4mm; margin-bottom: 4mm; }
+  .chip {
+    font-family: var(--f-mo); font-size: 6.6pt;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: #fff; padding: 1.3mm 2.6mm; white-space: nowrap;
+  }
+  .chip.c1 { background: var(--screen); }
+  .chip.c2 { background: var(--gel); }
+  .chip.c3 { background: var(--ink); }
+  .ref-name {
+    font-family: var(--f-la); direction: ltr;
+    font-size: 19pt; font-weight: 700; letter-spacing: -.028em;
+  }
+  .ref-meta { font-size: 8.6pt; color: var(--muted); margin-right: auto; }
+
+  .shot {
+    width: 100%; display: block;
+    height: 104mm; object-fit: cover; object-position: center;
+    border: .5pt solid var(--hair);
+    background: var(--plaster);
+  }
+  .caption {
+    font-size: 7.8pt; color: var(--muted);
+    margin-top: 2mm; line-height: 1.5;
+  }
+
+  .cols { display: flex; gap: 8mm; margin-top: 6mm; }
+  .cols > div { flex: 1; }
+  .cols h3 {
+    font-family: var(--f-mo); font-size: 6.8pt;
+    letter-spacing: .11em; text-transform: uppercase;
+    color: var(--muted); font-weight: 400;
+    border-bottom: .5pt solid var(--hair);
+    padding-bottom: 1.8mm; margin-bottom: 2.5mm;
+  }
+  .cols p { font-size: 9.5pt; line-height: 1.6; color: var(--ink-70); }
+
+  .takeaway {
+    margin-top: 7mm; background: var(--ink); color: #fff;
+    padding: 5mm 6mm;
+  }
+  .takeaway .k {
+    font-family: var(--f-mo); font-size: 6.6pt;
+    letter-spacing: .11em; text-transform: uppercase;
+    color: #9DA3A9; display: block; margin-bottom: 2mm;
+  }
+  .takeaway p { font-size: 10pt; line-height: 1.55; }
+  .takeaway em { color: #F0B7AC; font-style: normal; }
+
+  /* ---------- closing ---------- */
+  .qs { display: flex; flex-direction: column; gap: 2.4mm; margin-top: 4mm; }
+  .q { border-top: .5pt solid var(--hair); padding-top: 2.8mm; display: flex; gap: 4mm; }
+  .q-n { font-family: var(--f-mo); font-size: 7.4pt; color: var(--gel); min-width: 6mm; padding-top: .8mm; }
+  .q p { font-size: 9.8pt; color: var(--ink-70); }
+  .q .qt { font-size: 10.6pt; font-weight: 600; color: var(--ink); margin-bottom: 1mm; }
+
+  .srcs { margin-top: 2.5mm; }
+  .srcs li {
+    list-style: none; font-size: 8.2pt; color: var(--muted);
+    padding: .9mm 0; border-bottom: .5pt solid var(--hair);
+    display: flex; justify-content: space-between; gap: 4mm;
+  }
+  .srcs .u { font-family: var(--f-mo); font-size: 7.4pt; direction: ltr; text-align: left; }
+  .en { direction: ltr; unicode-bidi: isolate; }
+</style>
+</head>
+<body>
+
+<!-- ============ 1. COVER ============ -->
+<section class="page cover">
+  <div>
+    <div class="eyebrow">מסמך עבודה · ניתוח שפה חזותית</div>
+  </div>
+
+  <div>
+    <div class="cover-mark">IN<span class="caret">&#8743;</span>TENT</div>
+    <h1>איך נראים כנסים בקטגוריה — ואיפה INTENT צריך לעמוד ביחס אליהם</h1>
+    <p class="lede">שש דוגמאות מהעולם, מחולקות לשלושה מחנות, ומה שנגזר מהן להחלטה הראשונה שצריך לקבל: האם התדמית של INTENT מזכירה AI בכלל.</p>
+  </div>
+
+  <div class="cover-foot">
+    <div><span class="k">אירוע</span><span class="v">כנס INTENT · יום אחד</span></div>
+    <div><span class="k">מקום ותאריך</span><span class="v">בית ליסין, תל אביב · 11.10</span></div>
+    <div><span class="k">יוזמה</span><span class="v">OPEN · מגזין פורטפוליו · טאבטאבטאב</span></div>
+  </div>
+
+  <div class="folio"><span>INTENT — ניתוח שפה חזותית</span><span class="n">יולי 2026</span></div>
+</section>
+
+<!-- ============ 2. THE ARGUMENT ============ -->
+<section class="page">
+  <div class="eyebrow">01 — הטענה</div>
+  <h2>המתח האמיתי הוא ״לפני מול אחרי״,<br>לא ״AI מול אדם״</h2>
+  <div class="rule"></div>
+
+  <div class="args">
+    <div class="arg">
+      <div class="arg-num">01</div>
+      <div class="arg-body">
+        <h3>מה הבריף באמת אומר</h3>
+        <p class="body">״AI מול אדם״ היא הכותרת, לא הנקודה. הנקודה החדה יותר היא סדר הזמנים: <strong>AI מייצר פלט, הוא לא מייצר את הסיבה.</strong> כוונה היא תמיד הדבר שקודם — הרגע שבו מישהו מחליט למה בכלל. זה בדיוק מה שכתוב בטקסט על השם: כוונה היא ה״למה״ שאדם מביא איתו לתהליך יצירה.</p>
+        <p class="body">המשמעות למשימה: התדמית לא צריכה להראות עימות בין מכונה לאדם. היא צריכה להחזיק את הרגע שלפני.</p>
+      </div>
+    </div>
+
+    <div class="arg">
+      <div class="arg-num">02</div>
+      <div class="arg-body">
+        <h3>המלכודת</h3>
+        <p class="body">כל כנס בעולם שנוגע ב־AI נראה היום אותו דבר: גליץ׳, צורות ״גנרטיביות״, גרדיאנטים מטושטשים, וג׳סטה ״אנושית״ מרוחה מעל גרוטסק מכונה. הקהל של INTENT — קריאייטיב, פרסום, הייטק — ראה את זה מאה פעם. זו כבר לא בחירה עיצובית, זו ברירת מחדל.</p>
+      </div>
+    </div>
+
+    <div class="arg">
+      <div class="arg-num">03</div>
+      <div class="arg-body">
+        <h3>הקריטריון להכרעה: אמינות</h3>
+        <p class="body">כנס שכל התזה שלו היא ״לצאת מהמסכים״, ומתמתג באסתטיקה של מסך, סותר את עצמו לפני שהתחיל. הפער בין המחנות בהמשך המסמך הוא לא פער של טעם — הוא פער של אמינות.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="pull">
+    <p>ההחלטה הראשונה היא לא צבע ולא פונט.<br>היא: <strong>האם התדמית של INTENT מזכירה AI בכלל?</strong></p>
+  </div>
+
+  <div class="legend">
+    <div class="lg c1">
+      <div class="t">מחנה 1<br>אסתטיקת עידן ה־AI</div>
+      <div class="d">מדמה מכונה, או מדמה ״אנושיות״ באמצעות מכונה. נפוץ, מהיר, ונקרא מיד.</div>
+    </div>
+    <div class="lg c2">
+      <div class="t">מחנה 2<br>התדמית כהוכחה נגדית</div>
+      <div class="d">מדבר על עתיד וטכנולוגיה, ולא נראה כמו טכנולוגיה. נשען על צילום אמיתי.</div>
+    </div>
+    <div class="lg c3">
+      <div class="t">מחנה 3<br>הטיפוגרפיה היא האירוע</div>
+      <div class="d">השם עצמו נושא את כל המשקל. מוכר אנרגיה של פסטיבל.</div>
+    </div>
+  </div>
+
+  <div class="folio"><span>הטענה</span><span class="n">02</span></div>
+</section>
+
+<!-- ============ 3. CONFIG ============ -->
+<section class="page">
+  <div class="ref-head">
+    <span class="chip c1">מחנה 1</span>
+    <span class="ref-name">Config 2026</span>
+    <span class="ref-meta">Figma · סן פרנסיסקו</span>
+  </div>
+
+  <img class="shot" src="config2026.png" alt="Config 2026 key visual">
+  <div class="caption">קי־ויז׳ואל רשמי, Config 2026. לוגוטייפ עקום־בכוונה, ירוק חומצי, חלקיקים בלובים וטקסטורות ״ידניות״.</div>
+
+  <div class="cols">
+    <div>
+      <h3>מה רואים</h3>
+      <p>שחור, ירוק חומצי, ולוגוטייפ שכל אות בו עברה עיוות אחר — פיקסלים, בלובים, ספירלה. סביבו טקסטורות ״לו־פיי״: קווים משורבטים, גרדיאנטים מטושטשים, חלקיקים אליפטיים.</p>
+    </div>
+    <div>
+      <h3>למה זו הדוגמה הכי מלמדת</h3>
+      <p>כי Figma פרסמו את הרציונל. הם רצו להראות יכולת AI מתוחכמת ״תוך שמירה על נקודת מבט אנושית״ — ואז, כדי לייצר את המראה הידני, בנו כלים ייעודיים ב־Figma Make. המנהלת האמנותית מנסחת זאת כרצון <span class="en">&#8220;to appreciate touches of imperfection&#8221;</span>.</p>
+    </div>
+  </div>
+
+  <div class="rule-thin"></div>
+  <p class="body">כלומר: השתמשו ב־AI כדי לייצר את חוסר־המושלמות. הביצוע מצוין והמערכת עשירה — אבל הלוגיקה הפוכה בדיוק למה ש־INTENT טוען. אצל Figma זה עקבי, כי המוצר שלהם הוא הכלי. אצל כנס שקורא ״לצאת מהמסכים״, אותו מהלך הופך לסתירה.</p>
+
+  <div class="takeaway">
+    <span class="k">מה לקחת</span>
+    <p>המהלך של ״לזייף חוסר־מושלמות באמצעות מכונה״ הוא <em>בדיוק</em> מה שאסור ל־INTENT לעשות. אם רוצים ג׳סטה אנושית — שתהיה אנושית באמת.</p>
+  </div>
+
+  <div class="folio"><span>מחנה 1 · אסתטיקת עידן ה־AI</span><span class="n">03</span></div>
+</section>
+
+<!-- ============ 4. AI ENGINEER ============ -->
+<section class="page">
+  <div class="ref-head">
+    <span class="chip c1">מחנה 1</span>
+    <span class="ref-name">AI Engineer</span>
+    <span class="ref-meta">ניו יורק · סן פרנסיסקו · לונדון</span>
+  </div>
+
+  <img class="shot" src="aiengineer.png" alt="AI Engineer key visual">
+  <div class="caption">הנכס השיווקי הראשי של AI Engineer. כמעט־שחור, מבנה גריד של תצלומי אירוע, וכותרת בהדגשת צהוב־חיוור.</div>
+
+  <div class="cols">
+    <div>
+      <h3>מה רואים</h3>
+      <p>רקע כמעט־שחור עם ״כוכבים״, טיפוגרפיה מונו בממשק, סמן טרמינל <span class="en">&#62;_</span> בתוך שדה האימייל, ומסגרות ניאון צבעוניות סביב כרטיסי האירועים. הצילום עצמו דוקומנטרי ואמיתי — אבל הוא מוגש בתוך מעטפת שנראית כמו IDE.</p>
+    </div>
+    <div>
+      <h3>למה זה עובד שם</h3>
+      <p>הקהל הוא מהנדסים, והשפה היא השפה שלהם. זו לא התחכמות — זו התאמה מדויקת לקהל. הבעיה מתחילה כשמעתיקים את הקוד הזה לקהל אחר לגמרי, ואז הוא מאבד את ההצדקה והופך לתחפושת.</p>
+    </div>
+  </div>
+
+  <div class="rule-thin"></div>
+  <p class="body">שימי לב שגם כאן, הרגע היחיד שבו האירוע נראה מזמין הוא הצילומים של אנשים אמיתיים באולם. כל השאר הוא מסגרת. זה רמז חזק לאן INTENT צריך לשים את המשקל.</p>
+
+  <div class="takeaway">
+    <span class="k">מה לקחת</span>
+    <p>שפת ״טרמינל וניאון״ היא ברירת מחדל, לא בחירה. לקהל של INTENT — קריאייטיב, פרסום, תרבות — היא <em>לא</em> שפת אם, ותיקרא כחיקוי.</p>
+  </div>
+
+  <div class="folio"><span>מחנה 1 · אסתטיקת עידן ה־AI</span><span class="n">04</span></div>
+</section>
+
+<!-- ============ 5. SEMI PERMANENT ============ -->
+<section class="page">
+  <div class="ref-head">
+    <span class="chip c2">מחנה 2</span>
+    <span class="ref-name">Semi Permanent</span>
+    <span class="ref-meta">Tokyo Salone 2026 · טוקיו</span>
+  </div>
+
+  <img class="shot" src="semipermanent.png" alt="Semi Permanent Tokyo Salone key visual">
+  <div class="caption">Tokyo Salone 2026. גרוטסק נייטרלי בלבן, על תצלום דוקומנטרי בשחור־לבן של אנשים באמצע עשייה.</div>
+
+  <div class="cols">
+    <div>
+      <h3>מה רואים</h3>
+      <p>אין אפקטים. אין צורות. יש גרוטסק נייטרלי בלבן, ותצלום מלמעלה של שולחן עמוס ציוד, כבלים, ידיים, עשן. הכותרת <span class="en">&#8220;A vision for the future&#8221;</span> מונחת על סצנה פיזית לחלוטין.</p>
+    </div>
+    <div>
+      <h3>למה זה עובד</h3>
+      <p>הכנס מדבר על עתיד — ומראה הווה. המסר הסמוי הוא שהעתיד נעשה בידיים, בחדר, עם אנשים. הטיפוגרפיה לא מנסה להיות מעניינת; היא נותנת לצילום לשאת את כל האנרגיה. זו משמעת, לא עוני.</p>
+    </div>
+  </div>
+
+  <div class="rule-thin"></div>
+  <p class="body">מכל שש הדוגמאות, זו הקרובה ביותר לרוח של INTENT: עכשווי ומתוחכם בלי שום רמז לאסתטיקה גנרטיבית. הכל עומד על שני דברים — טיפוגרפיה חזקה וצילום אמיתי.</p>
+
+  <div class="takeaway">
+    <span class="k">מה לקחת</span>
+    <p>אפשר להיראות עכשווי לגמרי בלי אפקט אחד. אבל זה עובד <em>רק</em> אם יש צילום מקורי חזק. בלי צילום, הגישה הזו קורסת לגנריות.</p>
+  </div>
+
+  <div class="folio"><span>מחנה 2 · התדמית כהוכחה נגדית</span><span class="n">05</span></div>
+</section>
+
+<!-- ============ 6. US BY NIGHT ============ -->
+<section class="page">
+  <div class="ref-head">
+    <span class="chip c2">מחנה 2</span>
+    <span class="ref-name">Us By Night</span>
+    <span class="ref-meta">אנטוורפן · ספטמבר 2026</span>
+  </div>
+
+  <img class="shot" src="usbynight.jpg" alt="Us By Night key visual">
+  <div class="caption">Us By Night. לוגוטייפ כבד־משקל כפס אופקי, על צילום קהל אמיתי בתוך האירוע.</div>
+
+  <div class="cols">
+    <div>
+      <h3>מה רואים</h3>
+      <p>צילום פריים־מלא של קהל בתוך החלל — ידיים, טלפון מורם, תאורה, אנשים. מעליו לוגוטייפ לבן כבד מאוד שחוצה את כל הרוחב כמו פס. באתר עצמו, הכיסוי הוא עין אנושית בקלוז־אפ קיצוני.</p>
+    </div>
+    <div>
+      <h3>למה זה עובד</h3>
+      <p>התדמית מוכרת <strong>תחושה של להיות שם</strong>, לא רשימת דוברים. הטיפוגרפיה משמשת כמסגרת ארכיטקטונית ולא כתוכן. השילוב של גוף אנושי בקנה מידה גדול עם טיפוגרפיה תעשייתית יוצר מתח שנשאר בזיכרון.</p>
+    </div>
+  </div>
+
+  <div class="rule-thin"></div>
+  <p class="body">רלוונטי במיוחד ל־INTENT בגלל המשפט ״לפתוח את הראש · להרחיב את הלב״ — זה הרגיסטר הרגשי, החם והגופני. Us By Night מוכיח שאפשר להחזיק אותו בלי ליפול לרכות או לחמימות גנרית.</p>
+
+  <div class="takeaway">
+    <span class="k">מה לקחת</span>
+    <p>קנה מידה הוא כלי רגשי. גוף אנושי גדול מאוד ועל־ידו טיפוגרפיה קשוחה — זה <em>המתח</em> שהשם INTENT כבר מכיל.</p>
+  </div>
+
+  <div class="folio"><span>מחנה 2 · התדמית כהוכחה נגדית</span><span class="n">06</span></div>
+</section>
+
+<!-- ============ 7. DO LECTURES ============ -->
+<section class="page">
+  <div class="ref-head">
+    <span class="chip c2">מחנה 2</span>
+    <span class="ref-name">The DO Lectures</span>
+    <span class="ref-meta">ויילס · חווה</span>
+  </div>
+
+  <img class="shot" src="dolectures.jpg" alt="The DO Lectures key visual">
+  <div class="caption">DO Lectures. הלוגו כאובייקט פיזי מותקן על קיר אבן, מצולם בעומק שדה רדוד ובאור טבעי.</div>
+
+  <div class="cols">
+    <div>
+      <h3>מה רואים</h3>
+      <p>הלוגו אינו קובץ — הוא אובייקט תלת־ממדי לבן מותקן על קיר אבן של אסם, מטפס בקיסוס, מצולם דרך עלים מטושטשים בחזית. פלטה של ירוק, אבן ואור יום. אין ולו רמז דיגיטלי אחד.</p>
+    </div>
+    <div>
+      <h3>הפרט המעניין</h3>
+      <p>הכותרת הנוכחית שלהם באתר היא ״בנה את סוכן ה־AI הראשון שלך״ — כלומר התוכן עוסק ב־AI במלואו. והתדמית לא רומזת על זה במילימטר. זו בדיוק ההפרדה שאני מציע: <strong>התוכן מדבר על AI, התדמית היא ההוכחה הנגדית.</strong></p>
+    </div>
+  </div>
+
+  <div class="rule-thin"></div>
+  <p class="body">הסיכון בגישה הזו הוא גלישה לנוסטלגיה ולרכות. ל־INTENT, שיושב בתל אביב ופונה לקהל אורבני וחד, צריך את העיקרון בלי הפסטורליות — כלומר: מוחשיות וחומריות, לא כפריות.</p>
+
+  <div class="takeaway">
+    <span class="k">מה לקחת</span>
+    <p>לוגו שמיוצר כאובייקט פיזי ואז מצולם — במקום להיות מורכב בקובץ — הוא המהלך <em>הזול והחזק ביותר</em> להוכיח שהכנס אמיתי.</p>
+  </div>
+
+  <div class="folio"><span>מחנה 2 · התדמית כהוכחה נגדית</span><span class="n">07</span></div>
+</section>
+
+<!-- ============ 8. OFFF ============ -->
+<section class="page">
+  <div class="ref-head">
+    <span class="chip c3">מחנה 3</span>
+    <span class="ref-name">OFFF</span>
+    <span class="ref-meta">ברצלונה · אפריל 2026</span>
+  </div>
+
+  <img class="shot" src="offf.png" alt="OFFF Barcelona key visual">
+  <div class="caption">OFFF ברצלונה. השם בקנה מידה ענק כמערכת חלוקה של השטח, עם פסי צבע רוויים.</div>
+
+  <div class="cols">
+    <div>
+      <h3>מה רואים</h3>
+      <p>ארבע האותיות תופסות את כל המסך והופכות למערכת שמחלקת את השטח לשדות צבע — כתום, ירוק, תכלת, ורוד, אדום. באתר החי, אותן אותיות משמשות כמסכה שדרכה רץ וידאו.</p>
+    </div>
+    <div>
+      <h3>למה זה פחות מתאים</h3>
+      <p>זו שפה של פסטיבל, לא של כנס. היא מוכרת אנרגיה, ריבוי וגירוי — בדיוק ההפך מ״לעצור, להעמיק״ שמופיע בבריף של INTENT. הרעש הוא המסר, וזה מסר אחר.</p>
+    </div>
+  </div>
+
+  <div class="rule-thin"></div>
+  <p class="body">עדיין שווה ללמוד ממנה דבר אחד: השימוש בשם עצמו כמערכת פריסה, ולא רק כלוגו שמונח בפינה. ל־INTENT יש שם ארוך יותר ופחות גיאומטרי, אבל העיקרון — שהמילה היא הפריסה — רלוונטי מאוד.</p>
+
+  <div class="takeaway">
+    <span class="k">מה לקחת</span>
+    <p>שהשם יהיה מערכת פריסה, לא תו תקן בפינה. אבל את הרעש והריבוי — <em>לא</em> לקחת.</p>
+  </div>
+
+  <div class="folio"><span>מחנה 3 · הטיפוגרפיה היא האירוע</span><span class="n">08</span></div>
+</section>
+
+<!-- ============ 9. CONCLUSION ============ -->
+<section class="page">
+  <div class="eyebrow">02 — מסקנה ושאלות פתוחות</div>
+  <h2>ההמלצה: מחנה 2, עם המשמעת<br>הטיפוגרפית של מחנה 3</h2>
+  <div class="rule"></div>
+
+  <p class="body">שש הדוגמאות מסתדרות על ציר אחד: כמה התדמית מנסה להיראות כמו הטכנולוגיה שהיא מדברת עליה. <strong>ככל שהיא מנסה פחות, כך היא נקראת אמינה יותר.</strong></p>
+  <p class="body">Semi Permanent ו־Us By Night מוכיחים שאפשר להיראות עכשווי ומתוחכם לחלוטין בלי שום רמז לאסתטיקה גנרטיבית — על טיפוגרפיה חזקה, צילום אמיתי של בני אדם, ומשמעת. DO Lectures מוסיף את המהלך הכי ישים: לייצר את הזהות כאובייקט פיזי ולצלם אותה, במקום להרכיב אותה בקובץ.</p>
+  <p class="body">בשביל INTENT זה מתרגם לכלל עבודה אחד: <strong>כל נכס חזותי צריך להיות משהו שקרה במציאות ולא משהו שנוצר במחולל.</strong> זו גם ההוכחה לתזה של הכנס וגם ההגנה הכי טובה מפני היראות כמו כל כנס AI אחר.</p>
+
+  <div class="pull">
+    <p>אם הכנס טוען שמפגש פיזי מייצר משהו שמכונה לא יכולה —<br>התדמית צריכה להיות הראיה הראשונה לכך.</p>
+  </div>
+
+  <div class="qs">
+    <div class="q">
+      <div class="q-n">01</div>
+      <div>
+        <p class="qt">יש תקציב וגישה לצילום מקורי?</p>
+        <p>זו שאלת המפתח. שני המחנות נבדלים בעיקר בזה. מחנה 2 עומד או נופל על צילום — ובלי צילום, מחנה 1 הוא הפיתוי הקל, כי הוא לא דורש כלום חוץ ממחולל.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">02</div>
+      <div>
+        <p class="qt">איזה משני הטונים שבבריף מנצח?</p>
+        <p>בטקסטים יש שני INTENT שונים: אחד שקט ומעמיק (״לעצור, להעמיק, להסתכל קדימה״) ואחד חם וסקרן (״לפתוח את הראש, להרחיב את הלב״). זה לא אותו מיתוג, וצריך להכריע.</p>
+      </div>
+    </div>
+    <div class="q">
+      <div class="q-n">03</div>
+      <div>
+        <p class="qt">מה כבר סגור, ומה היחס לשותפים?</p>
+        <p>יש כבר לוגו — באנגלית בלבד או גם בעברית? והאם התדמית צריכה לחיות לצד OPEN, פורטפוליו וטאבטאבטאב, או לעמוד עצמאית לגמרי?</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="rule-thin"></div>
+  <div class="eyebrow">מקורות</div>
+  <ul class="srcs">
+    <li><span>Config 2026 — Figma</span><span class="u">config.figma.com</span></li>
+    <li><span>The visual identity behind Config 2026 — Figma Blog</span><span class="u">figma.com/blog</span></li>
+    <li><span>AI Engineer</span><span class="u">ai.engineer</span></li>
+    <li><span>Semi Permanent × Tokyo Salone 2026</span><span class="u">semipermanent.com</span></li>
+    <li><span>Us By Night</span><span class="u">usbynight.be</span></li>
+    <li><span>The DO Lectures</span><span class="u">thedolectures.com</span></li>
+    <li><span>OFFF Barcelona</span><span class="u">offf.barcelona</span></li>
+  </ul>
+
+  <div class="folio"><span>מסקנה ושאלות פתוחות</span><span class="n">09</span></div>
+</section>
+
+</body>
+</html>

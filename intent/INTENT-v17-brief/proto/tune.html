@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>INTENT — שולחן הכיוונון</title>
+<style>
+  :root { --ground:#e6e4dd; --ink:#1a1c19; --muted:#7d7f76; --line:rgba(26,28,25,.18); --warn:#9a5b2e; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--ground); color:var(--ink); overflow:hidden;
+    font:13px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  body { display:grid; grid-template-rows:auto 1fr auto; }
+
+  header { padding:14px 20px 12px; border-bottom:1px solid var(--line); }
+  h1 { margin:0; font-size:14px; font-weight:600; }
+  h1 small { display:block; font-weight:400; color:var(--muted); font-size:12px; margin-top:3px; }
+
+  .decision { margin-top:14px; padding:12px 14px; border:1px solid var(--line); border-radius:10px;
+    background:rgba(255,255,255,.35); }
+  .decision h2 { margin:0 0 3px; font-size:12.5px; font-weight:600; }
+  .decision p { margin:0 0 10px; color:var(--muted); font-size:12px; max-width:62ch; }
+  .trade { color:var(--warn); }
+
+  .row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .slider { display:flex; align-items:center; gap:9px; }
+  .slider label { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); min-width:12ch; }
+  .slider input { width:220px; margin:0; direction:ltr; accent-color:var(--ink); }
+  .slider output { font-variant-numeric:tabular-nums; direction:ltr; min-width:46px; font-size:12px; }
+  /* the slider is for hunting, the box is for landing on a value exactly — and
+     for typing one that is finer than the slider's step */
+  .slider input[type=number] { width:76px; direction:ltr; font:inherit; font-size:12px;
+    padding:3px 6px; border:1px solid var(--line); border-radius:7px; background:transparent;
+    color:var(--ink); font-variant-numeric:tabular-nums; }
+
+  .more { margin-top:12px; display:flex; gap:20px; flex-wrap:wrap; }
+  .more .slider label { min-width:14ch; }
+  .more .slider input { width:130px; }
+  details summary { cursor:pointer; font-size:11.5px; color:var(--muted); margin-top:10px; }
+
+  main { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line); min-height:0; }
+  .pane { position:relative; background:var(--ground); min-height:0; }
+  .pane b { position:absolute; inset-inline-start:12px; top:10px; z-index:2; font-size:11px;
+    font-weight:600; letter-spacing:.04em; background:rgba(230,228,221,.9); padding:3px 9px; border-radius:99px; }
+  iframe { border:0; width:100%; height:100%; display:block; }
+
+  footer { padding:11px 20px; border-top:1px solid var(--line); display:flex; gap:12px;
+    align-items:center; flex-wrap:wrap; }
+  button { font:inherit; font-size:12px; padding:6px 13px; background:transparent; color:var(--ink);
+    border:1px solid var(--line); border-radius:999px; cursor:pointer; }
+  button:hover { background:rgba(26,28,25,.05); }
+  button.go { border-color:var(--ink); font-weight:500; }
+  #out { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:11.5px;
+    direction:ltr; color:var(--muted); }
+  .said { color:var(--ink); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>שולחן הכיוונון
+    <small>שתי עותקים חיים של הפרוטוטייפ. אותה בועה בדיוק — משמאל לבד, מימין מעל 20 גופים.
+      מזיזים את המחוון ומסתכלים אם שתיהן נראות אותו דבר.</small>
+  </h1>
+
+  <div class="decision">
+    <h2>ההחלטה הפתוחה: כמה הזכוכית שומרת על הצבע של עצמה</h2>
+    <p>
+      כרגע הזכוכית לוקחת את הצבע של מה שמאחוריה. לכן הבועה הראשונה בהירה
+      (חדר ריק מאחוריה) והעשרים כהה (עשרים גופים מאחוריה).
+      <span class="trade">ככל שמעלים — השתיים מתקרבות זו לזו, אבל רואים פחות דרך הזכוכית.
+      זה אותו ציר, אין חינם.</span>
+    </p>
+    <div class="row">
+      <div class="slider">
+        <label for="body">צבע עצמי</label>
+        <input id="body" type="range" min="0" max="0.7" step="0.005" value="0" />
+        <input id="bodyNum" type="number" min="0" max="0.7" step="0.005" value="0" />
+        <output id="bodyOut">0.000</output>
+      </div>
+      <button id="reset">חזרה לגרסה 9 (0)</button>
+    </div>
+    <p style="margin-top:10px">
+      והציר החדש: <b>השוואת חשיפה</b>. האור המועבר מוחזר לחשיפת הסצנה במקום להגיע
+      בחשיפת הערימה — הצבע והפרטים של מה שמאחור נשארים, רק הבהירות מיושרת.
+      0 הוא החלון הטהור של גרסה 9; 1 מצמיד כל שמשה לחשיפת הסצנה.
+    </p>
+    <div class="row">
+      <div class="slider">
+        <label for="eq">השוואת חשיפה</label>
+        <input id="eq" type="range" min="0" max="1" step="0.01" value="0" />
+        <input id="eqNum" type="number" min="0" max="1" step="0.01" value="0" />
+        <output id="eqOut">0.00</output>
+      </div>
+    </div>
+    <p style="margin-top:10px">
+      ועוד ציר: <b>ברק הבועה</b>. 0 הוא חלון בלי הברקות, 0.45 הוא מים, 0.5 ברירת המחדל.
+      <span class="trade">גם כאן אין חינם — ההחזר יושב מעל מה שהזכוכית מראה.</span>
+    </p>
+    <div class="row">
+      <div class="slider">
+        <label for="gloss">ברק הבועה</label>
+        <input id="gloss" type="range" min="0" max="1" step="0.05" value="0" />
+        <input id="glossNum" type="number" min="0" max="1" step="0.05" value="0" />
+        <output id="glossOut">0.00</output>
+      </div>
+    </div>
+  </div>
+
+  <details>
+    <summary>עוד כיוונונים, אם בא לך לגעת</summary>
+    <div class="more">
+      <!-- 1 = the shadow wears the colour that came through and nothing more.
+           Above 1 the ground starts emitting again, which is the neon fault. -->
+      <div class="slider"><label for="gelTint">צבע הצל</label>
+        <input id="gelTint" type="range" min="0" max="2" step="0.05" value="1" /><output id="gelTintOut">1</output></div>
+      <div class="slider"><label for="gelShade">כהות הצל</label>
+        <input id="gelShade" type="range" min="0" max="12" step="0.5" value="5" /><output id="gelShadeOut">5</output></div>
+      <div class="slider"><label for="rim">ברק הכרום</label>
+        <input id="rim" type="range" min="0" max="2" step="0.05" value="0.85" /><output id="rimOut">0.85</output></div>
+      <div class="slider"><label for="film">קרום הבועה</label>
+        <input id="film" type="range" min="0" max="1" step="0.05" value="0.45" /><output id="filmOut">0.45</output></div>
+      <div class="slider"><label for="shell">גוף בשכבת הזכוכית</label>
+        <input id="shell" type="range" min="0" max="1" step="0.05" value="0.9" /><output id="shellOut">0.90</output></div>
+      <div class="slider"><label for="exposure">חשיפה</label>
+        <input id="exposure" type="range" min="0.6" max="1.8" step="0.02" value="1.1" /><output id="exposureOut">1.10</output></div>
+    </div>
+  </details>
+</header>
+
+<main>
+  <div class="pane"><b>בועה לבד</b><iframe id="a" src="index.html" title="בועה לבד"></iframe></div>
+  <div class="pane"><b>אותה בועה, מעל 20 גופים</b><iframe id="b" src="index.html" title="בועה מעל ערימה"></iframe></div>
+</main>
+
+<footer>
+  <button class="go" id="copy">העתק ערכים לשליחה</button>
+  <button id="redraw">צייר מחדש</button>
+  <button id="spin">עצור / הפעל סיבוב</button>
+  <span id="out">טוען…</span>
+</footer>
+
+<script>
+/* A bench, not a feature. It drives two untouched copies of index.html through
+   the same dev handles the console exposes, so nothing here can change what the
+   prototype does — pull this file out and the prototype is exactly as it was.
+
+   The reason it exists: the dials were only reachable by typing into a console,
+   and a value that trades one quality against another cannot be judged from a
+   number. Here the trade is the whole layout — the same bubble alone and in a
+   crowd, side by side, moving together. */
+
+const A = document.getElementById('a'), B = document.getElementById('b');
+
+const ready = f => new Promise(res => {
+  const check = () => (f.contentWindow && f.contentWindow.devMaterial && f.contentWindow.tuneGlassBody)
+    ? res(f.contentWindow) : setTimeout(check, 80);
+  check();
+});
+
+/* Draws into a frame the way a hand would: the prototype only ever learns about
+   shapes through pointer events on its canvas, so this uses the same door. */
+function stroke(win, cx, cy, r) {
+  const dc = win.document.getElementById('draw');
+  const pts = [];
+  for (let i = 0; i <= 110; i++) {
+    const a = i / 110 * Math.PI * 2;
+    pts.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
+  }
+  const fire = (type, p, target) => target.dispatchEvent(new win.PointerEvent(type, {
+    clientX: p.x, clientY: p.y, pointerId: 1, bubbles: true, pointerType: 'mouse'
+  }));
+  fire('pointerdown', pts[0], dc);
+  for (let i = 1; i < pts.length; i++) fire('pointermove', pts[i], dc);
+  fire('pointerup', pts[pts.length - 1], win);
+}
+
+const OPAQUE = ['tuff', 'moss', 'clay', 'glaze', 'gouache', 'sponge'];
+/* What the prototype ships with. `body` is filled in from the running code at
+   build time so this file can never disagree with it. */
+const DEFAULTS = { body: 0, eq: 0, shell: 0.9, gloss: 0, gelTint: 1, gelShade: 5, rim: 0.85, film: 0.45, exposure: 1.1 };
+
+async function build() {
+  const [wa, wb] = await Promise.all([ready(A), ready(B)]);
+  const mid = w => ({ x: w.innerWidth / 2, y: w.innerHeight / 2 });
+
+  wa.document.getElementById('clear').click();
+  const ca = mid(wa);
+  wa.devMaterial('bubble');
+  stroke(wa, ca.x, ca.y, Math.min(ca.x, ca.y) * 0.34);
+
+  wb.document.getElementById('clear').click();
+  const cb = mid(wb);
+  /* The twenty have to actually stand BEHIND the bubble's middle, which is where
+     the eye goes and where the comparison is read. Laid out on a ring they
+     surround it instead, the middle looks through the hole at an empty room, and
+     the two panes then agree no matter what the dial says — measured, the gap
+     stayed at 60 across the whole range, which is the bench lying rather than
+     the dial failing. A tight spiral piles them up instead. */
+  /* Small enough to FIT. Drawn at the sizes used in a full window, twenty-one
+     bodies and their colonies overflow a half-width pane, and the framing then
+     pushes the whole composition off the edge — devWhere reported the bubble at
+     129% of the pane at rest and 201% turned, so every reading taken off this
+     pane was of the backdrop rather than of the glass. */
+  const reach = Math.min(cb.x, cb.y);
+  for (let i = 0; i < 20; i++) {
+    const a = i * 2.399;                       // golden angle: no rosette, no gaps
+    const r = reach * 0.16 * Math.sqrt(i / 20);
+    wb.devMaterial(OPAQUE[i % OPAQUE.length]);
+    stroke(wb, cb.x + r * Math.cos(a), cb.y + r * Math.sin(a), reach * 0.15);
+  }
+  wb.devMaterial('bubble');
+  stroke(wb, cb.x, cb.y, reach * 0.34);
+
+  /* Held still, and both at the same angle. A turntable that keeps moving makes
+     the two panes disagree about what stands behind the glass, which is the one
+     thing this bench exists to compare. */
+  /* Held still and straight on, because straight on is the only angle at which
+     "in front" is true here: bodies are stacked along the view axis, so turning
+     the sculpture turns front-and-back into left-and-right and the glass stops
+     being in front of anything. A first pass froze this at three quarters on the
+     strength of a reading that looked like the bubble going darker; it was the
+     sample box sitting on the pile instead of on the glass. */
+  for (const w of [wa, wb]) { w.devSpin(false); w.devAngle(0); }
+
+  /* And the slider starts wherever the prototype's own default is, instead of at
+     zero. It pushed its own value into both frames on load, so a default set in
+     the code was silently overridden here and the bench showed something the
+     prototype no longer does. */
+  const dflt = wb.tuneGlassBody({}).amount;
+  document.getElementById('body').value = dflt;
+  document.getElementById('bodyNum').value = dflt;
+  document.getElementById('reset').textContent = 'חזרה לברירת המחדל (' + dflt + ')';
+  DEFAULTS.body = dflt;
+  const eqDflt = wb.tuneGlassEq ? wb.tuneGlassEq({}).strength : 0;
+  document.getElementById('eq').value = eqDflt;
+  document.getElementById('eqNum').value = eqDflt;
+  DEFAULTS.eq = eqDflt;
+  const shellDflt = wb.tuneGlassShell ? wb.tuneGlassShell({}).milk : 0.9;
+  document.getElementById('shell').value = shellDflt;
+  DEFAULTS.shell = shellDflt;
+  const glossDflt = wb.tuneBubbleGloss ? wb.tuneBubbleGloss({}).clearcoat : 0;
+  document.getElementById('gloss').value = glossDflt;
+  document.getElementById('glossNum').value = glossDflt;
+  DEFAULTS.gloss = glossDflt;
+
+  apply();
+  say('שתי הסצנות מוכנות · הסיבוב עצור, זווית שלושה רבעים');
+}
+
+/* Every dial, pushed into both frames at once. Values live here and nowhere
+   else, so reloading either frame just gets them again. */
+const dials = {
+  body:     { get: () => +document.getElementById('body').value,     out: 'bodyOut',     dp: 3 },
+  eq:       { get: () => +document.getElementById('eq').value,       out: 'eqOut',       dp: 2 },
+  shell:    { get: () => +document.getElementById('shell').value,    out: 'shellOut',    dp: 2 },
+  gloss:    { get: () => +document.getElementById('gloss').value,    out: 'glossOut',    dp: 2 },
+  gelTint:  { get: () => +document.getElementById('gelTint').value,  out: 'gelTintOut',  dp: 0 },
+  gelShade: { get: () => +document.getElementById('gelShade').value, out: 'gelShadeOut', dp: 1 },
+  rim:      { get: () => +document.getElementById('rim').value,      out: 'rimOut',      dp: 2 },
+  film:     { get: () => +document.getElementById('film').value,     out: 'filmOut',     dp: 2 },
+  exposure: { get: () => +document.getElementById('exposure').value, out: 'exposureOut', dp: 2 }
+};
+
+function apply() {
+  const v = {};
+  for (const k in dials) {
+    v[k] = dials[k].get();
+    document.getElementById(dials[k].out).textContent = v[k].toFixed(dials[k].dp);
+  }
+  for (const f of [A, B]) {
+    const w = f.contentWindow;
+    if (!w || !w.tuneGlassBody) continue;
+    w.tuneGlassBody({ amount: v.body });
+    if (w.tuneGlassEq) w.tuneGlassEq({ strength: v.eq });
+    if (w.tuneGlassShell) w.tuneGlassShell({ milk: v.shell });
+    if (w.tuneBubbleGloss) w.tuneBubbleGloss({ clearcoat: v.gloss });
+    w.tuneGel({ tint: v.gelTint, shade: v.gelShade });
+    w.tuneRim({ strength: v.rim });
+    w.tuneFilm(v.film);
+    w.tuneLight({ exposure: v.exposure });
+  }
+  return v;
+}
+
+const say = t => { document.getElementById('out').textContent = t; };
+
+for (const k in dials) {
+  document.getElementById(k).addEventListener('input', apply);
+}
+
+/* Slider and box are two views of one value. The slider finds the neighbourhood
+   by eye, the box lands on a number exactly — including one finer than the
+   slider's own step, which is the whole reason it is here. */
+const bodyR = document.getElementById('body'), bodyN = document.getElementById('bodyNum');
+bodyR.addEventListener('input', () => { bodyN.value = bodyR.value; });
+bodyN.addEventListener('input', () => {
+  const v = Math.max(0, Math.min(0.7, +bodyN.value || 0));
+  bodyR.value = v;
+  apply();
+});
+const eqR = document.getElementById('eq'), eqN = document.getElementById('eqNum');
+eqR.addEventListener('input', () => { eqN.value = eqR.value; });
+eqN.addEventListener('input', () => {
+  const v = Math.max(0, Math.min(1, +eqN.value || 0));
+  eqR.value = v;
+  apply();
+});
+const glossR = document.getElementById('gloss'), glossN = document.getElementById('glossNum');
+glossR.addEventListener('input', () => { glossN.value = glossR.value; });
+glossN.addEventListener('input', () => {
+  const v = Math.max(0, Math.min(1, +glossN.value || 0));
+  glossR.value = v;
+  apply();
+});
+
+document.getElementById('reset').addEventListener('click', () => {
+  document.getElementById('body').value = DEFAULTS.body;
+  document.getElementById('bodyNum').value = DEFAULTS.body;
+  document.getElementById('eq').value = DEFAULTS.eq;
+  document.getElementById('eqNum').value = DEFAULTS.eq;
+  document.getElementById('gloss').value = DEFAULTS.gloss;
+  document.getElementById('glossNum').value = DEFAULTS.gloss;
+  apply();
+  say('חזרה לברירת המחדל');
+});
+
+document.getElementById('redraw').addEventListener('click', () => { say('מצייר…'); build(); });
+
+let spinning = false;
+document.getElementById('spin').addEventListener('click', () => {
+  spinning = !spinning;
+  for (const f of [A, B]) {
+    const w = f.contentWindow;
+    if (w && w.devSpin) { w.devSpin(spinning); if (!spinning) w.devAngle(0); }
+  }
+  say(spinning ? 'מסתובב' : 'הסיבוב עצור');
+});
+
+/* The line to send back. Only what was actually moved off its default, so what
+   comes back is a decision and not a dump. */
+document.getElementById('copy').addEventListener('click', async () => {
+  const v = apply();
+  const defaults = DEFAULTS;
+  const names = { body: 'צבע עצמי של הזכוכית', eq: 'השוואת חשיפה', shell: 'גוף בשכבת הזכוכית', gloss: 'ברק הבועה',
+                  gelTint: 'צבע הצל', gelShade: 'כהות הצל',
+                  rim: 'ברק הכרום', film: 'קרום הבועה', exposure: 'חשיפה' };
+  const moved = Object.keys(v).filter(k => Math.abs(v[k] - defaults[k]) > 1e-9);
+  const text = moved.length
+    ? 'הערכים שבחרתי:\n' + moved.map(k => `  ${names[k]} = ${+v[k].toFixed(3)}`).join('\n')
+    : 'לא שיניתי כלום — הכל נשאר על ערכי גרסה 9.';
+  try { await navigator.clipboard.writeText(text); say('הועתק. אפשר להדביק לי בצ׳אט'); }
+  catch (e) { say('העתקה נחסמה — הערכים: ' + moved.map(k => `${k}=${v[k]}`).join(', ')); }
+});
+
+build();
+</script>
+</body>
+</html>
