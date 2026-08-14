@@ -347,7 +347,7 @@
 
     <div class="grp">אורך הסרטון (שניות)</div>
     <input type="number" id="vid-secs" min="2" max="120" step="0.5" value="15" autocomplete="off">
-    <p class="sub" style="margin:7px 0 0">הסיבוב בקובץ הוא בדיוק הסיבוב שבתצוגה — סיבוב מלא לוקח 30 שניות, והסרטון ממשיך להסתובב עד שהוא מגיע לאורך שביקשת. 15 שניות הן חצי סיבוב — מתאים לסטורי, שמתנגן פעם אחת. ללופ מושלם: 30 או 60. GIF תמיד סיבוב אחד.</p>
+    <p class="sub" style="margin:7px 0 0">הסיבוב בקובץ הוא בדיוק הסיבוב שבתצוגה — סיבוב מלא לוקח 15 שניות, והסרטון ממשיך להסתובב עד שהוא מגיע לאורך שביקשת. ברירת המחדל, 15 שניות, היא בדיוק סיבוב אחד — לופ מושלם. ללופ ארוך יותר: כל כפולה של 15. GIF תמיד סיבוב אחד.</p>
 
     <button class="go" id="go">התחל</button>
     <div class="exp">
@@ -8499,17 +8499,16 @@ let idle = 0, spinning = false, spinVel = 0, SPIN_LOCK = false;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* HOW LONG A TURN TAKES lives here, with the movement, and everything that
-   turns reads it: the preview's spin and both exports step by this one number.
-   It used to be two numbers — the preview turned in about 29 seconds and the
-   exports in 8 — and a file that turns three and a half times faster than the
-   screen it was exported from is not an export of that screen (14 Aug 26).
-   Slowing the file is also most of what its motion was missing: at 8 seconds a
-   30fps frame is 1.5° of rotation, which reads as stutter, and at this period
-   it is 0.4°, which reads as movement.
+   turns reads it: the preview's spin and both exports step by this one number,
+   so a file can never again turn at a speed the screen did not show — which it
+   did, three and a half times over, when the exports carried a period of their
+   own (14 Aug 26).
 
-   30 seconds rather than the preview's literal 2π/0.22 ≈ 28.6: the eye cannot
-   tell a 5% slower turn, and a person planning a loop can tell 30 from 28.6. */
-const TURN = { secs: 30 };
+   15 seconds, set by eye the same day: 30 — the preview's old idle rate made
+   round — read slow once it was watched as the piece's own tempo rather than
+   as a screensaver's. 15 also makes the default video length exactly one turn,
+   so the file a story wants is, at no extra asking, a seamless loop. */
+const TURN = { secs: 15 };
 const SPIN_RATE = Math.PI * 2 / TURN.secs;
 
 /* There is no depth squeeze any more, and removing it is the fix rather than a
@@ -10534,10 +10533,10 @@ const raf = () => new Promise(r => requestAnimationFrame(r));
    and the file simply keeps turning until it has enough frames.
 
    A file that is not a whole number of turns does not loop, and that is a real
-   choice rather than an oversight: 15 seconds of a 30-second turn is half a
-   turn, and the last frame does not meet the first. For a story, which plays
-   once and then stops, that costs nothing. For anything that loops, ask for a
-   multiple of the turn. */
+   choice rather than an oversight: 20 seconds of a 15-second turn is a turn
+   and a third, and the last frame does not meet the first. For a story, which
+   plays once and then stops, that costs nothing. For anything that loops, ask
+   for a multiple of the turn. */
 async function turn(n, onFrame, perTurn = n) {
   const rot0 = world.rotation.y, lockWas = SPIN_LOCK, spinWas = spinning;
   exporting = true; SPIN_LOCK = true; spinning = false; spinVel = 0;
@@ -10602,12 +10601,12 @@ const EXPORT_MAX = 4096;
    same weight, and the edges stop stepping.
 
    It costs four times the pixels PER FRAME, which a still does not notice and a
-   450-frame video certainly does. It is bounded rather than assumed: if twice
+   900-frame video certainly does. It is bounded rather than assumed: if twice
    the width would pass the texture limit, the factor comes down until it fits,
    so a large format quietly gets less of it instead of failing. */
 let SS = 2;
 /* A handle rather than a constant, because the cost is real: four times the
-   pixels per frame is nothing for a still and is felt across a 450-frame video.
+   pixels per frame is nothing for a still and is felt across a 900-frame video.
    tuneExport({ss: 1}) turns it off for a quick draft, {ss: 2} puts it back. */
 window.tuneExport = (v = {}) => {
   if (v.ss !== undefined) SS = Math.max(1, Math.min(3, v.ss));
@@ -10757,13 +10756,13 @@ async function pickCodec(w, h, fps) {
 
 async function exportVideo() {
   if (!window.VideoEncoder) { say('הדפדפן הזה לא מקודד וידאו — נסי GIF', 3600); return; }
-  /* 30 AND NOT A SETTING (14 Aug 26), asked for plainly: no frame-rate control,
-     just the best file at a weight the format can justify. The stutter the old
-     export had was its 8-second turn, not its frame rate — at the turn's real
-     speed a 30fps frame is 0.4° of rotation, which the eye reads as continuous.
-     60 would double the frames, the encode and the file for smoothness that is
-     already on screen, and 30 is what a story is delivered at anyway. */
-  const fps = 30;
+  /* 60 AND NOT A SETTING (14 Aug 26), asked for plainly: no frame-rate control,
+     just the best file at a weight the format can justify. The rate follows the
+     movement: at a 15-second turn a 30fps frame is 0.8° of rotation, which the
+     eye starts to catch as stepping along hard edges, and 60 is the preview's
+     own 0.4°. The weight this costs is held down in the bitrate, not in the
+     motion — the note below says how. */
+  const fps = 60;
   const perTurn = Math.max(8, Math.round(TURN.secs * fps));
   const n = Math.max(8, Math.round(VID.secs * fps));
   /* THE FORMAT'S RESOLUTION, THEN A PHONE-SIZED CEILING ON TOP OF IT.
@@ -10780,10 +10779,13 @@ async function exportVideo() {
      flat 16 Mb/s, which is roughly three times what this content needs at this
      size and turns a 15-second story into some 30MB for no visible gain: the
      picture is a smooth backdrop with a few bodies on it, which is the easiest
-     thing in the world for an encoder. About 0.12 bits per pixel per frame is
-     where more stops showing on a phone — 1080×1350 at 30fps lands near
-     5.2 Mb/s — with a floor so a small format still gets a clean file and a
-     ceiling so a large one cannot run away.
+     thing in the world for an encoder. At 30fps about 0.12 bits per pixel per
+     frame was where more stopped showing on a phone; at 60 the frames sit twice
+     as close together and the encoder's motion search pays for most of the
+     difference, so 0.075 holds the same quality — 1080×1350 lands near
+     6.6 Mb/s, a third more file for twice the frames rather than double — with
+     a floor so a small format still gets a clean file and a ceiling so a large
+     one cannot run away.
 
      THE FLOOR IS LOW ON PURPOSE. It was 4.5 Mb/s, which is right for a poster
      format and absurd for a small one: a 400×400 loop asks for about 0.6 Mb/s
@@ -10792,7 +10794,7 @@ async function exportVideo() {
      tiny format being starved, not to hand it a poster's budget. */
   await atFormatScale(targetW, async ({ w: fw, h: fh, ss }) => {
   const w = Math.round(fw / 2) * 2, h = Math.round(fh / 2) * 2;   // even, for h264
-  const bitrate = Math.round(Math.min(14e6, Math.max(1.5e6, w * h * fps * 0.12)));
+  const bitrate = Math.round(Math.min(14e6, Math.max(1.5e6, w * h * fps * 0.075)));
   const codec = await pickCodec(w, h, fps);
   if (!codec) { say('אין קודק H.264 זמין — נסי GIF', 3600); return; }
 
@@ -10992,14 +10994,19 @@ function gifBytes(frames, w, h, pal, used, delayCs) {
 }
 
 /* A GIF holds 256 colours and no inter-frame anything worth the name, so its
-   weight is roughly pixels times frames and it climbs fast — and the turn it
-   has to carry is 30 seconds now, the preview's own period. So the frame rate
-   is where the budget is held: 12fps over one turn is 360 frames, and at this
-   speed 12 is genuinely smooth — 1° of rotation per frame, against the 3° the
-   old 8-second turn spent at 15fps. The file is still the heaviest thing this
-   page makes, and both numbers stay dials rather than decisions:
+   weight is roughly pixels times frames and it climbs fast. What was choppy
+   about it was never the weight, though (14 Aug 26): 12fps is below the rate
+   the eye fuses into motion, and the GIF clock ticks in HUNDREDTHS of a
+   second, so only rates that divide 100 play back at the speed they were
+   rendered for — 12 does not, and came out 4% fast on top of flickering.
+
+   25 is the answer to both at once: it divides the clock cleanly (4cs a
+   frame, exactly), it is cinema rate with a little in hand, and over a
+   15-second turn it costs 375 frames of under a degree of rotation each —
+   the same weight the 30-second file carried, spent on flow instead of
+   length. Both numbers stay dials rather than decisions:
    tuneGif({max, fps}). */
-let GIF_MAX = 800, GIF_FPS = 12;
+let GIF_MAX = 800, GIF_FPS = 25;
 window.tuneGif = (v = {}) => {
   if (v.max !== undefined) GIF_MAX = Math.max(120, Math.min(2000, v.max));
   if (v.fps !== undefined) GIF_FPS = Math.max(5, Math.min(50, v.fps));
