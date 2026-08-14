@@ -11009,7 +11009,7 @@ function gifBytes(packets, w, h, pal, used, delayCs) {
 }
 
 /* A naive GIF is 256 colours times every pixel of every frame, no interframe
-   anything, and at 500 frames it lands in the tens of megabytes — which no
+   anything, and at 400 frames it lands in the tens of megabytes — which no
    story or banner gets to weigh (14 Aug 26: "a few single megabytes"). What
    the format does have is per-frame RECTANGLES, a transparent index, and a
    disposal mode that leaves the previous frame standing. So every frame
@@ -11029,13 +11029,17 @@ function gifBytes(packets, w, h, pal, used, delayCs) {
    deterministic, so a pixel that is not rewritten shows exactly what it
    showed before.
 
-   25fps stays, and for the same two reasons as ever: it divides the GIF's
-   hundredth-of-a-second clock exactly (4cs a frame — 12 did not divide it,
-   and played 4% fast on top of flickering), and it is cinema rate with a
-   little in hand. One index is held back from the palette to be the
-   transparency, which is why the cut asks for 255 colours and not 256.
-   The dials stay dials: tuneGif({max, fps}). */
-let GIF_MAX = 600, GIF_FPS = 25;
+   20fps, and the choice was explicit (14 Aug 26): the pixels stay — the
+   GIF keeps its 800 — and the rate is what gives. It still divides the
+   GIF's hundredth-of-a-second clock exactly (5cs a frame; 12 did not
+   divide it, and played 4% fast on top of flickering), and at this turn's
+   speed a 20fps frame is under a degree of rotation, which the eye still
+   reads as flow. Under the diff the saving is honest but not linear —
+   fewer frames means a bigger rectangle in each — so the rate gives what
+   it can, not a miracle. One index is held back from the palette to be
+   the transparency, which is why the cut asks for 255 colours and not
+   256. The dials stay dials: tuneGif({max, fps}). */
+let GIF_MAX = 800, GIF_FPS = 20;
 const TRANS = 255;   // the index that means "the frame below shows through"
 /* HOW STILL A PIXEL HAS TO STAND before the file believes it. The rectangle
    trick alone was measured and was not enough (14 Aug 26, a real composition:
@@ -11059,14 +11063,14 @@ async function exportGIF() {
   const fps = GIF_FPS;
   const n = Math.max(8, Math.round(TURN.secs * fps));
   /* The format's proportion, and the format's size up to the GIF's own ceiling —
-     which is far lower than the video's, and lower still since 14 Aug 26, by
-     choice: asked which way the GIF should fall, the answer was "light, and
-     give up a little" — the video carries the full format, so sharpness lost
-     here is lost nowhere else. A GIF is 256 colours of palette-indexed pixels:
-     doubling the side quadruples the file with no real interframe compression
-     to absorb it, and 600 on the long side is where a full turn stays
-     carryable. Capped against the FORMAT rather than the window, so the same
-     upload gives the same GIF on any screen. */
+     which is far lower than the video's and stays that way. It was briefly
+     600 (14 Aug 26) and came back the same day: "the pixels have to stay" —
+     so the GIF keeps its 800 on the long side, and the weight is asked from
+     the frame rate instead. A GIF is 256 colours of palette-indexed pixels:
+     doubling the side quadruples the file with no real interframe
+     compression to absorb it, so 800 is already generous. Capped against
+     the FORMAT rather than the window, so the same upload gives the same
+     GIF on any screen. */
   const capK = Math.min(1, GIF_MAX / Math.max(FMT.w, FMT.h));
   const targetW = Math.max(2, Math.round(FMT.w * capK));
   await atFormatScale(targetW, async ({ w, h, ss }) => {
@@ -11091,7 +11095,7 @@ async function exportGIF() {
      bounding rectangle of what changed, with the unchanged pixels inside it
      made transparent, so even the rectangle mostly compresses away. A frame
      that changed nothing (it can happen at this frame rate) still has to
-     exist to hold its 4cs of time, and goes out as a single transparent
+     exist to hold its 5cs of time, and goes out as a single transparent
      pixel. */
   const packets = [];
   let prev = null, base = null;
