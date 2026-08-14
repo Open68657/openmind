@@ -10775,26 +10775,26 @@ async function exportVideo() {
      3000 and being thrown away in the resize. Below the cap it does nothing. */
   const capK = Math.min(1, 1920 / Math.max(FMT.w, FMT.h), 1080 / Math.min(FMT.w, FMT.h));
   const targetW = Math.max(2, Math.round(FMT.w * capK));
-  /* AND THE BITRATE FOLLOWS THE PIXELS INSTEAD OF BEING A CONSTANT. It was a
-     flat 16 Mb/s, which is roughly three times what this content needs at this
-     size and turns a 15-second story into some 30MB for no visible gain: the
-     picture is a smooth backdrop with a few bodies on it, which is the easiest
-     thing in the world for an encoder. At 30fps about 0.12 bits per pixel per
-     frame was where more stopped showing on a phone; at 60 the frames sit twice
-     as close together and the encoder's motion search pays for most of the
-     difference, so 0.075 holds the same quality — 1080×1350 lands near
-     6.6 Mb/s, a third more file for twice the frames rather than double — with
-     a floor so a small format still gets a clean file and a ceiling so a large
-     one cannot run away.
+  /* AND THE BITRATE ANSWERS TO A WEIGHT, NOT TO AN IDEAL (14 Aug 26): these
+     files are stories and banners, and a story does not get to weigh twenty
+     megabytes — "a few single megabytes" is the whole spec. THE WEIGHT NEVER
+     COMES OUT OF THE RESOLUTION: the file keeps the format the upload set,
+     and what is spent differently is the bits, because this content is the
+     easiest thing an encoder ever meets — a backdrop that stands still for
+     whole seconds and a few bodies turning slowly. So 0.035 bits per pixel
+     per frame, variable-rate so the still parts are not paid for at the
+     moving parts' price — 1080×1350 at 60fps lands near 3.1 Mb/s, and the
+     15-second loop around five megabytes before the encoder undershoots it
+     further. The bitrate still follows the pixels, so a banner cut from a
+     smaller upload gets proportionally lighter still.
 
-     THE FLOOR IS LOW ON PURPOSE. It was 4.5 Mb/s, which is right for a poster
-     format and absurd for a small one: a 400×400 loop asks for about 0.6 Mb/s
-     by the same formula, and holding it at 4.5 would spend seven times the
-     bytes on a picture with nowhere to put them. The floor exists to stop a
-     tiny format being starved, not to hand it a poster's budget. */
+     THE FLOOR IS LOW ON PURPOSE. It exists to stop a tiny format being
+     starved, not to hand it a poster's budget: a 400×500 banner asks for
+     about 0.4 Mb/s by the formula and the floor gives it 0.8, which is a
+     clean file at that size and still under 2MB for the loop. */
   await atFormatScale(targetW, async ({ w: fw, h: fh, ss }) => {
   const w = Math.round(fw / 2) * 2, h = Math.round(fh / 2) * 2;   // even, for h264
-  const bitrate = Math.round(Math.min(14e6, Math.max(1.5e6, w * h * fps * 0.075)));
+  const bitrate = Math.round(Math.min(8e6, Math.max(8e5, w * h * fps * 0.035)));
   const codec = await pickCodec(w, h, fps);
   if (!codec) { say('אין קודק H.264 זמין — נסי GIF', 3600); return; }
 
@@ -10813,16 +10813,22 @@ async function exportVideo() {
   });
   /* realtime, and not for the latency: it is what keeps the encoder from
      reordering frames into B-pictures. The muxer below writes no composition
-     offsets, so decode order has to be presentation order. */
+     offsets, so decode order has to be presentation order. Variable rate is
+     said out loud rather than assumed: the backdrop stands still for whole
+     seconds, and a constant rate would spend on it what the motion needed. */
   enc.configure({ codec, width: w, height: h, bitrate, framerate: fps,
-                  avc: { format: 'avc' }, latencyMode: 'realtime' });
+                  avc: { format: 'avc' }, latencyMode: 'realtime',
+                  bitrateMode: 'variable' });
 
   try {
     await turn(n, async (i) => {
       blit(w, h);
       const frame = new VideoFrame(cap, { timestamp: Math.round(i * 1e6 / fps),
                                           duration: Math.round(1e6 / fps) });
-      enc.encode(frame, { keyFrame: i % (fps * 2) === 0 });
+      /* every three seconds, not two: a keyframe is the one expensive frame
+         in a picture that mostly stands still, and a scrub bar does not need
+         finer grain than this */
+      enc.encode(frame, { keyFrame: i % (fps * 3) === 0 });
       frame.close();
       say('מקודד… ' + (i + 1) + '/' + n);
       await raf();
@@ -10964,7 +10970,11 @@ function lzw(px, minCode) {
   return out;
 }
 
-function gifBytes(frames, w, h, pal, used, delayCs) {
+/* Each packet is one frame as it goes into the file: a rectangle at (x, y),
+   its pixels already palette indices, and whether it leans on the transparent
+   index. Disposal is "leave in place" for every frame, so a delta only has to
+   say what changed. */
+function gifBytes(packets, w, h, pal, used, delayCs) {
   const b = [];
   const u16 = v => { b.push(v & 255, (v >> 8) & 255); };
   const str = t => { for (let i = 0; i < t.length; i++) b.push(t.charCodeAt(i)); };
@@ -10977,11 +10987,13 @@ function gifBytes(frames, w, h, pal, used, delayCs) {
   }
   b.push(0x21, 0xFF, 0x0B); str('NETSCAPE2.0');
   b.push(0x03, 0x01, 0x00, 0x00, 0x00);          // loop forever
-  for (const px of frames) {
-    b.push(0x21, 0xF9, 0x04, 0x04); u16(delayCs); b.push(0x00, 0x00);
-    b.push(0x2C); u16(0); u16(0); u16(w); u16(h); b.push(0x00);
+  for (const f of packets) {
+    // packed byte: disposal 1 always; the transparent flag only where used
+    b.push(0x21, 0xF9, 0x04, f.trans ? 0x05 : 0x04); u16(delayCs);
+    b.push(f.trans ? TRANS : 0x00, 0x00);
+    b.push(0x2C); u16(f.x); u16(f.y); u16(f.w); u16(f.h); b.push(0x00);
     b.push(8);
-    const data = lzw(px, 8);
+    const data = lzw(f.px, 8);
     for (let i = 0; i < data.length; i += 255) {
       const n = Math.min(255, data.length - i);
       b.push(n);
@@ -10993,20 +11005,29 @@ function gifBytes(frames, w, h, pal, used, delayCs) {
   return new Uint8Array(b);
 }
 
-/* A GIF holds 256 colours and no inter-frame anything worth the name, so its
-   weight is roughly pixels times frames and it climbs fast. What was choppy
-   about it was never the weight, though (14 Aug 26): 12fps is below the rate
-   the eye fuses into motion, and the GIF clock ticks in HUNDREDTHS of a
-   second, so only rates that divide 100 play back at the speed they were
-   rendered for — 12 does not, and came out 4% fast on top of flickering.
+/* A naive GIF is 256 colours times every pixel of every frame, no interframe
+   anything, and at 375 frames it lands in the tens of megabytes — which no
+   story or banner gets to weigh (14 Aug 26: "a few single megabytes"). What
+   the format does have is per-frame RECTANGLES, a transparent index, and a
+   disposal mode that leaves the previous frame standing. The backdrop here
+   never moves — with the clock frozen, only the pile and its shadow change —
+   so every frame after the first is written as just the rectangle that
+   changed, and inside it every pixel that did not change points at the
+   transparent index and lets the frame below show through. LZW then meets
+   long runs of one value wherever the picture is standing still, which is
+   most of it: the same pixels on screen for a fraction of them in the file.
+   Diffing happens on QUANTISED indices, which is what makes it exact — the
+   dither is positional and the quantiser is deterministic, so a pixel the
+   render did not change quantises to the same index every time.
 
-   25 is the answer to both at once: it divides the clock cleanly (4cs a
-   frame, exactly), it is cinema rate with a little in hand, and over a
-   15-second turn it costs 375 frames of under a degree of rotation each —
-   the same weight the 30-second file carried, spent on flow instead of
-   length. Both numbers stay dials rather than decisions:
-   tuneGif({max, fps}). */
+   25fps stays, and for the same two reasons as ever: it divides the GIF's
+   hundredth-of-a-second clock exactly (4cs a frame — 12 did not divide it,
+   and played 4% fast on top of flickering), and it is cinema rate with a
+   little in hand. One index is held back from the palette to be the
+   transparency, which is why the cut asks for 255 colours and not 256.
+   The dials stay dials: tuneGif({max, fps}). */
 let GIF_MAX = 800, GIF_FPS = 25;
+const TRANS = 255;   // the index that means "the frame below shows through"
 window.tuneGif = (v = {}) => {
   if (v.max !== undefined) GIF_MAX = Math.max(120, Math.min(2000, v.max));
   if (v.fps !== undefined) GIF_FPS = Math.max(5, Math.min(50, v.fps));
@@ -11036,30 +11057,66 @@ async function exportGIF() {
     for (let i = 0; i < d.length; i += 4 * 7) { sample.push(d[i], d[i + 1], d[i + 2]); }
     await raf();
   });
-  const { pal, used } = medianCut(Uint8Array.from(sample), 256);
+  const { pal, used } = medianCut(Uint8Array.from(sample), 255);
   const q = quantiser(pal, used);
 
-  const frames = [];
+  /* One full frame, then differences. `prev` is the one whole frame kept in
+     hand; each new frame is quantised, compared against it index for index,
+     and goes into the file as the bounding rectangle of what changed — with
+     the unchanged pixels inside that rectangle made transparent, so even the
+     rectangle mostly compresses away. A frame that changed nothing (it can
+     happen at this frame rate) still has to exist to hold its 4cs of time,
+     and goes out as a single transparent pixel. */
+  const packets = [];
+  let prev = null;
   await turn(n, async (i) => {
     blit(w, h);
     const d = capx.getImageData(0, 0, w, h).data;
-    const out = new Uint8Array(w * h);
+    const cur = new Uint8Array(w * h);
     for (let y = 0, o = 0; y < h; y++) {
       for (let x = 0; x < w; x++, o++) {
         const p = o * 4, dz = BAYER[(y & 3) * 4 + (x & 3)] * 14;
-        out[o] = q(Math.min(255, Math.max(0, d[p] + dz)),
+        cur[o] = q(Math.min(255, Math.max(0, d[p] + dz)),
                    Math.min(255, Math.max(0, d[p + 1] + dz)),
                    Math.min(255, Math.max(0, d[p + 2] + dz)));
       }
     }
-    frames.push(out);
+    if (!prev) {
+      packets.push({ x: 0, y: 0, w, h, px: cur.slice(), trans: false });
+    } else {
+      let lox = w, hix = -1, loy = h, hiy = -1;
+      for (let y = 0, o = 0; y < h; y++) {
+        for (let x = 0; x < w; x++, o++) {
+          if (cur[o] !== prev[o]) {
+            if (x < lox) lox = x;
+            if (x > hix) hix = x;
+            if (y < loy) loy = y;
+            if (y > hiy) hiy = y;
+          }
+        }
+      }
+      if (hix < 0) {
+        packets.push({ x: 0, y: 0, w: 1, h: 1, px: Uint8Array.of(TRANS), trans: true });
+      } else {
+        const bw = hix - lox + 1, bh = hiy - loy + 1;
+        const px = new Uint8Array(bw * bh);
+        for (let y = 0; y < bh; y++) {
+          for (let x = 0; x < bw; x++) {
+            const o = (loy + y) * w + (lox + x);
+            px[y * bw + x] = cur[o] === prev[o] ? TRANS : cur[o];
+          }
+        }
+        packets.push({ x: lox, y: loy, w: bw, h: bh, px, trans: true });
+      }
+    }
+    prev = cur;
     say('GIF · ' + (i + 1) + '/' + n);
     await raf();
   });
 
   say('GIF · אורז…');
   await raf();
-  const bytes = gifBytes(frames, w, h, pal, used, Math.max(2, Math.round(100 / fps)));
+  const bytes = gifBytes(packets, w, h, pal, used, Math.max(2, Math.round(100 / fps)));
   const blob = new Blob([bytes], { type: 'image/gif' });
   save(blob, stampName('gif'));
   say('נשמר GIF · ' + w + '×' + h + ' · דגימה ×' + ss.toFixed(1) + ' · '
