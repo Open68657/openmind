@@ -11053,7 +11053,7 @@ function gifBytes(packets, w, h, pal, used, delayCs, near) {
    it can, not a miracle. One index is held back from the palette to be
    the transparency, which is why the cut asks for 255 colours and not
    256. The dials stay dials: tuneGif({max, fps}). */
-let GIF_MAX = 800, GIF_FPS = 20;
+let GIF_MAX = 600, GIF_FPS = 20;
 const TRANS = 255;   // the index that means "the frame below shows through"
 /* HOW FAR THE ENCODER MAY LEAN. The last of the GIF's weight is the dither
    itself: LZW pays for every change of value, and a dithered surface changes
@@ -11087,14 +11087,17 @@ async function exportGIF() {
   const fps = GIF_FPS;
   const n = Math.max(8, Math.round(TURN.secs * fps));
   /* The format's proportion, and the format's size up to the GIF's own ceiling —
-     which is far lower than the video's and stays that way. It was briefly
-     600 (14 Aug 26) and came back the same day: "the pixels have to stay" —
-     so the GIF keeps its 800 on the long side, and the weight is asked from
-     the frame rate instead. A GIF is 256 colours of palette-indexed pixels:
-     doubling the side quadruples the file with no real interframe
-     compression to absorb it, so 800 is already generous. Capped against
-     the FORMAT rather than the window, so the same upload gives the same
-     GIF on any screen. */
+     which is far lower than the video's and stays that way. This number went
+     back and forth on 14 Aug 26 — 600, then "the pixels have to stay" and
+     back to 800 — until a real composition put a real weight on the table:
+     about 30MB at 800, and single-digit megabytes do not exist at that size
+     in this format, whatever the encoder is taught. Shown that triangle, the
+     answer was 600: the GIF gives up sharpness, the video keeps the full
+     format, and nothing else is asked to pay. A GIF is 256 colours of
+     palette-indexed pixels — doubling the side quadruples the file with no
+     real interframe compression to absorb it. Capped against the FORMAT
+     rather than the window, so the same upload gives the same GIF on any
+     screen. */
   const capK = Math.min(1, GIF_MAX / Math.max(FMT.w, FMT.h));
   const targetW = Math.max(2, Math.round(FMT.w * capK));
   await atFormatScale(targetW, async ({ w, h, ss }) => {
