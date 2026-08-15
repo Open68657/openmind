@@ -38,10 +38,10 @@ Blue Genie, Science Blue, Mermaid Lagoon, Ulva Lactuca, Highlighter),
 `open68657/openmind` (החבילה תחת `intent/INTENT-v17-brief/`).
 
 הערת גודל לזיפ: כדי להישאר מתחת לתקרת המשלוח הושמטו מהזיפ בלבד —
-`textures/_originals/` (הסריקות הגולמיות ששלחת) ו-
+`textures/_originals/` (הסריקות הגולמיות ששלחת),
 `textures/_gen/crayon-nanobanana-orig.png` (סריקת המקור המלאה של ה-crayon
-המג'ונרט). שניהם חיים בענף בגיט; בזיפ נמצאים האריח המרופא, הפרוצדורלית-לחזרה
-וכל השאר.
+המג'ונרט) וצילומי-המסך של המחקר `research/*.png`. הכול חי בענף בגיט; בזיפ
+נמצאים האריח המרופא, הפרוצדורלית-לחזרה וכל השאר.
 
 ---
 
