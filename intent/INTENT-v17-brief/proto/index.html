@@ -951,6 +951,50 @@ function skinCanvas(s, o = {}) {
   return c;
 }
 
+/* Poured paint's own surface, split off the skin ("why do rib and pour still
+   wear the same texture?"). Dialling the shared generator was the first
+   answer, and it was not enough: fewer dents in the same language still read
+   as the same skin. A pour has no dents and no grit — nothing touched it
+   while it was wet. What it has is FLOW: faint level bands where successive
+   waves of the sheet settled, and the finest tooth riding WITH the flow.
+   All of it near the mean, so it lives in the bump and the roughness break —
+   the visible difference is how the lamp combs across each: long streaks on
+   the pour, handled grain on the rib. */
+function pourCanvas(s, o = {}) {
+  const bandN = Math.round(46 * (o.grain ?? 1));
+  const size = o.size ?? 1;
+  const c = document.createElement('canvas');
+  c.width = c.height = s;
+  const g = c.getContext('2d');
+  const base = Math.round(SCAN_MEAN * 255);
+  g.fillStyle = `rgb(${base},${base},${base})`;
+  g.fillRect(0, 0, s, s);
+  const R = n => Math.random() * n;
+  // level bands: full width so they close on themselves sideways, repeated at
+  // y±s so they close vertically too
+  for (let i = 0; i < bandN; i++) {
+    const y = R(s), h = (14 + R(70)) * size, v = base - 10 + R(20);
+    for (const oy of [-s, 0, s]) {
+      const grd = g.createLinearGradient(0, y + oy - h, 0, y + oy + h);
+      grd.addColorStop(0, 'rgba(0,0,0,0)');
+      grd.addColorStop(0.5, `rgba(${v},${v},${v},0.5)`);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grd;
+      g.fillRect(0, y + oy - h, s, h * 2);
+    }
+  }
+  // the tooth: short streaks with the flow, not sanding dots
+  g.globalAlpha = 0.16;
+  for (let i = 0; i < 2600; i++) {
+    const v = base - 9 + R(18);
+    g.fillStyle = `rgb(${v},${v},${v})`;
+    g.fillRect(R(s) - 20, R(s), (14 + R(46)) * size, 1 + R(1.2));
+  }
+  g.globalAlpha = 1;
+  // no high pass: the bands ARE the low field, stripping it re-makes the skin
+  return c;
+}
+
 const SURFACE_OPTS = {
   glitter: { flakes: 2600, size: 0.3 },
   // handled and knocked about: a moulding that has been picked up
@@ -965,7 +1009,8 @@ const SURFACE_OPTS = {
 const PROCEDURAL = {
   tuff: tuffCanvas, frost: frostCanvas, glitter: glitterCanvas,
   skin: s => skinCanvas(s, SURFACE_OPTS.skin),
-  dust: s => skinCanvas(s, SURFACE_OPTS.dust),
+  // its own generator now, not a quieter skin — see pourCanvas
+  dust: s => pourCanvas(s, SURFACE_OPTS.dust),
   sand: s => skinCanvas(s, SURFACE_OPTS.sand)
 };
 
@@ -1632,7 +1677,10 @@ const MATERIALS = [
      landing on the same satin. */
   { name: 'pour',    file: 'dust', tint: 0xffffff,
     swirl: [0x1b2fd4, 0xff4f7d, 0xffc9a3, 0xf4f1ec, 0x6a2ad6],
-    rough: 0.10, lumps: 0.18, grain: 0.3, tile: 560, bump: 3.5, roughVar: 0.18, relief: 0.10,
+    // bump and roughVar up with the new flow surface (15 Aug): the bands live
+    // in the reflection break, and at 3.5/0.18 the difference from the rib's
+    // skin was there and unreadable — which was the complaint
+    rough: 0.10, lumps: 0.18, grain: 0.3, tile: 560, bump: 5, roughVar: 0.30, relief: 0.10,
     /* Never settles. `liquid` is the unrest already in the piece — a slow drift
        plus a quicker quiver — and past 0.85 the quiver comes in at more than
        three times its usual share, which is the difference between something
@@ -1777,10 +1825,12 @@ const MATERIALS = [
      become the paper showing through, which is what stops it reading as printed
      colour. */
   { name: 'crayon',  file: 'crayon', tint: 0xffffff, rough: 0.97, lumps: 0.26, grain: 0.45,
-    // wrapped for the same reason as the pull, and a much larger tile: at 420 the
-    // hatching was so fine it averaged to a pale wash, and what makes crayon read
-    // is seeing the individual strokes cross
-    tile: 240, bump: 17, roughVar: 0.45, relief: 0.16, grainAlong: true,
+    /* Tile history: 420 with the ORIGINAL dense scan averaged to a pale wash,
+       so it went to 240 — and 240 with the redrawn sparse sheet turned into
+       "feels like too many tiles". The two moves are the same move: the tile
+       must let one scribble read as one hand mark. The redrawn sheet carries
+       few bold scribbles, so the tile goes large again. */
+    tile: 400, bump: 17, roughVar: 0.45, relief: 0.16, grainAlong: true,
     wrap: { bump: 1.1 },
     round: 0.30, colony: 0,
     finish: { sheen: 0.7, sheenRoughness: 0.95, sheenColor: 0xfff4e2,
@@ -7653,9 +7703,18 @@ function brushRibbon(path3, radius, widths, seed, closed, o = {}) {
        paper leaves an END, not a point. */
     const lift = closed ? 1 : 0.2 + 0.8 * Math.pow(Math.sin(Math.PI * t), 0.22);
     const w = radius * press * lift;
-    // the roll: a slow turn along the length plus the brush's own wobble. One
-    // alone is a machined helix, the other alone is a shiver
-    const ang = twist * (t * 2.4 + fbm(t * 3.1 + seed, seed * 0.6, 2.2, 3) * 1.5);
+    /* The roll: a slow turn along the length plus the brush's own wobble. One
+       alone is a machined helix, the other alone is a shiver.
+
+       BOTH REINED IN, 15 Aug — "the stroke stops and restarts with a straight
+       cut". At ±1.5 the wobble alone could spin the lens a quarter turn in a
+       short stretch: the flat goes locally EDGE-ON, a lens 0.085 thick all but
+       vanishes there, and its two long edges read as a clean straight cut with
+       an immediate restart. Not a hole (those follow the scan), not a seam
+       (uRepeat is whole) — a fold. The slow term still turns the mark, spread
+       over the whole length where it reads as a ribbon turning; the wobble is
+       kept well under the angle where a face becomes an edge. */
+    const ang = twist * (t * 1.1 + fbm(t * 3.1 + seed, seed * 0.6, 2.2, 3) * 0.35);
     const ca = Math.cos(ang), sa = Math.sin(ang);
     // the fluidity the roadmap allows: a slow sideways drift off the drawn line,
     // by a fraction of the mark's own width
@@ -7735,6 +7794,9 @@ function lumpyTube(path3, radius, lumps, seed, even = 0, widths = null, flat = 1
      scan's fissures run up its own v — so the fibres follow the stroke on
      every face at every turn, and the shader stops projecting entirely. */
   const uvs = o.tile ? [] : null;
+  // how far into the cap a vertex sits (0 on the body): the material stage
+  // uses it to weather the broken end without a custom shader
+  const capEnd = o.tile ? [] : null;
   /* aReliefMask — how much of the carve a vertex may keep, 14 Aug. The carve
      pushes along normals; on a slab's LONG EDGES the normals point sideways,
      so every dark fissure became a tooth in the silhouette — reported, and
@@ -7802,8 +7864,22 @@ function lumpyTube(path3, radius, lumps, seed, even = 0, widths = null, flat = 1
     // and the capsule: flat until the cap begins, then a circle into the end
     const u = Math.abs(2 * t - 1);
     const into = Math.max(0, (u - (1 - CAP)) / CAP);
-    const capped = Math.sqrt(Math.max(0, 1 - into * into));
+    /* o.blunt — A BREAK, NOT A DOME (15 Aug, with a driftwood reference).
+       "The lines must not converge to a point, and not end perfectly smooth
+       and round either." A slab that snapped holds its width almost to the
+       end and then breaks across an irregular line, so the cap profile is
+       remapped: full width through the first ~72% of the cap, the quarter-
+       circle compressed into what remains — a blunt shoulder whose apparent
+       face is the tear's to roughen. The sweep still closes by radius (the
+       file's watertight invariant), but across a distance too short to read
+       as a cone. Ordinary strokes keep the dome — a chrome line SHOULD end
+       in one. */
+    const capIn = o.blunt ? Math.max(0, (into - 0.72) / 0.28) : into;
+    const capped = Math.sqrt(Math.max(0, 1 - capIn * capIn));
     const taper = pointed * (1 - even) + capped * even;
+    // the tear starts earlier than the break, so the bites run back onto the
+    // side faces the way the reference's ends do
+    const tearIn = o.blunt ? Math.max(0, (into - 0.35) / 0.65) : into;
     // the hand's own width at this point along the stroke
     let press = 1;
     if (widths && widths.length > 1) {
@@ -7818,9 +7894,9 @@ function lumpyTube(path3, radius, lumps, seed, even = 0, widths = null, flat = 1
       let r = radius * taper * swell *
         (1 + lumps * 0.55 * fbm(cs * 1.6 + seed, sn * 1.6, t * 5.5, 2));
       // the tear takes its bite only inside the cap, harder toward the tip
-      if (tearA && into > 0) {
+      if (tearA && tearIn > 0) {
         const lv = (t < 0.5 ? tearA : tearB)[j];
-        r *= 1 - tearAmt * lv * Math.pow(into, tearFocus);
+        r *= 1 - tearAmt * lv * Math.pow(tearIn, tearFocus);
       }
       verts.push(P.x + (N.x * cs + B.x * sn * flat) * r,
                  P.y + (N.y * cs + B.y * sn * flat) * r,
@@ -7833,9 +7909,23 @@ function lumpyTube(path3, radius, lumps, seed, even = 0, widths = null, flat = 1
          segment — a stripe seam parked on the in-plane rim, which is the very
          face the turntable brings to camera. The mirror is continuous
          everywhere and costs only a symmetry no one can see in bark. v rides
-         the arclength; both in tiles of the scan. */
-      if (uvs) uvs.push((j <= RING / 2 ? j : RING - j) / RING * 2 * (3.1415 * radius / o.tile),
-                        t * curveLen / o.tile);
+         the arclength; both in tiles of the scan.
+
+         And the u WINDOW narrows with the ring ("the end should finish the way
+         a real trunk would"): held at full span, a shrinking cap crowds every
+         column of the scan into its tip and the end face comes out as a
+         starburst. Narrowed with the taper, the tip re-reads the same few
+         columns the body was already wearing — the fibres of the side simply
+         continue over the break and stop, which is what a torn end shows. */
+      if (uvs) {
+        const triJ = (j <= RING / 2 ? j : RING - j) / RING * 2;
+        const uSpan = 3.1415 * radius / o.tile;
+        uvs.push((0.5 + (triJ - 0.5) * Math.pow(Math.max(0.02, taper), 1.2)) * uSpan,
+                 t * curveLen / o.tile);
+      }
+      // keyed to the BREAK, not the whole shoulder — the weathering belongs
+      // to the fracture face
+      if (capEnd) capEnd.push(Math.pow(capIn, 0.9));
     }
   }
   // Wind the rings so the faces point OUT. three builds its Frenet frames with
@@ -7855,6 +7945,7 @@ function lumpyTube(path3, radius, lumps, seed, even = 0, widths = null, flat = 1
   if (grainRot) g.setAttribute('aGrainRot', new THREE.Float32BufferAttribute(grainRot, 1));
   if (reliefMask) g.setAttribute('aReliefMask', new THREE.Float32BufferAttribute(reliefMask, 1));
   if (uvs) g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  if (capEnd) g.setAttribute('aCapEnd', new THREE.Float32BufferAttribute(capEnd, 1));
   g.setIndex(tris);
   g.computeVertexNormals();
   return g;
@@ -8386,6 +8477,22 @@ function birth(screenPts) {
   } else if (M.gradient && geo) {
     paintGradient(geo, M.gradient[0], M.gradient[1], seed, M.patch);
     mat.vertexColors = true;
+  }
+  /* A broken end is not the same wood as the side ("the end should finish the
+     way a real trunk would"): the fibres stop and the face weathers darker.
+     Painted into the vertices the gradient already owns — the cap fraction the
+     sweep recorded (aCapEnd), eased by noise so the break is weathering and
+     not a lathe-turned band; skewed toward umber, not plain grey. */
+  if (geo && geo.attributes && geo.attributes.aCapEnd && geo.attributes.color) {
+    const ce = geo.attributes.aCapEnd, col = geo.attributes.color, pp = geo.attributes.position;
+    for (let i = 0; i < ce.count; i++) {
+      const c = ce.getX(i);
+      if (c <= 0) continue;
+      const n = 0.72 + 0.28 * fbm(pp.getX(i) * 0.05, pp.getY(i) * 0.05, seed, 2);
+      const k = 1 - 0.38 * c * n;
+      col.setXYZ(i, col.getX(i) * k, col.getY(i) * k * 0.96, col.getZ(i) * k * 0.9);
+    }
+    col.needsUpdate = true;
   }
   /* A glow that belongs to THIS piece. `emissive` is one colour per material, so
      a palette profile would light every stroke the same regardless of which pair
