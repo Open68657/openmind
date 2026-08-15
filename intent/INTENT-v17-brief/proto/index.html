@@ -1367,7 +1367,9 @@ const MATERIALS = [
        the surface came back perfectly smooth with zero degenerate normals, which
        ruled out the mesh, the normals and the projection in one measurement and
        left only the amplitude. */
-    tile: 520, bump: 20, relief: 0.45, roughVar: 0.62, levels: 5,
+    // 400, down from 520, 14 Aug afternoon: "the trunk's texture is a bit too
+    // big". The carve follows automatically — reliefScale rides 1/tile.
+    tile: 400, bump: 20, relief: 0.45, roughVar: 0.62, levels: 5,
     /* `layer2: 0`, not 0.2. On an isotropic surface the second rotated sample is
        free variety; on this one it is a second trunk laid across the first at 37
        degrees, and at a fifth strength it was still enough to blur the plates
@@ -1398,7 +1400,9 @@ const MATERIALS = [
        nature. This one is a piece of a tree: the reference is about three times
        as long as it is wide, and at the widths the rest of the library uses a
        500-pixel line came back at one to ten, which is a twig. */
-    slab: { flat: 0.34 }, lineR: 7.5,
+    // narrower and thinner, 14 Aug afternoon: "the drawn lines are a bit too
+    // thick and wide" — lineR 7.5 → 6.0, section 0.34 → 0.28
+    slab: { flat: 0.28 }, lineR: 6.0,
     finish: { specularIntensity: 0.40, envMapIntensity: 0.35 } },
 
   /* Newsprint over a stone, against the 192b30 reference: a chunky rock of a few
@@ -3067,7 +3071,31 @@ const causUniforms = {
   uCausSize: { value: 2.0 }, uCausGain: { value: 1.0 },
   // one texel of the scatter frame, in world units — the yardstick for "did
   // this ray actually go anywhere", set beside the frame it measures
-  uCausTexel: { value: 1.0 }
+  uCausTexel: { value: 1.0 },
+  /* The film's own brightness, separate from everyone else's. uCausAmt is
+     global — crystal's threads and the bubble's fringe ride the same dial —
+     and the reference wants the bubble's fringe FAINT under a dark edge
+     while the threads stay lit. Scaled at the source, per ray, so only the
+     film pays. tuneCaus({filmGain}). 0.15: the photograph keeps barely a
+     hint of it. */
+  uFilmGain: { value: 0.15 },
+  /* Which of the scatter's two truths this draw writes. Mode 0 is the light
+     that ARRIVED — sprites at each ray's landing, in rgb. Mode 1 is the
+     light that LEFT — the same rays drawn at the spot they would have lit
+     unbent, into ALPHA, and the receiver turns that channel into darkness.
+     This is the brief's own third step finally done whole: "what goes
+     missing where the ray set out IS the shadow." One geometry, two draws,
+     because a point cannot stand in two places in one pass. */
+  uCausMode: { value: 0 },
+  /* How much light the floor loses where a film's deficit landed. Named for
+     the receiver dial it feeds. tuneCaus({dark}). */
+  uCausDark: { value: 0.65 },
+  /* The interior's own small loss. The reference's footprint is not bare
+     floor inside — the film reflects and scatters a little everywhere it
+     stands, so every film ray leaves this fraction of a deficit at its own
+     spot even when it never bent. The rim's full deficit sits on top of it.
+     tuneCaus({body}). */
+  uFilmBody: { value: 0.18 }
 };
 /* How strongly the ground reads what the scatter produced. Kept separate from
    the gain inside the pass: that one is about how much light each ray carries,
@@ -3097,8 +3125,36 @@ const causUniforms = {
    outside it — was settled by measurement, not by argument: swept at
    0, ±0.5, ±1, ±2, −4 on 14 Aug, ring energy (outerExcess) 0.121 inward at
    half strength against 0.030 outward at the same, the middle clean at
-   exactly zero for both halves and fouled from −2 on. Inward, gently. */
-const causBend = { value: -0.5 };
+   exactly zero for both halves and fouled from −2 on. Inward, gently.
+
+   −1 and not −0.5, revised the same afternoon against the reference
+   photograph: at −0.5 the bright ring hugged the silhouette and sat exactly
+   on the dark rim band the shadow draws (FILM_RIM), cancelling it. One step
+   deeper the fringe lands INSIDE the dark edge — which is where the
+   photograph keeps it — and the sweep already showed −1 holds the middle at
+   exactly zero (outerExcess 0.155, its strongest). */
+const causBend = { value: -1.0 };
+
+/* The film's rim shadow — how much extra gel cover the silhouette carries
+   (boost, on top of the flat 0.08) and how tightly it hugs the edge (focus).
+   Judged against the bubble-on-ground reference of 14 Aug: at 0.10 the rim's
+   block lands around 0.3 after the knee, a soft dark band, not a drawn line.
+   tuneGel({rim, rimFocus}) moves them live. */
+/* DORMANT, AND THE NUMBER SAYS WHY. This was the first attempt at the
+   reference's dark rim: extra gel cover on a film's silhouette. It could
+   never have worked and the measurement is the caustic pass's own from
+   13 Aug wearing a new coat: the gel is framed to the COVE — ten thousand
+   units across a 1024 map — so the whole bubble is ~23 gel texels and the
+   rim band is one or two, which the gel's own blur erases entirely. The
+   dark ring lives in the caustic pass now (uCausMode, uCausDark), which
+   holds ~390 texels across the same body. The mechanism stays, at zero,
+   the way ember stayed: pulling it means touching every glass body's gel
+   for nothing. tuneGel({rim}) still reaches it. */
+const FILM_RIM = { boost: 0 };
+const FILM_RIM_FOCUS = { value: 2.4 };
+// the lamp's travel direction, for the gel's rim term — written by
+// renderCaustics, which already derives it each frame
+const gelLightDir = new THREE.Vector3(0, -1, 0);
 
 /* WHAT AN UNBENT RAY WOULD HAVE DELIVERED ANYWAY, and subtracting it is what
    turns a white patch into a ring.
@@ -3215,7 +3271,11 @@ function causTargets() {
       uniform vec3 uPlaneN;
       uniform float uCausSize;
       uniform float uCausTexel;
+      uniform float uFilmGain;
+      uniform float uCausMode;
+      uniform float uFilmBody;
       varying vec3 vTint;
+      varying float vDeficit;
       void main() {
         vec2 uv = position.xy;
         vec4 g = texture2D(tCausG, uv);
@@ -3303,13 +3363,38 @@ function causTargets() {
            are untouched — their whole field is redistribution. Sub-texel is
            the yardstick because a sprite that lands within its own texel is
            the identity map wearing a different position. */
+        bool moved = false;
         if (!solid) {
           vec3 off = hit - tintAt;
           off -= uLightDirW * dot(off, uLightDirW);
-          if (dot(off, off) < uCausTexel * uCausTexel * 0.56) {
-            gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vTint = vec3(0.0);
+          moved = dot(off, off) >= uCausTexel * uCausTexel * 0.56;
+        }
+        if (uCausMode > 0.5) {
+          /* THE DEFICIT DRAW. A film ray that moved left a hole where the
+             unbent ray would have landed, and the hole is drawn there, into
+             the alpha channel, at the caustic's own resolution — the gel was
+             tried first and measured too coarse to hold it (~23 texels for
+             a whole body against ~390 here). Only films: a solid's whole
+             field is redistribution and its block already owns its shadow. */
+          float den0 = dot(uLightDirW, uPlaneN);
+          // every film ray leaves at least the body's small loss; only a
+          // solid is excused — its block already owns its whole shadow
+          if (solid || abs(den0) < 1e-5) {
+            gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0;
+            vTint = vec3(0.0); vDeficit = 0.0;
             return;
           }
+          float t0 = dot(uPlaneP - tintAt, uPlaneN) / den0;
+          if (t0 <= 0.0) {
+            gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0;
+            vTint = vec3(0.0); vDeficit = 0.0;
+            return;
+          }
+          hit = tintAt + uLightDirW * t0;
+        } else if (!solid && !moved) {
+          gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0;
+          vTint = vec3(0.0); vDeficit = 0.0;
+          return;
         }
         /* The colour the ray picked up on its way through, from the same pass
            that already works out what each body does to light. It has to be
@@ -3322,12 +3407,20 @@ function causTargets() {
         vec4 gel = texture2D(tGelRaw, guv);
         float peak = max(gel.r, max(gel.g, gel.b));
         vTint = peak > 1e-4 ? gel.rgb / peak : vec3(1.0);
+        // the reference keeps a film's relocated light FAINT under its dark
+        // edge; a solid's threads are the whole show and keep full strength
+        if (!solid) vTint *= uFilmGain;
+        if (uCausMode > 0.5) vTint = vec3(0.0);
+        // a moved ray's absence is total; a ray that stayed still leaves
+        // only the film's own small loss behind
+        vDeficit = uCausMode * (moved ? 1.0 : uFilmBody);
         gl_Position = uCausMatrix * vec4(hit, 1.0);
         gl_PointSize = uCausSize;
       }
     `,
     fragmentShader: `
       varying vec3 vTint;
+      varying float vDeficit;
       uniform float uCausGain;
       void main() {
         /* Round, and soft toward the edge. A square point is a square of light,
@@ -3336,7 +3429,9 @@ function causTargets() {
            caught by once. */
         vec2 d = gl_PointCoord - 0.5;
         float r = 1.0 - smoothstep(0.18, 0.5, length(d));
-        gl_FragColor = vec4(vTint * (uCausGain * r), 1.0);
+        // rgb is the light that arrived; alpha is the light that left. The
+        // two never mix in one draw — vDeficit is 0 or 1 per pass.
+        gl_FragColor = vec4(vTint * (uCausGain * r), vDeficit * r);
       }
     `
   });
@@ -3469,6 +3564,7 @@ function renderCaustics() {
      camera is orthographic, so the lamp has no position in the optical sense —
      `key.position` only states which way it points. */
   const dir = new THREE.Vector3().copy(key.position).normalize().negate();
+  gelLightDir.copy(dir);
 
   const swapped = [];
   for (const b of bodies) {
@@ -3502,6 +3598,9 @@ function renderCaustics() {
     const width = new THREE.Box3().setFromObject(b.mesh).getSize(new THREE.Vector3()).x;
     const isFilm = width > 0 && filmT > 0 && filmT / width < 0.05;
     b.causMat.uniforms.uFilm.value = isFilm ? filmT : 0;
+    // the same verdict feeds the gel's rim shadow: a film darkens its
+    // silhouette band, a solid keeps the flat cover it always had
+    if (b.gelRim) b.gelRim.value = isFilm ? FILM_RIM.boost : 0;
     // the radius the bend divides by — same Box3 the film test just measured,
     // so the curvature the shader assumes is the size the body actually is
     b.causMat.uniforms.uFilmR.value = Math.max(width / 2, 1e-3);
@@ -3628,7 +3727,13 @@ function renderCaustics() {
   /* The camera argument is a formality: the scatter's vertex shader writes
      gl_Position from uCausMatrix itself, because a point's home is where its
      ray lands and not where its vertex started. */
+  causUniforms.uCausMode.value = 0;
   renderer.render(causScene, causCam);
+  // and the same points again as absences — see uCausMode. Films only, so a
+  // scene with no film pays one cleared draw of culled points and nothing else
+  causUniforms.uCausMode.value = 1;
+  renderer.render(causScene, causCam);
+  causUniforms.uCausMode.value = 0;
 
   /* One separable round over the landed rays, to close the gaps between point
      sprites without erasing what the pass went to the trouble of focusing. The
@@ -3745,6 +3850,34 @@ function renderGel() {
           blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneFactor,
           blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneFactor
         });
+        /* THE DARK RING IS THE SHADOW'S, 14 Aug evening. The reference
+           photograph (a real bubble on real ground) settled what the scatter
+           could not: the footprint's EDGE is dark. Physically that is the rim
+           annulus whose light the film deflected away — the same rays the
+           caustic pass relocates into the bright fringe — so the deficit
+           belongs to the shadow model, exactly where the receiver's own
+           doctrine says darkening lives. A film's gel therefore stops being
+           one flat 0.08: head-on it stays almost nothing, and toward the
+           silhouette the cover climbs, so the block draws a soft dark ring
+           through the pipeline that already knows how to draw shadows —
+           knee, ceiling, tint and blur included. uGelRim stays 0 for every
+           solid body, decided per frame beside the film test it borrows. */
+        b.gelRim = { value: 0 };
+        b.gelMat.onBeforeCompile = sh => {
+          sh.uniforms.uGelRim = b.gelRim;
+          sh.uniforms.uGelRimFocus = FILM_RIM_FOCUS;
+          sh.uniforms.uGelLightDir = { value: gelLightDir };
+          sh.vertexShader = sh.vertexShader
+            .replace('#include <common>', '#include <common>\nvarying vec3 vGelN;')
+            .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGelN = normalize(mat3(modelMatrix) * normal);');
+          sh.fragmentShader = sh.fragmentShader
+            .replace('#include <common>', '#include <common>\nvarying vec3 vGelN;\nuniform float uGelRim;\nuniform float uGelRimFocus;\nuniform vec3 uGelLightDir;')
+            .replace('#include <color_fragment>', `#include <color_fragment>
+        if (uGelRim > 0.0) {
+          float grz = 1.0 - abs(dot(normalize(vGelN), uGelLightDir));
+          diffuseColor.a += uGelRim * pow(grz, uGelRimFocus);
+        }`);
+        };
       }
       b.mesh.traverse(o => {
         if (o.isMesh) { swapped.push([o, o.material]); o.material = b.gelMat; }
@@ -4281,6 +4414,7 @@ function gelReceiver(mat) {
     Object.assign(shader.uniforms, gelUniforms,
       { tCaustic: causRecv.uCaustic, uCausAmt: causRecv.uCausAmt,
         uCausFloor: causRecv.uCausFloor,
+        uCausDark: causUniforms.uCausDark,
         uCausMatrix: causUniforms.uCausMatrix });
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vGelWorld;')
@@ -4292,7 +4426,7 @@ function gelReceiver(mat) {
         uniform mat4 uGelMatrix;
         uniform float uGelTint, uGelShade, uGelDeep, uGelSky;
         uniform sampler2D tCaustic;
-        uniform float uCausAmt, uCausFloor;
+        uniform float uCausAmt, uCausFloor, uCausDark;
         uniform mat4 uCausMatrix;`)
       // after the lights are gathered and before anything is done with them
       .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
@@ -4465,8 +4599,18 @@ function gelReceiver(mat) {
                  being drawn, correctly and with a ceiling, by block above.
                  Letting this term darken as well would be the double counting
                  back again with its sign flipped. */
-              vec3 caus = max(texture2D(tCaustic, cuv).rgb - uCausFloor, 0.0);
+              vec4 c4 = texture2D(tCaustic, cuv);
+              vec3 caus = max(c4.rgb - uCausFloor, 0.0);
               reflectedLight.directDiffuse += lit * caus * uCausAmt * edge.x * edge.y;
+              /* And the darkness the same rays left behind — the alpha
+                 channel carries the deficit draw (see uCausMode). This is a
+                 shadow, so it multiplies like one; capped so a stacked pile
+                 of films cannot dig to black. The floor term above only ever
+                 ADDS, and this only ever REMOVES what a film demonstrably
+                 relocated — the double-counting the old clamp guarded
+                 against cannot come back through here. */
+              float dark = min(c4.a * uCausDark, 0.8) * edge.x * edge.y;
+              reflectedLight.directDiffuse *= 1.0 - dark;
             }
           }
         }`);
@@ -4494,8 +4638,12 @@ window.tuneGel = v => {
   if (v.shade !== undefined) gelUniforms.uGelShade.value = v.shade;
   if (v.deep !== undefined) gelUniforms.uGelDeep.value = v.deep;
   if (v.sky !== undefined) gelUniforms.uGelSky.value = v.sky;
+  // the film's rim shadow — see FILM_RIM by the caustic dials
+  if (v.rim !== undefined) FILM_RIM.boost = v.rim;
+  if (v.rimFocus !== undefined) FILM_RIM_FOCUS.value = v.rimFocus;
   return { tint: gelUniforms.uGelTint.value, shade: gelUniforms.uGelShade.value,
-           deep: gelUniforms.uGelDeep.value, sky: gelUniforms.uGelSky.value };
+           deep: gelUniforms.uGelDeep.value, sky: gelUniforms.uGelSky.value,
+           rim: FILM_RIM.boost, rimFocus: FILM_RIM_FOCUS.value };
 };
 
 function compositeAO() {
@@ -5969,18 +6117,30 @@ function outlineGrainAttr(g, poly, baseRot) {
     segs.push({ x: p.x, y: p.y, dx, dy, L2: dx * dx + dy * dy || 1,
                 ang: Math.PI / 2 - Math.atan2(dy, dx) });
   }
+  /* A WEIGHTED FIELD, NOT A NEAREST PICK — revised the same day it shipped.
+     Reported on a tall hand-drawn slab: bands of fibres lying ACROSS the
+     shape, mid-height. The single nearest segment is the culprit: a small
+     wobble the hand left in one long edge turns locally horizontal, and every
+     interior vertex whose nearest segment lands on that wobble swings its
+     whole strip ninety degrees. So the direction is now the average of ALL
+     the outline's segments, weighted by closeness (squared) and by segment
+     length so a long edge outpulls a tremor — summed as doubled angles,
+     because a fibre is an axis and must not cancel with its own reverse. The
+     +400 in the weight is a ~20-unit softening floor: right at an edge that
+     edge still wins outright. */
   const out = new Float32Array(pos.count);
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), y = pos.getY(i);
-    let best = Infinity, bA = 0;
+    let s2 = 0, c2 = 0;
     for (const s of segs) {
       let t = ((x - s.x) * s.dx + (y - s.y) * s.dy) / s.L2;
       t = t < 0 ? 0 : t > 1 ? 1 : t;
       const qx = s.x + s.dx * t - x, qy = s.y + s.dy * t - y;
-      const d2 = qx * qx + qy * qy;
-      if (d2 < best) { best = d2; bA = s.ang; }
+      const w = Math.sqrt(s.L2) / (qx * qx + qy * qy + 400);
+      s2 += w * Math.sin(2 * s.ang);
+      c2 += w * Math.cos(2 * s.ang);
     }
-    let d = bA - baseRot;
+    let d = 0.5 * Math.atan2(s2, c2) - baseRot;
     while (d > Math.PI / 2) d -= Math.PI;
     while (d < -Math.PI / 2) d += Math.PI;
     out[i] = d;
@@ -9499,9 +9659,12 @@ window.tuneCaus = v => {
   if (v.soft !== undefined) causRecv.uCausSoft.value = v.soft;
   if (v.bend !== undefined) causBend.value = v.bend;
   if (v.floor !== undefined) causRecv.uCausFloor.value = v.floor;
+  if (v.filmGain !== undefined) causUniforms.uFilmGain.value = v.filmGain;
+  if (v.dark !== undefined) causUniforms.uCausDark.value = v.dark;
+  if (v.body !== undefined) causUniforms.uFilmBody.value = v.body;
   return { amount: causRecv.uCausAmt.value, gain: causUniforms.uCausGain.value,
            size: causUniforms.uCausSize.value, soft: causRecv.uCausSoft.value,
-           bend: causBend.value };
+           bend: causBend.value, filmGain: causUniforms.uFilmGain.value };
 };
 
 /* ---------- devShadow: the darkest floor a body leaves, per material ----------
