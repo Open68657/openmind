@@ -4415,6 +4415,11 @@ function gelReceiver(mat) {
       { tCaustic: causRecv.uCaustic, uCausAmt: causRecv.uCausAmt,
         uCausFloor: causRecv.uCausFloor,
         uCausDark: causUniforms.uCausDark,
+        // the ground plane, so the caustic touches the FLOOR and nothing
+        // else — the projection is directional and would otherwise paint the
+        // backdrop wall too (seen as a hard dim rectangle through a bubble)
+        uCausPlaneP: causUniforms.uPlaneP,
+        uCausPlaneN: causUniforms.uPlaneN,
         uCausMatrix: causUniforms.uCausMatrix });
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vGelWorld;')
@@ -4427,6 +4432,7 @@ function gelReceiver(mat) {
         uniform float uGelTint, uGelShade, uGelDeep, uGelSky;
         uniform sampler2D tCaustic;
         uniform float uCausAmt, uCausFloor, uCausDark;
+        uniform vec3 uCausPlaneP, uCausPlaneN;
         uniform mat4 uCausMatrix;`)
       // after the lights are gathered and before anything is done with them
       .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
@@ -4600,8 +4606,17 @@ function gelReceiver(mat) {
                  Letting this term darken as well would be the double counting
                  back again with its sign flipped. */
               vec4 c4 = texture2D(tCaustic, cuv);
+              /* THE FLOOR AND ONLY THE FLOOR. The projection is directional,
+                 so a point on the backdrop wall maps into the frame exactly
+                 like the floor point below it — and the deficit painted the
+                 wall with a hard dim rectangle, seen straight through a
+                 bubble. The light term always had the same leak and was
+                 simply too faint to catch. Faded over a couple of body-scale
+                 units off the ground plane, both terms together. */
+              float offPlane = abs(dot(vGelWorld - uCausPlaneP, uCausPlaneN));
+              float onFloor = 1.0 - smoothstep(6.0, 40.0, offPlane);
               vec3 caus = max(c4.rgb - uCausFloor, 0.0);
-              reflectedLight.directDiffuse += lit * caus * uCausAmt * edge.x * edge.y;
+              reflectedLight.directDiffuse += lit * caus * uCausAmt * edge.x * edge.y * onFloor;
               /* And the darkness the same rays left behind — the alpha
                  channel carries the deficit draw (see uCausMode). This is a
                  shadow, so it multiplies like one; capped so a stacked pile
@@ -4609,7 +4624,7 @@ function gelReceiver(mat) {
                  ADDS, and this only ever REMOVES what a film demonstrably
                  relocated — the double-counting the old clamp guarded
                  against cannot come back through here. */
-              float dark = min(c4.a * uCausDark, 0.8) * edge.x * edge.y;
+              float dark = min(c4.a * uCausDark, 0.8) * edge.x * edge.y * onFloor;
               reflectedLight.directDiffuse *= 1.0 - dark;
             }
           }
@@ -6195,7 +6210,15 @@ function reliefDisplace(g, file, scale, depth, sharp = 4, rot = 0, o = {}) {
      is that rule extended per vertex: when the geometry carries aGrainRot (a
      stroke whose grain bends with it), the carve adds the same delta the
      shader's varying adds, vertex for vertex. */
-  const rotAttr = (!planar && o.rotAttr) || null;
+  /* o.uvAttr — the sweep's own sheet (a slab stroke; see lumpyTube). The carve
+     must read the SAME lookup the bump map shades with, uv for uv, or the
+     ridges sit under the wrong fissures — the pull lesson, third appearance.
+     Those uvs already turn with the stroke, so the body angle and the
+     per-vertex grain delta both stand down: rot goes identity, rotAttr is
+     ignored, and `scale` with it — the uvs were written in tiles. */
+  const uvAttr = (!planar && o.uvAttr) || null;
+  if (uvAttr) rot = 0;
+  const rotAttr = (!planar && !uvAttr && o.rotAttr) || null;
   // a geometry may carry its own carve mask (aReliefMask) — full depth on the
   // faces, a fraction at the rims, so the outline is not the carve's to serrate
   const maskAttr = (g.attributes && g.attributes.aReliefMask) || null;
@@ -6269,6 +6292,9 @@ function reliefDisplace(g, file, scale, depth, sharp = 4, rot = 0, o = {}) {
       const uw = (pcs * dx - psn * dy) * scale + 0.5;
       const vw = (psn * dx + pcs * dy) * scale + 0.5;
       raw = lum(uw, 1 - vw) - (px.mean ?? SCAN_MEAN);
+    } else if (uvAttr) {
+      // same 1-v flip as planar, same reason: flipY upload vs top-down reader
+      raw = lum(uvAttr.getX(i), 1 - uvAttr.getY(i)) - (px.mean ?? SCAN_MEAN);
     } else {
       raw = lum(y * scale, z * scale) * wx
           + lum(x * scale, z * scale) * wy
@@ -7700,6 +7726,15 @@ function lumpyTube(path3, radius, lumps, seed, even = 0, widths = null, flat = 1
      straight axis for the whole stroke. */
   const grainRot = o.grainFrom != null ? [] : null;
   let grainPrev = null;
+  /* Real UVs along the sweep, when the material asks (o.tile). The triplanar
+     projection can only be rotated in one plane at a time, and a stroke on
+     the turntable shows its SIDE faces — where the projection's other planes
+     take over and the grain lies down flat. Reported on a turned trunk. The
+     ribbon solved this the honest way long ago: a surface that knows which
+     way along runs carries that knowledge as uv. v rides the arclength — the
+     scan's fissures run up its own v — so the fibres follow the stroke on
+     every face at every turn, and the shader stops projecting entirely. */
+  const uvs = o.tile ? [] : null;
   /* aReliefMask — how much of the carve a vertex may keep, 14 Aug. The carve
      pushes along normals; on a slab's LONG EDGES the normals point sideways,
      so every dark fissure became a tooth in the silhouette — reported, and
@@ -7793,6 +7828,14 @@ function lumpyTube(path3, radius, lumps, seed, even = 0, widths = null, flat = 1
       if (grainRot) grainRot.push(grainPrev - o.grainFrom);
       // |sin a| is the face side of the ring, |cos a| the edge side
       if (reliefMask) reliefMask.push(0.22 + 0.78 * Math.pow(Math.abs(sn), 1.5));
+      /* u MIRRORS at the half-ring rather than wrapping 0→2πr: a wrap has to
+         spend the whole scan width again, backwards, inside the final ring
+         segment — a stripe seam parked on the in-plane rim, which is the very
+         face the turntable brings to camera. The mirror is continuous
+         everywhere and costs only a symmetry no one can see in bark. v rides
+         the arclength; both in tiles of the scan. */
+      if (uvs) uvs.push((j <= RING / 2 ? j : RING - j) / RING * 2 * (3.1415 * radius / o.tile),
+                        t * curveLen / o.tile);
     }
   }
   // Wind the rings so the faces point OUT. three builds its Frenet frames with
@@ -7811,6 +7854,7 @@ function lumpyTube(path3, radius, lumps, seed, even = 0, widths = null, flat = 1
   g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
   if (grainRot) g.setAttribute('aGrainRot', new THREE.Float32BufferAttribute(grainRot, 1));
   if (reliefMask) g.setAttribute('aReliefMask', new THREE.Float32BufferAttribute(reliefMask, 1));
+  if (uvs) g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   g.setIndex(tris);
   g.computeVertexNormals();
   return g;
@@ -8091,7 +8135,13 @@ function birth(screenPts) {
      knows which way it runs. Triplanar would throw that away — the streaks in a
      brush map only mean anything ALONG the mark, and a projection has no idea
      where along it is. So the ribbon carries real UVs and an ordinary bump map. */
-  if (map && M.shape !== 'cloud' && M.shape !== 'ribbon' && !M.wrap) {
+  /* A slab stroke leaves the projection entirely — its sweep wrote real UVs
+     (see lumpyTube), because a projection cannot follow a turned side face
+     and the turntable shows side faces most of the time. Reported as "are
+     the trunk's fibres always horizontal": on the front face they were
+     right, on every other face the projection's other planes lay them flat. */
+  const slabLine = !!(M.slab && M.file && !a.closed);
+  if (map && M.shape !== 'cloud' && M.shape !== 'ribbon' && !M.wrap && !slabLine) {
     // strokeTile: a material may size its pattern differently against a drawn
     // line than against a closed body — crystal's leaves, judged right on a
     // body, dwarf a stroke's width (see the profile's own note)
@@ -8099,6 +8149,12 @@ function birth(screenPts) {
       bump: M.bump, roughVar: M.roughVar, sharp: M.facets ? 16 : 4,
       layer2: M.layer2, rot: M._rot, sparkle: M.sparkle, ember: M.ember
     });
+  }
+  if (slabLine && map) {
+    // the ribbon's move (below), for the ribbon's reason: the sweep wrote real
+    // UVs, so the ordinary bump map reads them and the projection stays out
+    mat.bumpMap = map;
+    mat.bumpScale = (M.slab && M.slab.bump) ?? 0.6;
   }
   // after triplanar, so the two shader patches chain rather than replace each
   // other — this one reads the normal the first one has already bent
@@ -8280,7 +8336,8 @@ function birth(screenPts) {
                     // torn ends and curve-following grain are the profile's to
                     // ask for; everything not asking gets the tube unchanged
                     { tear: M.endTear,
-                      grainFrom: M.grainLocal ? (M._rot || 0) : null });
+                      grainFrom: M.grainLocal ? (M._rot || 0) : null,
+                      tile: (M.slab && M.file) ? M.tile : 0 });
     label = M.slab ? 'slab' : 'line';
     // relief needs the same treatment an outline body gets, or a drawn line of
     // bark is a smooth bar with bark printed on it
@@ -8289,8 +8346,10 @@ function birth(screenPts) {
                      span * VIEW * 0.075 * M.relief, 4, M._rot || 0,
                      // the carve turns with the same per-vertex delta the
                      // shader reads, or the fissures are lit down one bend
-                     // while being cut down another
-                     { rotAttr: geo.attributes.aGrainRot, bias: M.reliefBias });
+                     // while being cut down another. uvAttr trumps the lot:
+                     // when the sweep wrote real uvs the carve reads those
+                     { rotAttr: geo.attributes.aGrainRot, bias: M.reliefBias,
+                       uvAttr: geo.attributes.uv });
     }
   }
 
