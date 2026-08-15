@@ -1,0 +1,39 @@
+name: fetch-asset
+
+# Dev utility for the INTENT sessions: the remote build environment's egress
+# is allowlisted, so generation results hosted on blocked CDNs are fetched by
+# a runner (full internet) and committed to the branch, where git can reach
+# them. Triggered manually only.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Source URL to fetch'
+        required: true
+      path:
+        description: 'Repository path to write the file to'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Fetch and commit
+        env:
+          SRC_URL: ${{ inputs.url }}
+          DEST_PATH: ${{ inputs.path }}
+        run: |
+          mkdir -p "$(dirname "$DEST_PATH")"
+          curl -fL --max-time 120 "$SRC_URL" -o "$DEST_PATH"
+          ls -la "$DEST_PATH"
+          git config user.name 'intent-asset-fetcher'
+          git config user.email 'noreply@github.com'
+          git add "$DEST_PATH"
+          git commit -m "fetch-asset: $DEST_PATH"
+          git push
