@@ -14,6 +14,26 @@ npm run dev          # http://localhost:3010
 The `--base=./` in the build script keeps asset paths relative, which is what
 GitHub Pages needs when it serves from a subpath.
 
+## What changed in this round
+
+- **A palette board image is now read, not sampled.** `src/paletteOcr.ts` finds
+  the swatches from the pixels and reads the name, HEX, CMYK and Pantone printed
+  on the board with OCR (Tesseract.js, in the browser), pairing each label with
+  its swatch. Before, every swatch came in as "Palette N" with a profile-derived
+  CMYK and the printed values were ignored. The HEX rule is under "Decisions".
+- **One reader for every colour notation**, `src/colorNotation.ts`, shared by the
+  OCR and the PDF / TXT / CSV document path. That path used to understand only
+  `C=100 M=96 Y=30 K=20` and `PANTONE 2756 C`; it now also takes
+  `CMYK: 100, 96, 30, 20`, `PANTONE: 2756 C`, `PMS 2756C`, named Pantones,
+  `RGB: 27, 21, 100`, and picks up the swatch name.
+- **Tesseract is self-hosted.** The plugin in `vite.config.ts` copies the worker,
+  the two LSTM engines and the English data out of `node_modules` into
+  `tesseract/` in the build (and serves them in dev). `publish.sh` and
+  `preview.sh` replace that folder along with `assets/`.
+- **Two new dependencies**, `tesseract.js` and `@tesseract.js-data/eng`. Run
+  `npm install` once after unpacking.
+- `npm run lint` is clean; see "Known rough edges" for what fixed it.
+
 ## What is in the box
 
 | path | what it is |
