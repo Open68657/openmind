@@ -20,7 +20,7 @@ echo "==> staging to $STAGE"
 # server does not lose the directory under its feet.
 mkdir -p "$STAGE/dist"
 cp "$APP_DIR/serve-dist.py" "$STAGE/serve.py"
-rm -rf "$STAGE/dist/assets"
+rm -rf "$STAGE/dist/assets" "$STAGE/dist/tesseract"
 cp -R "$APP_DIR/dist/." "$STAGE/dist/"
 
 echo "==> ready: http://localhost:3011  (start the 'logo-dist' preview)"

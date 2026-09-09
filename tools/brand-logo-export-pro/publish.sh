@@ -21,7 +21,7 @@ git clone --depth 1 "$PAGES_REPO" "$WORK/pages" >/dev/null 2>&1
 
 echo "==> replacing the build"
 # keep robots.txt / README.md / .nojekyll, swap everything the build owns
-rm -rf "$WORK/pages/assets" "$WORK/pages/index.html"
+rm -rf "$WORK/pages/assets" "$WORK/pages/tesseract" "$WORK/pages/index.html"
 cp -R "$APP_DIR/dist/." "$WORK/pages/"
 
 cd "$WORK/pages"

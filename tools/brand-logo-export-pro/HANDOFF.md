@@ -19,8 +19,11 @@ GitHub Pages needs when it serves from a subpath.
 | path | what it is |
 |---|---|
 | `src/App.tsx` | the entire app: 4 screens, SVG handling, PDF and ZIP generation |
+| `src/paletteOcr.ts` | the palette board reader: swatches from the pixels, values from OCR, labels paired with swatches |
+| `src/colorNotation.ts` | every notation a brand document writes HEX / RGB / CMYK / Pantone in, shared by the document reader and the OCR |
 | `src/cmykLut.ts` | 33³ lookup tables baked from real Adobe ICC profiles. Generated, do not hand-edit |
 | `src/constants.ts` | palette defaults, margins, profile list |
+| `vite.config.ts` | also the plugin that serves Tesseract's worker, engine and language data from `tesseract/` |
 | `scripts/build_cmyk_lut.py` | regenerates `cmykLut.ts` (Python + PIL/littleCMS) |
 | `preview.sh` | builds and stages the production build to `/tmp` for a local check |
 | `publish.sh` | builds and pushes `dist/` to the GitHub Pages repo |
@@ -53,6 +56,15 @@ Worth knowing before you "fix" any of these:
 - **Live `<text>` in an uploaded SVG blocks the whole flow**, not just the export.
   jsPDF silently substitutes Helvetica, so the shape would depend on the reader's
   fonts. The fix is Create Outlines in Illustrator and re-upload.
+- **A palette board is read by OCR, and the pixels have the last word on the HEX.**
+  Every flat area is a swatch; the text on the board is read with Tesseract.js in the
+  browser and each label block is paired with its swatch: by the colour it names when
+  that colour is on the board, by position otherwise. The printed HEX wins when it
+  lies within 48 RGB units of the swatch's own pixels (JPEG and colour management move
+  flat colours by a few units, a designer who fills with the RGB triplet and prints a
+  slightly different HEX by a few dozen); further away, the sampled colour is used.
+  OCR look-alikes (O/0, S/5, A/4...) are repaired by that same check. CMYK and Pantone
+  come only from the text; a board without them still gets profile-derived CMYK.
 - **Spot colours are written by hand into the PDF.** jsPDF has no Separation
   support, so `injectSpotColorSpaces` writes the operators into the content
   stream and splices the colour space into the page resources. That shifts every
@@ -63,13 +75,13 @@ Worth knowing before you "fix" any of these:
 
 - `vite.config.ts` still defines `process.env.GEMINI_API_KEY` from the original
   scaffold. Nothing reads it. Same for `.env.example`.
-- `npm run lint` (`tsc --noEmit`) reports three long-standing errors in
-  `App.tsx`: the `?raw` worker import, which tsc cannot resolve without Vite's
-  client types, and two `unknown` values in the file-drop handler. The build uses
-  esbuild and does not typecheck, so none of them affect the output. They were
-  there before this handoff.
+- `npm run lint` (`tsc --noEmit`) is clean. `src/vite-env.d.ts` brings in Vite's
+  client types (the `?raw` import, `import.meta.env`), and `Array.from<File>` in
+  the upload handler pins the element type tsc lost on `FileList | never[]`.
 - The main bundle is about 1.5MB. It is one file by choice, not by accident, but
-  code splitting is the obvious next win if load time ever matters.
+  code splitting is the obvious next win if load time ever matters. The OCR is
+  already split off: about 7MB (engine + English data) load only when a palette
+  image is uploaded, and the browser caches them.
 - The UI is RTL Hebrew. Numbers and filenames are forced `dir="ltr"`, and a
   continue arrow is `←` while back is `→`. Keep an arrow glyph where it sits in
   the string; bidi moves it to the right edge on its own.

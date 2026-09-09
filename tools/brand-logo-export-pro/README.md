@@ -43,6 +43,12 @@ tree stays private.
 
 - The app is client-side only. There is no API key and no backend, despite what
   the original AI Studio scaffold in `.env.example` implies.
+- A palette board image is read with OCR (Tesseract.js on WebAssembly) inside the
+  browser: the swatches come from the pixels, the name, HEX, CMYK and Pantone
+  printed on them from the text. The worker, the engine and the English language
+  data are served by the app itself under `tesseract/`, copied out of
+  `node_modules` by the plugin in `vite.config.ts`, so nothing is fetched from a
+  CDN and no image leaves the machine.
 - `src/cmykLut.ts` holds lookup tables baked from the real Adobe ICC profiles by
   `scripts/build_cmyk_lut.py`, which is why the CMYK matches Illustrator.
 - Uploaded SVGs must have their text converted to outlines. The app detects live

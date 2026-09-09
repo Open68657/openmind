@@ -23,6 +23,8 @@ import { jsPDF } from 'jspdf';
 import { svg2pdf } from 'svg2pdf.js';
 import { Asset, BrandColor, Background, OutputTargets } from './constants';
 import { CMYK_PROFILES, CmykProfileKey, GRID, getCmykLut } from './cmykLut';
+import { readAllCmyk, readAllHex, readAllRgb, readCmyk, readHex, readName, readPantone, readRgb } from './colorNotation';
+import { OcrProgress, readPaletteBoard, SwatchReading } from './paletteOcr';
 
 // Breathing room around the logo whenever it sits on a background (CMYK PDF and the rgb JPEG).
 const MARGIN_RATIO = 0.12;
@@ -319,34 +321,24 @@ const svgToRaster = (
 interface ColorDoc { text: string; blocks: string[] }
 interface ParsedColor { hex: string; cmyk: string; name: string; pantone?: string }
 
-const RE_HEX = /#[0-9A-Fa-f]{6}\b/;
-const RE_RGB = /R\s*[=:]\s*(\d{1,3})\s*G\s*[=:]\s*(\d{1,3})\s*B\s*[=:]\s*(\d{1,3})/i;
-const RE_CMYK = /C\s*[=:]\s*(\d{1,3})\s*M\s*[=:]\s*(\d{1,3})\s*Y\s*[=:]\s*(\d{1,3})\s*K\s*[=:]\s*(\d{1,3})/i;
-const RE_PANTONE = /PANTONE\s*\n?\s*([0-9]{3,4}\s*[a-zA-Z]?)/i;
-
-// One swatch block: whatever of hex / R=G=B= / CMYK / Pantone happens to be printed in it.
+// One swatch block: whatever of name / hex / RGB / CMYK / Pantone happens to be printed in
+// it, in any of the notations colorNotation.ts knows.
 const parseColorBlock = (block: string, profile: CmykProfileKey): ParsedColor | null => {
-  const hexM = block.match(RE_HEX);
-  const rgbM = block.match(RE_RGB);
-  const hex = hexM ? hexM[0].toUpperCase() : rgbM ? rgbToHex(+rgbM[1], +rgbM[2], +rgbM[3]).toUpperCase() : null;
+  const rgb = readRgb(block);
+  const hex = readHex(block) ?? (rgb ? rgbToHex(...rgb).toUpperCase() : null);
   if (!hex) return null;
-  const cmykM = block.match(RE_CMYK);
   const [r, g, b] = hexToRgb(hex);
-  const cmyk = cmykM ? `C:${cmykM[1]} M:${cmykM[2]} Y:${cmykM[3]} K:${cmykM[4]}` : calculateCMYK(r, g, b, profile);
-  const pM = block.match(RE_PANTONE);
-  const pantone = pM ? `PANTONE ${pM[1].trim().toUpperCase()}` : undefined;
-  return { hex, cmyk, name: pantone || '', pantone };
+  const cmyk = readCmyk(block) ?? calculateCMYK(r, g, b, profile);
+  const pantone = readPantone(block) ?? undefined;
+  return { hex, cmyk, name: readName(block) || pantone || '', pantone };
 };
 
 // Fallback for documents with no usable geometry (plain text, CSV, a flattened PDF):
 // anchor on the colors and attach the CMYK group that is closest to each one.
 const parseColorsFlat = (text: string, profile: CmykProfileKey): ParsedColor[] => {
-  const hexes = [...new Set((text.match(new RegExp(RE_HEX.source, 'g')) || []).map((h) => h.toUpperCase()))];
-  const rgbs = [...new Set([...text.matchAll(new RegExp(RE_RGB.source, 'gi'))].map((m) => rgbToHex(+m[1], +m[2], +m[3]).toUpperCase()))];
-  const cmyks = [...text.matchAll(new RegExp(RE_CMYK.source, 'gi'))].map((m) => {
-    const str = `C:${m[1]} M:${m[2]} Y:${m[3]} K:${m[4]}`;
-    return { str, rgb: hexToRgb(cmykToRgbHex(str)) };
-  });
+  const hexes = [...new Set(readAllHex(text))];
+  const rgbs = [...new Set(readAllRgb(text).map((c) => rgbToHex(...c).toUpperCase()))];
+  const cmyks = readAllCmyk(text).map((str) => ({ str, rgb: hexToRgb(cmykToRgbHex(str)) }));
   const base = hexes.length ? hexes : rgbs;
   const usedCmyk = new Set<number>();
   return base.map((hex, i) => {
@@ -739,6 +731,8 @@ const slug = (s: string) =>
   s.trim().toLowerCase().replace(/\.svg$/i, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'asset';
 
 const DEFAULT_NAMES = ['logo', 'symbol', 'variation-1', 'variation-2', 'variation-3', 'variation-4'];
+// Names the tool made up, which a name read from a document or a board may replace.
+const AUTO_NAME = /^(Color|Brand|Custom|Palette) \d+$/;
 
 const README = `BRAND LOGO EXPORT — color spaces / מרחבי צבע
 ================================================
@@ -785,6 +779,56 @@ sRGB, כולל ה-JPEG שנועד למי שאין לו תוכנה גרפית. ש
 בלי רקע בכלל; שילוב על רקע צבעוני מקבל את הרקע גם ב-PDF, כדי שלוגו לבן לא ייעלם.
 `;
 
+// Fold what was read off a palette board into the palette. A swatch whose color is already
+// there (from the logo, or read earlier) receives the board's exact values; the rest are added.
+const mergeReadings = (prev: BrandColor[], readings: SwatchReading[], profile: CmykProfileKey) => {
+  const next = prev.map((c) => ({ ...c }));
+  const seen = new Set<string>();
+  let updated = 0;
+  let added = 0;
+  for (const r of readings) {
+    const hex = normalizeHex(r.hex);
+    if (seen.has(hex)) continue;
+    seen.add(hex);
+    const rgb = hexToRgb(hex);
+    // Exact match first, then a near miss: a logo exported with #1B1563 is the brand's #1B1564.
+    let hit: BrandColor | undefined = next.find((c) => normalizeHex(c.rgbHex) === hex);
+    if (!hit) {
+      let bestD = 10;
+      for (const c of next) {
+        const d = getRgbDistance(hexToRgb(normalizeHex(c.rgbHex)), rgb);
+        if (d <= bestD) { bestD = d; hit = c; }
+      }
+    }
+    if (hit) {
+      const moved = normalizeHex(hit.rgbHex) !== hex;
+      hit.rgbHex = hex;
+      if (hit.source === 'manual') hit.originalHex = hex;
+      if (r.cmyk) { hit.cmyk = r.cmyk; hit.cmykExact = true; }
+      else if (moved && !hit.cmykExact) hit.cmyk = calculateCMYK(rgb[0], rgb[1], rgb[2], profile);
+      if (r.pantone) hit.pantone = r.pantone;
+      if (r.name && (!hit.name || AUTO_NAME.test(hit.name))) hit.name = r.name;
+      updated++;
+    } else {
+      next.push({
+        id: `img-${hex}-${Math.random().toString(36).slice(2, 6)}`,
+        originalHex: hex,
+        name: r.name || `Palette ${next.length + 1}`,
+        rgbHex: hex,
+        cmyk: r.cmyk ?? calculateCMYK(rgb[0], rgb[1], rgb[2], profile),
+        cmykExact: !!r.cmyk,
+        pantone: r.pantone,
+        source: 'image',
+      });
+      added++;
+    }
+  }
+  return { next, updated, added };
+};
+
+const ocrStatus = (p: OcrProgress): string =>
+  p.stage === 'engine' ? 'טוען מנוע OCR…' : p.stage === 'read' ? `קורא טקסט ${p.done + 1}/${p.total}…` : 'מחפש משבצות…';
+
 // ================================================================
 export default function App() {
   const [step, setStep] = useState(1);
@@ -794,6 +838,7 @@ export default function App() {
     { id: 'bg-white', name: 'full-on-white', color: '#FFFFFF', logoColors: {} },
   ]);
   const [paletteFileName, setPaletteFileName] = useState<string | null>(null);
+  const [paletteStatus, setPaletteStatus] = useState<string | null>(null);
   const [docFileName, setDocFileName] = useState<string | null>(null);
   const [docStatus, setDocStatus] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -805,6 +850,10 @@ export default function App() {
   const fileRef = useRef<HTMLInputElement>(null);
   const paletteRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
+  // The palette as last rendered, for the board reader: it finishes long after the
+  // closure that started it, and must fold its result into what is on screen by then.
+  const colorsRef = useRef(colors);
+  colorsRef.current = colors;
 
   const mergePalette = (svgStr: string) => {
     setColors((prev) => {
@@ -828,7 +877,7 @@ export default function App() {
   };
 
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    Array.from(e.target.files || []).forEach((file) => {
+    Array.from<File>(e.target.files || []).forEach((file) => {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const content = flattenSvgPaint(ev.target?.result as string);
@@ -875,7 +924,7 @@ export default function App() {
             cmykExact: true,
             pantone: f.pantone ?? c.pantone,
             // Only replace a name the tool invented, never one the user typed.
-            name: f.pantone && /^(Color|Brand|Custom) \d+$/.test(c.name) ? f.pantone : c.name,
+            name: f.name && !AUTO_NAME.test(f.name) && AUTO_NAME.test(c.name) ? f.name : c.name,
           };
         });
 
@@ -901,21 +950,41 @@ export default function App() {
     }
   };
 
-  const handlePaletteImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Palette board image: swatches from the pixels, values from the text printed on them.
+  // An image with no flat swatches (a photo, a gradient) falls back to pixel sampling.
+  const handlePaletteImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
     setPaletteFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const url = ev.target?.result as string;
-      const found = await extractColorsFromImage(url, colors, cmykProfile);
-      setColors((prev) => {
-        const have = new Set(prev.map((c) => c.originalHex.toUpperCase()));
-        return [...prev, ...found.filter((c) => !have.has(c.originalHex.toUpperCase()))];
+    setPaletteStatus('מחפש משבצות…');
+    try {
+      const url = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
       });
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+      const readings = await readPaletteBoard(url, (p) => setPaletteStatus(ocrStatus(p)));
+      if (readings.length === 0) {
+        const found = await extractColorsFromImage(url, colorsRef.current, cmykProfile);
+        setColors((prev) => {
+          const have = new Set(prev.map((c) => c.originalHex.toUpperCase()));
+          return [...prev, ...found.filter((c) => !have.has(c.originalHex.toUpperCase()))];
+        });
+        setPaletteStatus(found.length ? `לא זוהו משבצות, ${found.length} צבעים נדגמו מהפיקסלים` : 'לא נמצאו צבעים בתמונה');
+        return;
+      }
+      const { next, updated, added } = mergeReadings(colorsRef.current, readings, cmykProfile);
+      setColors(next);
+      const read = readings.filter((r) => r.name || r.cmyk || r.pantone).length;
+      const parts = [`${readings.length} משבצות זוהו`, read ? `${read} עם ערכים כתובים` : 'בלי ערכים כתובים'];
+      if (updated) parts.push(`${updated} צבעים קיימים עודכנו`);
+      if (added) parts.push(`${added} נוספו`);
+      setPaletteStatus(parts.join(' · '));
+    } catch (err) {
+      setPaletteStatus(`שגיאה בקריאת התמונה: ${err}`);
+    }
   };
 
   const updateAssetName = (id: string, name: string) => setAssets((prev) => prev.map((a) => (a.id === id ? { ...a, name } : a)));
@@ -1361,13 +1430,13 @@ export default function App() {
                   <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 grid place-items-center shrink-0"><ImageIcon size={18} /></div>
                   <div className="min-w-0">
                     <div className="font-bold text-sm">תמונת פלטה <span className="text-black/30 font-normal">(רשות)</span></div>
-                    <div className="text-xs text-black/45 mt-0.5">תמונה שרואים בה את <b>צבעי המותג</b>, בלי ערכים כתובים. הצבעים <b>נדגמים מהפיקסלים</b> — כדאי לאמת אחר כך.</div>
+                    <div className="text-xs text-black/45 mt-0.5">לוח צבעים של המותג. המשבצות <b>נדגמות מהפיקסלים</b>, והערכים הכתובים עליהן (שם, HEX, CMYK, פנטון) <b>נקראים מהתמונה</b> בתוך הדפדפן. כדאי לעבור על התוצאה.</div>
                     <div className="text-[10px] text-black/30 mt-1">JPG · PNG · WebP</div>
                   </div>
                 </div>
                 <button onClick={() => paletteRef.current?.click()} className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-4 py-2 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all"><Upload size={14} /> העלאת תמונה</button>
                 <input ref={paletteRef} type="file" accept="image/*" className="hidden" onChange={handlePaletteImage} />
-                {paletteFileName && <div className="text-xs text-black/50 truncate"><b>{paletteFileName}</b> — נטענה</div>}
+                {paletteFileName && <div className="text-xs text-black/50 truncate"><b>{paletteFileName}</b>{paletteStatus ? ` · ${paletteStatus}` : ''}</div>}
               </div>
 
               {/* 2. Guidelines document — exact defined values */}
