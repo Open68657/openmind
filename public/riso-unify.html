@@ -144,7 +144,9 @@ button:disabled { opacity: .45; cursor: default; }
 .srcgrid { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 8px; align-items: center; }
 .srcgrid .lab { color: var(--muted); font-size: 11.5px; }
 .pair { display: flex; align-items: center; gap: 4px; }
-.pair .sw { width: 26px; height: 26px; border-radius: 6px; border: 1px solid rgba(255,255,255,.18); }
+.pair .sw { width: 26px; height: 26px; border-radius: 6px; border: 1px solid rgba(255,255,255,.18); overflow: hidden; display: inline-block; cursor: pointer; flex: 0 0 auto; }
+.pair .sw input[type=color] { width: 40px; height: 40px; margin: -8px; border: 0; padding: 0; background: none; cursor: pointer; display: block; }
+.pair .sw:hover { border-color: #fff; }
 .pair .arrow { color: var(--faint); font-size: 12px; }
 .pair input.hex { width: 74px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; }
 .pair input.hex.bad { border-color: var(--err); }
@@ -260,16 +262,16 @@ table.series td.nm { max-width: 90px; white-space: nowrap; overflow: hidden; tex
             <button class="btn xs" id="btnSwapInks" title="החלפה בין A ל-B">⇄ החלפה בין A ל-B</button>
             <button class="btn xs" id="btnRedetect" title="זיהוי מחדש של הנייר וצבעי הדיו במקור">זיהוי אוטומטי מחדש</button>
           </div>
-          <div class="hint">צבעי המקור שזוהו ← הצבע שיוחלף בו. אפשר לתקן עם הטפטפת (לחיצה על האיור) או בהקלדת hex.</div>
+          <div class="hint">צבעי המקור שזוהו ← הצבע הרצוי. תיקון המקור: טפטפת (לחיצה על האיור), לחיצה על הריבוע השמאלי או הקלדת hex. לחיצה על הריבוע הימני משנה את הצבע הרצוי בפלטת הסדרה.</div>
           <div class="srcgrid" id="srcGrid">
             <span class="lab">דיו A</span>
-            <div class="pair"><span class="sw" id="swSrcA"></span><input class="hex mono" id="hexSrcA" maxlength="7"><span class="arrow">←</span><span class="sw" id="swTgtA"></span></div>
+            <div class="pair"><label class="sw" id="swSrcA" title="צבע דיו A במקור: לחיצה פותחת בוחר צבע"><input type="color" id="pickSrcA"></label><input class="hex mono" id="hexSrcA" maxlength="7"><span class="arrow">←</span><label class="sw" id="swTgtA" title="הצבע הרצוי לדיו A: לחיצה משנה את המשבצת בפלטת הסדרה (משפיע על כל האיורים)"><input type="color" id="pickTgtA"></label></div>
             <button class="iconbtn" id="eyeA" title="טפטפת: לחצי על אזור מלא של דיו A באיור">💧</button>
             <span class="lab">דיו B</span>
-            <div class="pair"><span class="sw" id="swSrcB"></span><input class="hex mono" id="hexSrcB" maxlength="7"><span class="arrow">←</span><span class="sw" id="swTgtB"></span></div>
+            <div class="pair"><label class="sw" id="swSrcB" title="צבע דיו B במקור: לחיצה פותחת בוחר צבע"><input type="color" id="pickSrcB"></label><input class="hex mono" id="hexSrcB" maxlength="7"><span class="arrow">←</span><label class="sw" id="swTgtB" title="הצבע הרצוי לדיו B: לחיצה משנה את המשבצת בפלטת הסדרה (משפיע על כל האיורים)"><input type="color" id="pickTgtB"></label></div>
             <button class="iconbtn" id="eyeB" title="טפטפת: לחצי על אזור מלא של דיו B באיור">💧</button>
             <span class="lab">נייר</span>
-            <div class="pair"><span class="sw" id="swSrcP"></span><input class="hex mono" id="hexSrcP" maxlength="7"><span class="arrow">←</span><span class="sw" id="swTgtP"></span></div>
+            <div class="pair"><label class="sw" id="swSrcP" title="צבע הנייר במקור: לחיצה פותחת בוחר צבע"><input type="color" id="pickSrcP"></label><input class="hex mono" id="hexSrcP" maxlength="7"><span class="arrow">←</span><label class="sw" id="swTgtP" title="צבע הנייר בפלט (לכל הסדרה)"><input type="color" id="pickTgtP"></label></div>
             <button class="iconbtn" id="eyeP" title="טפטפת: לחצי על אזור נייר ריק באיור">💧</button>
           </div>
           <div class="checkrow"><input type="checkbox" id="paperWhite"><label for="paperWhite">הנייר במקור כבר לבן טהור (בלי נרמול נייר)</label></div>
@@ -1321,7 +1323,11 @@ function buildPalette() {
 }
 function setPaletteHex(i, hex) {
   state.project.palette[i].hex = hex.toUpperCase();
-  $("palette").querySelectorAll(".ink-slot")[i].querySelector(".sw").style.background = hex;
+  const slotEl = $("palette").querySelectorAll(".ink-slot")[i];
+  slotEl.querySelector(".sw").style.background = hex;
+  const ci = slotEl.querySelector("input[type=color]"); if (ci.value.toLowerCase() !== hex.toLowerCase()) ci.value = hex;
+  const sel = slotEl.querySelector("select"), preset = RISO_INKS.find(k => k[1].toLowerCase() === hex.toLowerCase());
+  sel.value = preset ? preset[1] : ""; state.project.palette[i].ink = preset ? preset[0] : ""; sel.title = "דיו ריזו רשמי · " + hex.toUpperCase();
   for (const img of state.images) { if (img.s.inks.includes(i)) { updateSheetOne(img); } }
   syncPanel(); requestDraw(); renderList(); renderSeriesTable(); persist();
 }
@@ -1418,10 +1424,11 @@ function syncPanel() {
   $("tagInks").textContent = `${P[s.inks[0]].name} + ${P[s.inks[1]].name}`;
   // source ↔ target swatches
   const paper = paperOf(img);
-  $("swSrcA").style.background = rgbToHex(s.srcA); $("hexSrcA").value = rgbToHex(s.srcA); $("swTgtA").style.background = P[s.inks[0]].hex;
-  $("swSrcB").style.background = rgbToHex(s.srcB); $("hexSrcB").value = rgbToHex(s.srcB); $("swTgtB").style.background = P[s.inks[1]].hex;
-  $("swSrcP").style.background = rgbToHex(paper); $("hexSrcP").value = rgbToHex(paper); $("swTgtP").style.background = state.project.paperOut;
-  $("hexSrcP").disabled = s.paperMode === "white"; $("eyeP").disabled = s.paperMode === "white";
+  const setPick = (id, hex) => { const el = $(id); if (el.value.toLowerCase() !== hex.toLowerCase()) el.value = hex; };
+  $("hexSrcA").value = rgbToHex(s.srcA); setPick("pickSrcA", rgbToHex(s.srcA)); setPick("pickTgtA", P[s.inks[0]].hex);
+  $("hexSrcB").value = rgbToHex(s.srcB); setPick("pickSrcB", rgbToHex(s.srcB)); setPick("pickTgtB", P[s.inks[1]].hex);
+  $("hexSrcP").value = rgbToHex(paper); setPick("pickSrcP", rgbToHex(paper)); setPick("pickTgtP", state.project.paperOut);
+  $("hexSrcP").disabled = s.paperMode === "white"; $("eyeP").disabled = s.paperMode === "white"; $("pickSrcP").disabled = s.paperMode === "white";
   $("dotA").style.background = P[s.inks[0]].hex; $("dotB").style.background = P[s.inks[1]].hex;
   $("nameA").textContent = "דיו A · " + P[s.inks[0]].name; $("nameB").textContent = "דיו B · " + P[s.inks[1]].name;
   syncFit(img); syncMisMm(img); syncMetricsText(img);
@@ -1764,6 +1771,18 @@ function bindEvents() {
   $("btnSwapInks").addEventListener("click", () => { const img = current(); if (img) swapInks(img); });
   $("btnRedetect").addEventListener("click", () => { const img = current(); if (!img) return; img.s.srcAuto = true; if (img.s.paperMode === "manual") img.s.paperMode = "auto"; img.s.inksAuto = true; analyzeImage(img, { initial: true }); afterUnmixChange(img); setStatus("הנייר וצבעי הדיו זוהו מחדש."); });
   for (const k of ["A", "B", "P"]) $("eye" + k).addEventListener("click", () => setEyedrop(state.view.eyedrop === k ? null : k));
+  // colour pickers: source side (manual override) and target side (series palette / output paper)
+  const bindSrcPick = (id, apply) => {
+    const el = $(id);
+    el.addEventListener("input", () => { const img = current(); const rgb = hexToRgb(el.value); if (!img || !rgb) return; apply(img.s, rgb); invalidateCov(img); $("hexSrc" + id.slice(-1)).value = el.value; requestDraw(); });
+    el.addEventListener("change", () => { const img = current(); if (!img) return; if (img.s.modelAuto) analyzeImage(img, { keepInks: true }); else updateFit(img); afterUnmixChange(img); });
+  };
+  bindSrcPick("pickSrcA", (s, rgb) => { s.srcA = rgb; s.srcAuto = false; });
+  bindSrcPick("pickSrcB", (s, rgb) => { s.srcB = rgb; s.srcAuto = false; });
+  bindSrcPick("pickSrcP", (s, rgb) => { s.paperRgb = rgb; s.paperMode = "manual"; });
+  $("pickTgtA").addEventListener("input", () => { const img = current(); if (img) setPaletteHex(img.s.inks[0], $("pickTgtA").value); });
+  $("pickTgtB").addEventListener("input", () => { const img = current(); if (img) setPaletteHex(img.s.inks[1], $("pickTgtB").value); });
+  $("pickTgtP").addEventListener("input", () => { state.project.paperOut = $("pickTgtP").value; $("paperOut").value = state.project.paperOut; requestDraw(); updateSheetAll(); persist(); });
   bindHex("hexSrcA", (s, rgb) => { s.srcA = rgb; s.srcAuto = false; });
   bindHex("hexSrcB", (s, rgb) => { s.srcB = rgb; s.srcAuto = false; });
   bindHex("hexSrcP", (s, rgb) => { s.paperRgb = rgb; s.paperMode = "manual"; });
@@ -1785,7 +1804,7 @@ function bindEvents() {
   $("expSep").addEventListener("change", () => { state.project.sep = $("expSep").checked; persist(); });
   $("btnExportOne").addEventListener("click", exportCurrent);
   $("btnExportAll").addEventListener("click", exportAll);
-  $("paperOut").addEventListener("input", () => { state.project.paperOut = $("paperOut").value; $("swTgtP").style.background = state.project.paperOut; requestDraw(); updateSheetAll(); persist(); });
+  $("paperOut").addEventListener("input", () => { state.project.paperOut = $("paperOut").value; $("pickTgtP").value = state.project.paperOut; requestDraw(); updateSheetAll(); persist(); });
   $("btnSaveProject").addEventListener("click", () => saveBlob("open-riso-project.json", new Blob([JSON.stringify(serializeProject(), null, 2)], { type: "application/json" })));
   $("btnLoadProject").addEventListener("click", () => $("projectFile").click());
   $("projectFile").addEventListener("change", async () => { const f = $("projectFile").files[0]; $("projectFile").value = ""; if (!f) return; try { restoreProject(JSON.parse(await f.text())); setStatus("הפרויקט נטען."); persist(); } catch (e) { setStatus("קובץ הפרויקט לא תקין."); } });
