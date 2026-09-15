@@ -1,0 +1,1792 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Open Riso: כיול סדרתי לאיורים בסגנון ריזוגרף. פירוק כל איור לשתי שכבות דיו, החלפה לפלטת הסדרה, נייר לבן, גרעיניות וסטיית רישום אחידים.">
+<title>Open Riso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap">
+<style>
+:root {
+  --bg: #101217; --panel: #171a22; --panel-2: #1e2230; --panel-3: #262b39; --border: #2a2f3d; --border-2: #363c4d;
+  --text: #e8eaef; --muted: #9aa1b0; --faint: #6b7280;
+  --accent: #ff4d9d; --accent-2: #8b5cf6; --ok: #34d399; --warn: #fbbf24; --err: #f87171;
+  --stage: #33363f; --radius: 12px; --radius-s: 8px;
+  --font: "Heebo", "Assistant", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; line-height: 1.45; -webkit-font-smoothing: antialiased; overflow: hidden; }
+button, input, select { font-family: inherit; font-size: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { opacity: .45; cursor: default; }
+:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--mono); direction: ltr; unicode-bidi: isolate; font-size: 12px; }
+
+/* ---------- app frame ---------- */
+.app { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+.topbar { display: flex; align-items: center; gap: 18px; padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap; }
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand .logo { font-weight: 800; font-size: 20px; letter-spacing: -.01em; background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand .tagline { color: var(--muted); font-size: 12px; }
+.palette { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-inline-start: auto; }
+.palette .lbl { color: var(--muted); font-size: 12px; margin-inline-end: 4px; }
+.ink-slot { display: grid; grid-template-columns: 28px auto; grid-template-rows: auto auto; gap: 2px 8px; align-items: center; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 4px 8px 4px 6px; }
+.ink-slot .sw { grid-row: 1 / span 2; width: 28px; height: 28px; border-radius: 6px; border: 1px solid rgba(255,255,255,.15); padding: 0; background: none; overflow: hidden; }
+.ink-slot input[type=color] { width: 40px; height: 40px; margin: -6px; border: 0; padding: 0; background: none; cursor: pointer; }
+.ink-slot .nm { font-weight: 700; font-size: 12px; line-height: 1.1; }
+.ink-slot select { background: transparent; border: 0; color: var(--muted); font-size: 11px; padding: 0; max-width: 112px; line-height: 1.1; cursor: pointer; }
+.ink-slot select:hover { color: var(--text); }
+.paper-out { display: flex; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-s); padding: 4px 8px; font-size: 12px; color: var(--muted); }
+.paper-out input[type=color] { width: 24px; height: 24px; border: 1px solid var(--border-2); border-radius: 6px; padding: 0; background: none; cursor: pointer; }
+.top-actions { display: flex; gap: 6px; }
+
+.work { display: grid; grid-template-columns: 232px minmax(0, 1fr) 336px; min-height: 0; }
+.rail, .panel { background: var(--panel); border-inline-end: 1px solid var(--border); overflow-y: auto; min-height: 0; }
+.panel { border-inline-end: 0; border-inline-start: 1px solid var(--border); }
+.stage { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; background: var(--stage); }
+.statusbar { display: flex; align-items: center; gap: 12px; padding: 5px 16px; border-top: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 12px; min-height: 30px; }
+.progress { width: 180px; height: 6px; background: var(--panel-3); border-radius: 3px; overflow: hidden; display: none; }
+.progress .bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .15s; }
+.progress.on { display: block; }
+
+/* ---------- buttons ---------- */
+.btn { border: 1px solid var(--border-2); background: var(--panel-2); border-radius: var(--radius-s); padding: 6px 12px; font-weight: 600; font-size: 12.5px; line-height: 1.3; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--faint); background: var(--panel-3); }
+.btn.primary { background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-color: transparent; color: #fff; }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.sm { padding: 3px 8px; font-size: 12px; }
+.btn.xs { padding: 1px 6px; font-size: 11px; font-weight: 500; }
+.btn.on { border-color: var(--accent); color: #fff; background: rgba(255,77,157,.14); }
+.btn.danger:hover:not(:disabled) { border-color: var(--err); color: var(--err); }
+.seg { display: inline-flex; border: 1px solid var(--border-2); border-radius: var(--radius-s); overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 5px 10px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.seg button + button { border-inline-start: 1px solid var(--border-2); }
+.seg button.on { background: var(--panel-3); color: #fff; }
+.seg button:hover:not(.on) { color: var(--text); }
+
+/* ---------- rail (image list) ---------- */
+.rail { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+.dropzone { border: 2px dashed var(--border-2); border-radius: var(--radius); padding: 16px 10px; text-align: center; cursor: pointer; color: var(--muted); transition: border-color .15s, background .15s; }
+.dropzone:hover { border-color: var(--accent-2); }
+.dropzone.drag { border-color: var(--accent); background: rgba(255,77,157,.06); }
+.dropzone b { display: block; color: var(--text); font-size: 13px; margin-bottom: 2px; }
+.dropzone small { font-size: 11px; }
+.imglist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.imgitem { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px; border-radius: var(--radius-s); border: 1px solid transparent; cursor: pointer; background: var(--panel-2); }
+.imgitem:hover { border-color: var(--border-2); }
+.imgitem.sel { border-color: var(--accent); background: rgba(255,77,157,.08); }
+.imgitem canvas { width: 56px; height: 42px; object-fit: contain; border-radius: 4px; background: repeating-conic-gradient(#2a2f3d 0 25%, #232734 0 50%) 50% / 12px 12px; display: block; }
+.imgitem .nm { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: ltr; text-align: right; }
+.imgitem .meta { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.imgitem .rm { background: none; border: 0; color: var(--faint); font-size: 16px; line-height: 1; padding: 2px 4px; }
+.imgitem .rm:hover { color: var(--err); }
+.dots { display: inline-flex; gap: 2px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25); display: inline-block; }
+.badge { font-size: 10.5px; padding: 1px 6px; border-radius: 999px; font-weight: 700; }
+.badge.ok { background: rgba(52,211,153,.15); color: var(--ok); }
+.badge.warn { background: rgba(251,191,36,.15); color: var(--warn); }
+.badge.err { background: rgba(248,113,113,.15); color: var(--err); }
+.badge.dim { background: var(--panel-3); color: var(--muted); }
+.rail .empty { color: var(--faint); text-align: center; font-size: 12px; padding: 10px; }
+
+/* ---------- stage ---------- */
+.stage-toolbar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; flex-wrap: wrap; background: rgba(0,0,0,.18); border-bottom: 1px solid rgba(0,0,0,.25); }
+.stage-toolbar .spacer { flex: 1; }
+.stage-toolbar .hint { color: var(--muted); font-size: 11.5px; }
+.canvas-wrap { position: relative; overflow: hidden; min-height: 0; }
+.canvas-wrap canvas.view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+.canvas-wrap.eyedrop canvas.view { cursor: crosshair; }
+.canvas-wrap.panning canvas.view { cursor: grabbing; }
+.split-handle { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5); cursor: ew-resize; display: none; }
+.split-handle::after { content: "◂ ▸"; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: #fff; color: #111; font-size: 10px; padding: 2px 6px; border-radius: 999px; white-space: nowrap; }
+.canvas-wrap.split .split-handle { display: block; }
+.loupe { position: absolute; width: 220px; height: 220px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 6px 24px rgba(0,0,0,.5); overflow: hidden; pointer-events: none; display: none; background: #fff; }
+.loupe canvas { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+.loupe .tag { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 11px; color: #111; background: rgba(255,255,255,.85); padding: 1px 0; }
+.canvas-wrap .placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); text-align: center; padding: 20px; }
+.canvas-wrap .placeholder .big { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.sheet { border-top: 1px solid rgba(0,0,0,.3); background: rgba(0,0,0,.18); padding: 8px 12px; display: flex; gap: 10px; overflow-x: auto; min-height: 0; }
+.sheet:empty { display: none; }
+.sheet .cell { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; align-items: center; cursor: pointer; }
+.sheet .cell canvas { height: 96px; width: auto; display: block; border-radius: 4px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.sheet .cell.sel canvas { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sheet .cell span { font-size: 10.5px; color: var(--muted); max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: ltr; }
+
+/* ---------- control panel ---------- */
+.panel { padding: 6px 0 40px; }
+.panel details { border-bottom: 1px solid var(--border); }
+.panel summary { list-style: none; cursor: pointer; padding: 10px 14px; font-weight: 800; font-size: 13px; display: flex; align-items: center; gap: 8px; user-select: none; }
+.panel summary::-webkit-details-marker { display: none; }
+.panel summary::before { content: "▸"; color: var(--faint); font-size: 11px; transition: transform .15s; }
+.panel details[open] summary::before { transform: rotate(90deg); }
+.panel summary .tag { margin-inline-start: auto; font-weight: 500; font-size: 11px; color: var(--muted); }
+.panel .body { padding: 2px 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; }
+.row label { color: var(--text); font-size: 12.5px; }
+.row .val { color: var(--muted); font-size: 12px; min-width: 52px; text-align: left; direction: ltr; }
+.row input[type=range] { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--accent-2); height: 22px; }
+.row .sub { grid-column: 1 / -1; color: var(--faint); font-size: 11px; margin-top: -4px; }
+.row.disabled { opacity: .45; }
+.hint { color: var(--muted); font-size: 11.5px; line-height: 1.5; }
+.hint b { color: var(--text); }
+.warnbox { border: 1px solid rgba(251,191,36,.4); background: rgba(251,191,36,.08); color: var(--warn); border-radius: var(--radius-s); padding: 6px 10px; font-size: 11.5px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-2); border-radius: 999px; padding: 4px 10px 4px 6px; background: var(--panel-2); font-weight: 600; font-size: 12px; position: relative; }
+.chip .dot { width: 16px; height: 16px; }
+.chip.on { border-color: #fff; background: var(--panel-3); }
+.chip .role { position: absolute; top: -7px; inset-inline-end: -4px; font-size: 9.5px; font-weight: 800; background: var(--accent); color: #fff; border-radius: 999px; padding: 0 5px; }
+.chip.on.b .role { background: var(--accent-2); }
+.srcgrid { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 8px; align-items: center; }
+.srcgrid .lab { color: var(--muted); font-size: 11.5px; }
+.pair { display: flex; align-items: center; gap: 4px; }
+.pair .sw { width: 26px; height: 26px; border-radius: 6px; border: 1px solid rgba(255,255,255,.18); }
+.pair .arrow { color: var(--faint); font-size: 12px; }
+.pair input.hex { width: 74px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; }
+.pair input.hex.bad { border-color: var(--err); }
+.iconbtn { border: 1px solid var(--border-2); background: var(--panel-2); border-radius: 6px; width: 28px; height: 28px; display: inline-grid; place-items: center; font-size: 14px; }
+.iconbtn.on { border-color: var(--accent); background: rgba(255,77,157,.14); }
+.checkrow { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.checkrow input { accent-color: var(--accent-2); width: 15px; height: 15px; margin: 0; }
+.inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.inline input[type=number] { width: 70px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; direction: ltr; }
+.inline select { background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 12px; }
+.kv .k { color: var(--muted); }
+.fitbar { height: 6px; border-radius: 3px; background: var(--panel-3); overflow: hidden; }
+.fitbar i { display: block; height: 100%; background: var(--ok); }
+.fitbar.warn i { background: var(--warn); }
+.fitbar.err i { background: var(--err); }
+.ink-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ink-cols h4 { margin: 0 0 4px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+table.series { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+table.series th { text-align: right; color: var(--muted); font-weight: 600; padding: 4px 4px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.series td { padding: 4px 4px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+table.series tr.sel td { background: rgba(255,77,157,.08); }
+table.series td.nm { max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: ltr; text-align: right; cursor: pointer; }
+.tex { display: inline-flex; align-items: center; gap: 4px; }
+.tex i { display: inline-block; width: 40px; height: 5px; background: var(--panel-3); border-radius: 3px; overflow: hidden; position: relative; }
+.tex i b { position: absolute; inset-inline-start: 0; top: 0; bottom: 0; background: var(--accent-2); }
+.tex i s { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #fff; text-decoration: none; }
+
+@media (max-width: 1040px) {
+  body { overflow: auto; }
+  .app { height: auto; grid-template-rows: auto auto auto; }
+  .work { grid-template-columns: 1fr; }
+  .stage { height: 70vh; }
+  .rail, .panel { border: 0; border-top: 1px solid var(--border); max-height: none; }
+  .rail { order: 2; } .panel { order: 3; } .stage { order: 1; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div id="app" class="app">
+  <header class="topbar">
+    <div class="brand"><span class="logo">Open Riso</span><span class="tagline">כיול סדרתי לאיורים בסגנון ריזוגרף</span></div>
+    <div class="palette" id="palette"><span class="lbl">פלטת הדיו של הסדרה</span></div>
+    <div class="paper-out"><span>נייר בפלט</span><input type="color" id="paperOut" value="#ffffff" title="צבע הנייר בקבצים המיוצאים (ברירת מחדל: לבן טהור)"></div>
+    <div class="top-actions">
+      <button class="btn" id="btnSaveProject" title="שמירת הפלטה וכל ההגדרות לקובץ JSON">שמירת פרויקט</button>
+      <button class="btn" id="btnLoadProject">טעינת פרויקט</button>
+      <input type="file" id="projectFile" accept="application/json" hidden>
+    </div>
+  </header>
+
+  <main class="work">
+    <aside class="rail">
+      <div class="dropzone" id="dropzone">
+        <b>גררי לכאן איורים</b>
+        <small>או לחצי לבחירה · PNG / JPG / TIFF · הכול נשאר בדפדפן</small>
+        <input type="file" id="fileInput" accept="image/*" multiple hidden>
+      </div>
+      <ul class="imglist" id="imglist"></ul>
+      <div class="empty" id="listEmpty">עדיין אין איורים בסדרה.</div>
+      <div class="inline" id="listActions" hidden>
+        <button class="btn xs danger" id="btnClearAll">נקי הכול</button>
+      </div>
+    </aside>
+
+    <section class="stage">
+      <div class="stage-toolbar">
+        <div class="seg" id="viewModes">
+          <button data-mode="original">מקור</button>
+          <button data-mode="result" class="on">תוצאה</button>
+          <button data-mode="split">פיצול</button>
+          <button data-mode="inkA">דיו A</button>
+          <button data-mode="inkB">דיו B</button>
+          <button data-mode="residual">שארית</button>
+        </div>
+        <div class="seg" id="zoomCtl">
+          <button data-zoom="fit" class="on">התאמה</button>
+          <button data-zoom="0.5">50%</button>
+          <button data-zoom="1">100%</button>
+          <button data-zoom="2">200%</button>
+        </div>
+        <button class="btn sm" id="btnLoupe" title="זכוכית מגדלת ברזולוציה מלאה מתחת לסמן">🔍 מגדלת</button>
+        <span class="spacer"></span>
+        <span class="hint" id="stageHint">רווח = הצגת המקור · גלגלת = זום · גרירה = הזזה</span>
+      </div>
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas class="view" id="view"></canvas>
+        <div class="split-handle" id="splitHandle"></div>
+        <div class="loupe" id="loupe"><canvas id="loupeCanvas" width="110" height="110"></canvas><div class="tag">100%</div></div>
+        <div class="placeholder" id="placeholder"><div><div class="big">אין עדיין איור נבחר</div>גררי איורים לרשימה מימין, בחרי שני צבעי דיו מהפלטה, והכלי יפרק כל איור לשתי שכבות דיו על נייר לבן.</div></div>
+      </div>
+      <div class="sheet" id="sheet"></div>
+    </section>
+
+    <aside class="panel" id="panel">
+      <details open>
+        <summary>דיו <span class="tag" id="tagInks"></span></summary>
+        <div class="body">
+          <div class="hint">בחרי את שני צבעי הדיו של האיור הזה מתוך פלטת הסדרה. הראשון הוא <b>A</b>, השני <b>B</b>.</div>
+          <div class="chips" id="inkChips"></div>
+          <div class="inline">
+            <button class="btn xs" id="btnSwapInks" title="החלפה בין A ל-B">⇄ החלפה בין A ל-B</button>
+            <button class="btn xs" id="btnRedetect" title="זיהוי מחדש של הנייר וצבעי הדיו במקור">זיהוי אוטומטי מחדש</button>
+          </div>
+          <div class="hint">צבעי המקור שזוהו ← הצבע שיוחלף בו. אפשר לתקן עם הטפטפת (לחיצה על האיור) או בהקלדת hex.</div>
+          <div class="srcgrid" id="srcGrid">
+            <span class="lab">דיו A</span>
+            <div class="pair"><span class="sw" id="swSrcA"></span><input class="hex mono" id="hexSrcA" maxlength="7"><span class="arrow">←</span><span class="sw" id="swTgtA"></span></div>
+            <button class="iconbtn" id="eyeA" title="טפטפת: לחצי על אזור מלא של דיו A באיור">💧</button>
+            <span class="lab">דיו B</span>
+            <div class="pair"><span class="sw" id="swSrcB"></span><input class="hex mono" id="hexSrcB" maxlength="7"><span class="arrow">←</span><span class="sw" id="swTgtB"></span></div>
+            <button class="iconbtn" id="eyeB" title="טפטפת: לחצי על אזור מלא של דיו B באיור">💧</button>
+            <span class="lab">נייר</span>
+            <div class="pair"><span class="sw" id="swSrcP"></span><input class="hex mono" id="hexSrcP" maxlength="7"><span class="arrow">←</span><span class="sw" id="swTgtP"></span></div>
+            <button class="iconbtn" id="eyeP" title="טפטפת: לחצי על אזור נייר ריק באיור">💧</button>
+          </div>
+          <div class="checkrow"><input type="checkbox" id="paperWhite"><label for="paperWhite">הנייר במקור כבר לבן טהור (בלי נרמול נייר)</label></div>
+          <div class="kv">
+            <span class="k">התאמת מודל שני הדיו</span><span><span id="fitText" class="num">—</span><div class="fitbar" id="fitBar"><i style="width:0"></i></div></span>
+          </div>
+          <div class="hint" id="fitHint">ככל שההתאמה גבוהה יותר, האיור מוסבר טוב יותר על ידי שני צבעי דיו בלבד. תצוגת <b>שארית</b> מראה איפה יש צבע שלישי.</div>
+          <div class="row">
+            <label for="model">מודל גוון (n)</label><span class="val num" id="modelVal"></span>
+            <input type="range" id="model" min="1" max="7" step="0.5" value="2">
+            <span class="sub">1 = נקודות רסטר (שטח כיסוי) · גבוה = שכבת דיו רציפה. "אוטומטי" בוחר את מה שמסביר את האיור הכי טוב.</span>
+          </div>
+          <div class="checkrow"><input type="checkbox" id="modelAuto" checked><label for="modelAuto">בחירה אוטומטית של המודל</label></div>
+        </div>
+      </details>
+
+      <details open>
+        <summary>נייר וניקוי</summary>
+        <div class="body">
+          <div class="row">
+            <label for="paperClean">ניקוי נייר</label><span class="val num" id="paperCleanVal"></span>
+            <input type="range" id="paperClean" min="0" max="0.3" step="0.005" value="0.06">
+            <span class="sub">מאפס כיסוי דיו זעיר (טקסטורת נייר, רעש) כדי שהרקע ייצא לבן לגמרי. גבוה מדי יאכל גוונים בהירים.</span>
+          </div>
+          <div class="row">
+            <label for="soften">ריכוך</label><span class="val num" id="softenVal"></span>
+            <input type="range" id="soften" min="0" max="3" step="0.1" value="0">
+            <span class="sub">טשטוש קל של שכבות הדיו (px במקור). מוריד גרעיניות באיור רועש מדי, על חשבון פרטים. ברירת מחדל 0.</span>
+          </div>
+        </div>
+      </details>
+
+      <details open>
+        <summary>צפיפות דיו</summary>
+        <div class="body">
+          <div class="ink-cols">
+            <div>
+              <h4><span class="dot" id="dotA"></span><span id="nameA">דיו A</span></h4>
+              <div class="row"><label for="densA">צפיפות</label><span class="val num" id="densAVal"></span><input type="range" id="densA" min="0.5" max="1.6" step="0.02" value="1"></div>
+              <div class="row"><label for="limA">גבול דיו</label><span class="val num" id="limAVal"></span><input type="range" id="limA" min="0.5" max="1.3" step="0.02" value="1"></div>
+            </div>
+            <div>
+              <h4><span class="dot" id="dotB"></span><span id="nameB">דיו B</span></h4>
+              <div class="row"><label for="densB">צפיפות</label><span class="val num" id="densBVal"></span><input type="range" id="densB" min="0.5" max="1.6" step="0.02" value="1"></div>
+              <div class="row"><label for="limB">גבול דיו</label><span class="val num" id="limBVal"></span><input type="range" id="limB" min="0.5" max="1.3" step="0.02" value="1"></div>
+            </div>
+          </div>
+          <div class="hint"><b>צפיפות</b> מעבה או מדללת את גווני הביניים (כמו dot gain). <b>גבול דיו</b> מגביל את הכיסוי המקסימלי; מעל 1 = הדפסה כפולה כהה יותר.</div>
+          <div class="kv"><span class="k">משקל דיו באיור</span><span class="num" id="weightText">—</span></div>
+        </div>
+      </details>
+
+      <details open>
+        <summary>טקסטורה <span class="tag" id="tagTexture"></span></summary>
+        <div class="body">
+          <div class="row"><label for="grainAmt">גרעיניות</label><span class="val num" id="grainAmtVal"></span><input type="range" id="grainAmt" min="0" max="1.5" step="0.02" value="0"></div>
+          <div class="row"><label for="grainSize">גודל גרעין</label><span class="val num" id="grainSizeVal"></span><input type="range" id="grainSize" min="1" max="8" step="0.5" value="2"><span class="sub">בפיקסלים של הקובץ המקורי. הגרעין נוסף לכל דיו בנפרד, בעיקר בגווני הביניים; הנייר נשאר נקי.</span></div>
+          <div class="inline"><span class="hint">זרע אקראיות</span><input type="number" id="grainSeed" min="1" max="99999" value="1"><button class="btn xs" id="btnReseed">🎲 חדש</button></div>
+          <div class="kv"><span class="k">מדד טקסטורה</span><span class="num" id="textureText">—</span></div>
+        </div>
+      </details>
+
+      <details>
+        <summary>סטיית רישום</summary>
+        <div class="body">
+          <div class="row"><label for="misAmt">הזזה</label><span class="val num" id="misAmtVal"></span><input type="range" id="misAmt" min="0" max="14" step="0.25" value="0"><span class="sub" id="misMm"></span></div>
+          <div class="row"><label for="misAng">כיוון</label><span class="val num" id="misAngVal"></span><input type="range" id="misAng" min="0" max="360" step="5" value="25"></div>
+          <div class="checkrow"><input type="checkbox" id="misRandom"><label for="misRandom">כיוון אקראי (שונה בכל איור, כמו בהדפסה אמיתית)</label></div>
+          <div class="checkrow"><input type="checkbox" id="misBoth"><label for="misBoth">להזיז את שני הצבעים (חצי לכל כיוון) במקום רק את B</label></div>
+        </div>
+      </details>
+
+      <details>
+        <summary>רסטר (אופציונלי)</summary>
+        <div class="body">
+          <div class="warnbox">האיורים כבר מכילים רסטר וגרעין משלהם. הוספת רסטר נוסף עלולה ליצור מוארה. מומלץ להשאיר 0 ולהשתמש בגרעיניות לאחידות.</div>
+          <div class="row"><label for="htAmt">עוצמת רסטר</label><span class="val num" id="htAmtVal"></span><input type="range" id="htAmt" min="0" max="1" step="0.02" value="0"></div>
+          <div class="row"><label for="htCell">גודל תא</label><span class="val num" id="htCellVal"></span><input type="range" id="htCell" min="3" max="16" step="0.5" value="6"><span class="sub">px במקור. זווית A 15° · זווית B 75° (קלאסי).</span></div>
+          <div class="row"><label for="htAngA">זווית A</label><span class="val num" id="htAngAVal"></span><input type="range" id="htAngA" min="0" max="90" step="1" value="15"></div>
+          <div class="row"><label for="htAngB">זווית B</label><span class="val num" id="htAngBVal"></span><input type="range" id="htAngB" min="0" max="90" step="1" value="75"></div>
+        </div>
+      </details>
+
+      <details open>
+        <summary>הסדרה <span class="tag" id="tagSeries"></span></summary>
+        <div class="body">
+          <div class="hint">כדי שכל האיורים ירגישו כמו סדרה אחת: אותם צבעי דיו, אותו נייר, ורמת טקסטורה דומה. המדד משווה גרעיניות של שכבות הדיו בגודל תצוגה אחיד.</div>
+          <div class="inline">
+            <button class="btn sm" id="btnApplyTexAll" title="מעתיק ניקוי נייר, ריכוך, גרעיניות, סטיית רישום ורסטר מהאיור הנוכחי לכל האיורים">החלת הטקסטורה על כולם</button>
+            <button class="btn sm" id="btnApplyDensAll" title="מעתיק צפיפות וגבול דיו מהאיור הנוכחי לכל האיורים">החלת צפיפות על כולם</button>
+          </div>
+          <div class="inline">
+            <span class="hint">יעד טקסטורה</span>
+            <select id="texTarget"><option value="median">חציון הסדרה</option></select>
+            <button class="btn sm" id="btnMatchOne">התאמת האיור הנוכחי</button>
+            <button class="btn sm" id="btnMatchAll">התאמת כולם</button>
+          </div>
+          <div class="hint">ההתאמה מוסיפה גרעיניות לאיור חלק מדי; לאיור גרעיני מדי היא מפעילה ריכוך קל (שמוותר על מעט פרטים) ומדווחת על כך.</div>
+          <div style="overflow-x:auto"><table class="series" id="seriesTable"><thead><tr><th>איור</th><th>דיו</th><th>התאמה</th><th>טקסטורה</th><th>משקל A/B</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </details>
+
+      <details open>
+        <summary>ייצוא</summary>
+        <div class="body">
+          <div class="inline"><span class="hint">DPI לקובץ</span><input type="number" id="dpi" min="72" max="2400" value="300"><span class="hint" id="printSize"></span></div>
+          <div class="checkrow"><input type="checkbox" id="expSep"><label for="expSep">לייצא גם הפרדות צבע (קובץ אפור לכל דיו, שחור = 100% דיו) להדפסת ריזו אמיתית</label></div>
+          <div class="hint">הייצוא תמיד ברזולוציה המקורית המלאה, PNG ללא דחיסה אבודה. הפירוק לשכבות נעשה לכל פיקסל ולא מוריד פרטים.</div>
+          <div class="inline">
+            <button class="btn primary" id="btnExportOne">ייצוא האיור הנוכחי</button>
+            <button class="btn" id="btnExportAll">ייצוא כל הסדרה (ZIP)</button>
+          </div>
+        </div>
+      </details>
+    </aside>
+  </main>
+
+  <footer class="statusbar"><div class="progress" id="progress"><div class="bar" id="progressBar"></div></div><span id="statusText">מוכן.</span></footer>
+</div>
+
+<script>
+/* ============================================================
+   Riso core — pure image math (no DOM).
+
+   Ink model (Yule-Nielsen / Neugebauer for 2 inks):
+     (P_c / W_c)^(1/n) = (1 - a·αA_c) · (1 - b·αB_c)
+   P = pixel (linear), W = paper (linear), a/b = ink coverage 0..1,
+   α_k,c = 1 - (t_k,c)^(1/n) where t = solid-ink transmittance (ink/paper),
+   n = tint model: 1 = pure area coverage (halftone dots), larger n →
+   continuous ink film (Beer-Lambert, multiplicative). n≈2 fits real prints.
+   Unmixing = bounded least squares per pixel (alternating, warm-started).
+   ============================================================ */
+const Riso = (function () {
+  "use strict";
+
+  const FLOOR = 0.004;                 // linear floor used for log-density analysis only
+  const DMAX = -Math.log(FLOOR);
+  const S2L = new Float32Array(256);   // sRGB byte → linear
+  const LNS = new Float32Array(256);   // ln(max(linear, FLOOR))
+  for (let i = 0; i < 256; i++) {
+    const c = i / 255;
+    const l = c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    S2L[i] = l;
+    LNS[i] = Math.log(Math.max(l, FLOOR));
+  }
+  function srgb2lin(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+  function lin2srgb(l) { return l <= 0.0031308 ? 12.92 * l : 1.055 * Math.pow(l, 1 / 2.4) - 0.055; }
+  function lin2byte(l) { return Math.round(255 * Math.min(1, Math.max(0, lin2srgb(l)))); }
+
+  /* ---------- color helpers ---------- */
+  function hexToRgb(hex) {
+    const h = String(hex).trim().replace(/^#/, "");
+    const v = h.length === 3 ? h.split("").map(ch => ch + ch).join("") : h;
+    if (!/^[0-9a-fA-F]{6}$/.test(v)) return null;
+    const n = parseInt(v, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function rgbToHex(rgb) {
+    return "#" + rgb.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+  }
+  function rgbToLin(rgb) { return [S2L[rgb[0] | 0], S2L[rgb[1] | 0], S2L[rgb[2] | 0]]; }
+  function linToRgb(lin) { return [lin2byte(lin[0]), lin2byte(lin[1]), lin2byte(lin[2])]; }
+  function luminance(rgb) { const l = rgbToLin(rgb); return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2]; }
+  function angleBetween(u, v) {
+    const nu = Math.hypot(u[0], u[1], u[2]) || 1e-9, nv = Math.hypot(v[0], v[1], v[2]) || 1e-9;
+    const c = (u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / (nu * nv);
+    return Math.acos(Math.max(-1, Math.min(1, c))) * 180 / Math.PI;
+  }
+  const WHITE = [255, 255, 255];
+
+  // log density of a solid ink over a paper (for direction analysis)
+  function inkDensity(inkRgb, paperRgb) {
+    const p = paperRgb || WHITE, d = new Float32Array(3);
+    for (let c = 0; c < 3; c++) {
+      const w = Math.max(S2L[p[c] | 0], FLOOR), k = Math.max(S2L[inkRgb[c] | 0], FLOOR);
+      d[c] = Math.min(DMAX, Math.max(0, Math.log(w) - Math.log(k)));
+    }
+    return d;
+  }
+  // α of an ink in Yule-Nielsen space: 1 - (t)^(1/n), t = ink/paper transmittance
+  function inkAlpha(inkRgb, paperRgb, n, floorLin) {
+    const p = paperRgb || WHITE, a = new Float32Array(3), inv = 1 / (n || 2), fl = floorLin || 0;
+    for (let c = 0; c < 3; c++) {
+      const w = Math.max(S2L[p[c] | 0], 1e-6);
+      const t = Math.min(1, Math.max(S2L[inkRgb[c] | 0], fl) / w);
+      a[c] = 1 - Math.pow(t, inv);
+    }
+    return a;
+  }
+  // per-channel LUT: sRGB byte → (P/W)^(1/n)
+  function sourceLUT(paperRgb, n) {
+    const p = paperRgb || WHITE, inv = 1 / (n || 2), out = [];
+    for (let c = 0; c < 3; c++) {
+      const w = Math.max(S2L[p[c] | 0], 1e-6), lut = new Float32Array(256);
+      for (let i = 0; i < 256; i++) lut[i] = Math.pow(Math.min(1, S2L[i] / w), inv);
+      out.push(lut);
+    }
+    return out;
+  }
+  // per-channel LUT: v in [0,1] (YN space) → sRGB byte of W_out · v^n
+  const VN = 8192;
+  function outputLUT(paperRgb, n) {
+    const p = paperRgb || WHITE, out = [];
+    for (let c = 0; c < 3; c++) {
+      const w = S2L[p[c] | 0], lut = new Uint8ClampedArray(VN + 2);
+      for (let i = 0; i <= VN + 1; i++) lut[i] = lin2byte(w * Math.pow(Math.min(1, i / VN), n || 2));
+      out.push(lut);
+    }
+    return out;
+  }
+  // color of ink layers with coverage a (ink A) and b (ink B) on a paper
+  function mixColor(inkA, inkB, a, b, paperRgb, n) {
+    const p = paperRgb || WHITE, aA = inkAlpha(inkA, p, n), aB = inkB ? inkAlpha(inkB, p, n) : [0, 0, 0], out = [0, 0, 0];
+    for (let c = 0; c < 3; c++) {
+      const v = Math.max(0, (1 - a * aA[c]) * (1 - b * aB[c]));
+      out[c] = lin2byte(S2L[p[c] | 0] * Math.pow(v, n || 2));
+    }
+    return out;
+  }
+
+  /* ---------- unmixing: bounded least squares, alternating, warm-started ---------- */
+  // Writes coverage of ink A/B for region [x0,y0,w,h] of src into covA/covB (w*h).
+  // Q = sourceLUT, alA/alB = inkAlpha of the source inks. Outside pixels = bare paper.
+  function unmixRegion(src, x0, y0, w, h, Q, alA, alB, covA, covB) {
+    const sw = src.width, sh = src.height, data = src.data;
+    const Q0 = Q[0], Q1 = Q[1], Q2 = Q[2];
+    const A0 = alA[0], A1 = alA[1], A2 = alA[2], B0 = alB[0], B1 = alB[1], B2 = alB[2];
+    const AA = A0 * A0 + A1 * A1 + A2 * A2 || 1e-9;
+    let a = 0, b = 0;
+    for (let y = 0; y < h; y++) {
+      const sy = y0 + y, rowOut = y * w;
+      if (sy < 0 || sy >= sh) { covA.fill(0, rowOut, rowOut + w); covB.fill(0, rowOut, rowOut + w); continue; }
+      for (let x = 0; x < w; x++) {
+        const sx = x0 + x, o = rowOut + x;
+        if (sx < 0 || sx >= sw) { covA[o] = 0; covB[o] = 0; continue; }
+        const p = (sy * sw + sx) << 2;
+        const q0 = Q0[data[p]], q1 = Q1[data[p + 1]], q2 = Q2[data[p + 2]];
+        // quick exits: bare paper
+        if (q0 > 0.995 && q1 > 0.995 && q2 > 0.995) { covA[o] = 0; covB[o] = 0; a = 0; b = 0; continue; }
+        // cold start when the previous pixel is far: single-ink projections
+        if (x === 0 || (a === 0 && b === 0)) {
+          a = ((1 - q0) * A0 + (1 - q1) * A1 + (1 - q2) * A2) / AA; if (a < 0) a = 0; else if (a > 1) a = 1;
+        }
+        for (let it = 0; it < 4; it++) {
+          // b given a
+          let s0 = 1 - a * A0, s1 = 1 - a * A1, s2 = 1 - a * A2;
+          let num = (s0 - q0) * B0 * s0 + (s1 - q1) * B1 * s1 + (s2 - q2) * B2 * s2;
+          let den = B0 * B0 * s0 * s0 + B1 * B1 * s1 * s1 + B2 * B2 * s2 * s2;
+          b = den > 1e-12 ? num / den : 0; if (b < 0) b = 0; else if (b > 1) b = 1;
+          // a given b
+          s0 = 1 - b * B0; s1 = 1 - b * B1; s2 = 1 - b * B2;
+          num = (s0 - q0) * A0 * s0 + (s1 - q1) * A1 * s1 + (s2 - q2) * A2 * s2;
+          den = A0 * A0 * s0 * s0 + A1 * A1 * s1 * s1 + A2 * A2 * s2 * s2;
+          const na = den > 1e-12 ? num / den : 0;
+          const da = na - a;
+          a = na; if (a < 0) a = 0; else if (a > 1) a = 1;
+          if (it >= 1 && da < 0.002 && da > -0.002) break;
+        }
+        covA[o] = a; covB[o] = b;
+      }
+    }
+  }
+
+  /* ---------- analysis: paper + ink detection ---------- */
+  function percentileFromHist(hist, total, q) {
+    let acc = 0; const target = q * total;
+    for (let i = 0; i < hist.length; i++) { acc += hist[i]; if (acc >= target) return i; }
+    return hist.length - 1;
+  }
+
+  // Paper = most common color among the brightest pixels (brightness = darkest channel,
+  // so any tinted pixel ranks below bare paper), refined by a median around that mode.
+  function detectPaper(src) {
+    const d = src.data, n = src.width * src.height;
+    const step = n > 400000 ? Math.ceil(n / 400000) : 1;
+    const hist = new Uint32Array(256); let tot = 0;
+    for (let i = 0; i < n; i += step) {
+      const p = i << 2;
+      let m = d[p]; if (d[p + 1] < m) m = d[p + 1]; if (d[p + 2] < m) m = d[p + 2];
+      hist[m]++; tot++;
+    }
+    let thr = percentileFromHist(hist, tot, 0.94);
+    if (thr > 250) thr = 250;
+    const bins = new Map(); let best = -1, bestKey = 0;
+    for (let i = 0; i < n; i += step) {
+      const p = i << 2;
+      let m = d[p]; if (d[p + 1] < m) m = d[p + 1]; if (d[p + 2] < m) m = d[p + 2];
+      if (m < thr) continue;
+      const key = ((d[p] >> 3) << 10) | ((d[p + 1] >> 3) << 5) | (d[p + 2] >> 3);
+      const c = (bins.get(key) || 0) + 1; bins.set(key, c);
+      if (c > best) { best = c; bestKey = key; }
+    }
+    if (best < 0) return { rgb: [255, 255, 255], share: 0, confident: false };
+    const cr = ((bestKey >> 10) & 31) * 8 + 4, cg = ((bestKey >> 5) & 31) * 8 + 4, cb = (bestKey & 31) * 8 + 4;
+    const hr = new Uint32Array(256), hg = new Uint32Array(256), hb = new Uint32Array(256); let cnt = 0;
+    for (let i = 0; i < n; i += step) {
+      const p = i << 2;
+      if (Math.abs(d[p] - cr) <= 10 && Math.abs(d[p + 1] - cg) <= 10 && Math.abs(d[p + 2] - cb) <= 10) { hr[d[p]]++; hg[d[p + 1]]++; hb[d[p + 2]]++; cnt++; }
+    }
+    const rgb = cnt ? [percentileFromHist(hr, cnt, 0.5), percentileFromHist(hg, cnt, 0.5), percentileFromHist(hb, cnt, 0.5)] : [cr, cg, cb];
+    const share = cnt / tot;
+    return { rgb, share, confident: Math.min(rgb[0], rgb[1], rgb[2]) >= 150 && share >= 0.01 };
+  }
+
+  // Two ink endmembers = extreme directions of the log-density cone (PCA of angular spread).
+  function detectInks(src, paperRgb) {
+    const d = src.data, n = src.width * src.height;
+    const lnW = [Math.log(Math.max(S2L[paperRgb[0] | 0], FLOOR)), Math.log(Math.max(S2L[paperRgb[1] | 0], FLOOR)), Math.log(Math.max(S2L[paperRgb[2] | 0], FLOOR))];
+    const step = n > 250000 ? Math.ceil(n / 250000) : 1;
+    const ux = [], uy = [], uz = [], mag = [];
+    let mx = 0, my = 0, mz = 0;
+    for (let i = 0; i < n; i += step) {
+      const p = i << 2;
+      let D0 = lnW[0] - LNS[d[p]], D1 = lnW[1] - LNS[d[p + 1]], D2 = lnW[2] - LNS[d[p + 2]];
+      if (D0 < 0) D0 = 0; if (D1 < 0) D1 = 0; if (D2 < 0) D2 = 0;
+      const m = Math.sqrt(D0 * D0 + D1 * D1 + D2 * D2);
+      if (m < 0.25) continue;
+      const inv = 1 / m;
+      ux.push(D0 * inv); uy.push(D1 * inv); uz.push(D2 * inv); mag.push(m);
+      mx += D0 * inv; my += D1 * inv; mz += D2 * inv;
+    }
+    const cnt = ux.length;
+    if (cnt < 50) return null;
+    const mn = Math.hypot(mx, my, mz) || 1; mx /= mn; my /= mn; mz /= mn;
+    let c00 = 0, c01 = 0, c02 = 0, c11 = 0, c12 = 0, c22 = 0;
+    const rx = new Float32Array(cnt), ry = new Float32Array(cnt), rz = new Float32Array(cnt);
+    for (let i = 0; i < cnt; i++) {
+      const t = ux[i] * mx + uy[i] * my + uz[i] * mz;
+      const x = ux[i] - t * mx, y = uy[i] - t * my, z = uz[i] - t * mz;
+      rx[i] = x; ry[i] = y; rz[i] = z;
+      c00 += x * x; c01 += x * y; c02 += x * z; c11 += y * y; c12 += y * z; c22 += z * z;
+    }
+    let ex = 0.577, ey = 0.577, ez = -0.577;
+    for (let it = 0; it < 40; it++) {
+      const nx = c00 * ex + c01 * ey + c02 * ez, ny = c01 * ex + c11 * ey + c12 * ez, nz = c02 * ex + c12 * ey + c22 * ez;
+      const l = Math.hypot(nx, ny, nz) || 1; ex = nx / l; ey = ny / l; ez = nz / l;
+    }
+    const s = new Float32Array(cnt);
+    for (let i = 0; i < cnt; i++) s[i] = rx[i] * ex + ry[i] * ey + rz[i] * ez;
+    const sorted = Float32Array.from(s).sort();
+    const lo = sorted[Math.floor(cnt * 0.04)], hi = sorted[Math.min(cnt - 1, Math.floor(cnt * 0.96))];
+    function endmember(useLow) {
+      let vx = 0, vy = 0, vz = 0;
+      for (let i = 0; i < cnt; i++) if (useLow ? s[i] <= lo : s[i] >= hi) { vx += ux[i]; vy += uy[i]; vz += uz[i]; }
+      const l = Math.hypot(vx, vy, vz) || 1; vx /= l; vy /= l; vz /= l;
+      const cosLim = Math.cos(14 * Math.PI / 180), proj = [];
+      for (let i = 0; i < cnt; i++) { const c = ux[i] * vx + uy[i] * vy + uz[i] * vz; if (c >= cosLim) proj.push(mag[i] * c); }
+      let scale = 1;
+      if (proj.length >= 20) { proj.sort((p, q) => p - q); scale = proj[Math.floor(proj.length * 0.97)]; }
+      else { for (let i = 0; i < cnt; i++) { const c = ux[i] * vx + uy[i] * vy + uz[i] * vz; if (c > 0.8 && mag[i] * c > scale) scale = mag[i] * c; } }
+      const dens = [Math.min(DMAX, vx * scale), Math.min(DMAX, vy * scale), Math.min(DMAX, vz * scale)];
+      const rgb = [0, 1, 2].map(c => lin2byte(S2L[paperRgb[c] | 0] * Math.exp(-dens[c])));
+      return { rgb, dir: [vx, vy, vz], support: proj.length / cnt };
+    }
+    return { inks: [endmember(true), endmember(false)], spread: hi - lo, samples: cnt, twoInks: hi - lo > 0.08 };
+  }
+
+  // Refine ink colors: pixels that the model says are (almost) solid in one ink only are
+  // extrapolated to full coverage with the model, then the median is taken (no tint bias).
+  function refineInks(src, paperRgb, inkA, inkB, n, rounds) {
+    const N = src.width * src.height;
+    const step = Math.max(1, Math.round(Math.sqrt(N / 120000)));
+    const sub = subsample(src, step);
+    const pL = rgbToLin(paperRgb), Q = sourceLUT(paperRgb, n);
+    let A = inkA.slice(), B = inkB.slice(), countA = 0, countB = 0;
+    const covA = new Float32Array(sub.width * sub.height), covB = new Float32Array(sub.width * sub.height);
+    const solidColor = (p, cov) => {   // implied solid ink color from a pixel with coverage `cov` of one ink
+      const out = [0, 0, 0];
+      for (let c = 0; c < 3; c++) {
+        let al = (1 - Q[c][sub.data[p + c]]) / cov; if (al > 1) al = 1; else if (al < 0) al = 0;
+        out[c] = lin2byte(pL[c] * Math.pow(1 - al, n));
+      }
+      return out;
+    };
+    const H = () => [new Uint32Array(256), new Uint32Array(256), new Uint32Array(256)];
+    const med = (h, k) => [percentileFromHist(h[0], k, 0.5), percentileFromHist(h[1], k, 0.5), percentileFromHist(h[2], k, 0.5)];
+    for (let r = 0; r < (rounds || 3); r++) {
+      unmixRegion(sub, 0, 0, sub.width, sub.height, Q, inkAlpha(A, paperRgb, n, FLOOR), inkAlpha(B, paperRgb, n, FLOOR), covA, covB);
+      const rawA = H(), rawB = H(), extA = H(), extB = H();
+      // "solid" is relative: the top of each ink's coverage distribution (a wrong ink guess shifts it below 1)
+      const hA100 = new Uint32Array(101), hB100 = new Uint32Array(101); let cA = 0, cB = 0;
+      for (let i = 0; i < covA.length; i++) {
+        const a = covA[i], b = covB[i];
+        if (a >= 0.75 && b <= 0.04) { hA100[Math.round(a * 100)]++; cA++; }
+        else if (b >= 0.75 && a <= 0.04) { hB100[Math.round(b * 100)]++; cB++; }
+      }
+      const thrA = Math.max(0.75, percentileFromHist(hA100, cA, 0.99) / 100 - 0.07), thrB = Math.max(0.75, percentileFromHist(hB100, cB, 0.99) / 100 - 0.07);
+      let nRawA = 0, nRawB = 0, nExtA = 0, nExtB = 0;
+      for (let i = 0; i < covA.length; i++) {
+        const p = i << 2, a = covA[i], b = covB[i];
+        if (a >= 0.75 && b <= 0.04) {
+          if (a >= thrA) { rawA[0][sub.data[p]]++; rawA[1][sub.data[p + 1]]++; rawA[2][sub.data[p + 2]]++; nRawA++; }
+          else { const k = solidColor(p, a); extA[0][k[0]]++; extA[1][k[1]]++; extA[2][k[2]]++; nExtA++; }
+        } else if (b >= 0.75 && a <= 0.04) {
+          if (b >= thrB) { rawB[0][sub.data[p]]++; rawB[1][sub.data[p + 1]]++; rawB[2][sub.data[p + 2]]++; nRawB++; }
+          else { const k = solidColor(p, b); extB[0][k[0]]++; extB[1][k[1]]++; extB[2][k[2]]++; nExtB++; }
+        }
+      }
+      const minCount = Math.max(40, covA.length * 0.002);
+      if (nRawA >= minCount) A = med(rawA, nRawA); else if (nExtA >= minCount) A = med(extA, nExtA);
+      if (nRawB >= minCount) B = med(rawB, nRawB); else if (nExtB >= minCount) B = med(extB, nExtB);
+      countA = nRawA + nExtA; countB = nRawB + nExtB;
+    }
+    return { inkA: A, inkB: B, solidA: countA / covA.length, solidB: countB / covA.length };
+  }
+
+  // Try several tint models, keep the one that explains the image best.
+  function bestModel(src, paperRgb, inkA, inkB, candidates) {
+    const list = candidates || [1, 1.5, 2, 3, 4.5, 7];
+    let best = null;
+    for (const n of list) {
+      const r = refineInks(src, paperRgb, inkA, inkB, n, 2);
+      const fe = fitError(src, paperRgb, r.inkA, r.inkB, n, 30000);
+      if (!best || fe.rms < best.rms) best = { n, rms: fe.rms, inkA: r.inkA, inkB: r.inkB };
+    }
+    return best;
+  }
+
+  function subsample(src, step) {
+    if (step <= 1) return src;
+    const w = Math.floor(src.width / step), h = Math.floor(src.height / step), out = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const s = ((y * step) * src.width + x * step) << 2, o = (y * w + x) << 2;
+      out[o] = src.data[s]; out[o + 1] = src.data[s + 1]; out[o + 2] = src.data[s + 2]; out[o + 3] = 255;
+    }
+    return { data: out, width: w, height: h };
+  }
+
+  // Which detected endmember should become target A? (minimal total angular mismatch of log densities)
+  function assignInks(detected, targetA, targetB) {
+    const [p, q] = detected, tA = inkDensity(targetA, WHITE), tB = inkDensity(targetB, WHITE);
+    const straight = angleBetween(p.dir, tA) + angleBetween(q.dir, tB);
+    const swapped = angleBetween(q.dir, tA) + angleBetween(p.dir, tB);
+    return swapped < straight ? [q, p] : [p, q];
+  }
+
+  // RMS reconstruction error (sRGB 0..255) of the 2-ink model with the given source inks
+  function fitError(src, paperRgb, inkA, inkB, n, maxSamples) {
+    const N = src.width * src.height, step = Math.max(1, Math.round(Math.sqrt(N / (maxSamples || 60000))));
+    const sub = subsample(src, step);
+    const Q = sourceLUT(paperRgb, n), aA = inkAlpha(inkA, paperRgb, n, FLOOR), aB = inkAlpha(inkB, paperRgb, n, FLOOR);
+    const covA = new Float32Array(sub.width * sub.height), covB = new Float32Array(sub.width * sub.height);
+    unmixRegion(sub, 0, 0, sub.width, sub.height, Q, aA, aB, covA, covB);
+    const O = outputLUT(paperRgb, n);
+    let se = 0, worst = 0;
+    for (let i = 0; i < covA.length; i++) {
+      const p = i << 2, a = covA[i], b = covB[i];
+      let e2 = 0;
+      for (let c = 0; c < 3; c++) {
+        let v = (1 - a * aA[c]) * (1 - b * aB[c]); if (v < 0) v = 0;
+        const e = O[c][(v * VN + 0.5) | 0] - sub.data[p + c]; e2 += e * e; if (Math.abs(e) > worst) worst = Math.abs(e);
+      }
+      se += e2 / 3;
+    }
+    return { rms: Math.sqrt(se / Math.max(1, covA.length)), worst };
+  }
+
+  /* ---------- procedural texture ---------- */
+  function hash2(ix, iy, seed) {
+    let h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + Math.imul(seed | 0, 1274126177)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) * 2.3283064365386963e-10;
+  }
+  function vnoise(x, y, seed) {
+    const ix = Math.floor(x), iy = Math.floor(y);
+    let fx = x - ix, fy = y - iy;
+    fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+    const a = hash2(ix, iy, seed), b = hash2(ix + 1, iy, seed), c = hash2(ix, iy + 1, seed), d = hash2(ix + 1, iy + 1, seed);
+    return ((a + (b - a) * fx) * (1 - fy) + (c + (d - c) * fx) * fy) * 2 - 1;
+  }
+  const TILE = 512, TILE_MASK = TILE - 1, tileCache = new Map();
+  // tiled grain field in full-resolution pixel units, values in [-1,1]
+  function grainTile(size, seed) {
+    const key = size.toFixed(2) + "|" + (seed | 0);
+    let t = tileCache.get(key);
+    if (t) return t;
+    t = new Float32Array(TILE * TILE);
+    if (size <= 1.05) { for (let i = 0; i < t.length; i++) t[i] = hash2(i & TILE_MASK, i >> 9, seed) * 2 - 1; }
+    else {
+      const inv = 1 / size, inv2 = inv * 0.41;
+      // make both octaves periodic over the tile by wrapping their lattices
+      const per1 = Math.max(1, Math.round(TILE * inv)), per2 = Math.max(1, Math.round(TILE * inv2));
+      for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+        const u1 = x * per1 / TILE, v1 = y * per1 / TILE, u2 = x * per2 / TILE, v2 = y * per2 / TILE;
+        t[y * TILE + x] = 0.7 * pnoise(u1, v1, per1, seed) + 0.3 * pnoise(u2, v2, per2, seed + 77);
+      }
+    }
+    if (tileCache.size > 12) tileCache.delete(tileCache.keys().next().value);
+    tileCache.set(key, t);
+    return t;
+  }
+  function pnoise(x, y, period, seed) {
+    const ix = Math.floor(x), iy = Math.floor(y);
+    let fx = x - ix, fy = y - iy;
+    fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+    const x0 = ((ix % period) + period) % period, x1 = (x0 + 1) % period, y0 = ((iy % period) + period) % period, y1 = (y0 + 1) % period;
+    const a = hash2(x0, y0, seed), b = hash2(x1, y0, seed), c = hash2(x0, y1, seed), d = hash2(x1, y1, seed);
+    return ((a + (b - a) * fx) * (1 - fy) + (c + (d - c) * fx) * fy) * 2 - 1;
+  }
+  // Halftone threshold of a round-dot screen (uniform histogram by construction)
+  function screenThreshold(xf, yf, cs, sn, cell) {
+    const u = (xf * cs + yf * sn) / cell, v = (-xf * sn + yf * cs) / cell;
+    const fu = (u - Math.floor(u) - 0.5) * 2, fv = (v - Math.floor(v) - 0.5) * 2;
+    const r2 = fu * fu + fv * fv;
+    if (r2 <= 1) return 0.7853981634 * r2;
+    const r = Math.sqrt(r2);
+    return r2 * (0.7853981634 - Math.acos(1 / r)) + Math.sqrt(r2 - 1);
+  }
+
+  /* ---------- separable gaussian blur on a float map ---------- */
+  function blurMap(map, w, h, sigma, tmp) {
+    if (sigma <= 0.05) return;
+    const r = Math.max(1, Math.ceil(sigma * 2.5));
+    const k = new Float32Array(2 * r + 1); let ks = 0;
+    for (let i = -r; i <= r; i++) { k[i + r] = Math.exp(-(i * i) / (2 * sigma * sigma)); ks += k[i + r]; }
+    for (let i = 0; i < k.length; i++) k[i] /= ks;
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      for (let x = 0; x < w; x++) {
+        let s = 0;
+        for (let i = -r; i <= r; i++) { let xx = x + i; if (xx < 0) xx = 0; else if (xx >= w) xx = w - 1; s += map[row + xx] * k[i + r]; }
+        tmp[row + x] = s;
+      }
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let s = 0;
+      for (let i = -r; i <= r; i++) { let yy = y + i; if (yy < 0) yy = 0; else if (yy >= h) yy = h - 1; s += tmp[yy * w + x] * k[i + r]; }
+      map[y * w + x] = s;
+    }
+  }
+
+  function toneLUT(density, limit) {
+    const N = 1024, lut = new Float32Array(N + 2), g = 1 / Math.max(0.2, density || 1), L = limit == null ? 1 : limit;
+    for (let i = 0; i <= N + 1; i++) lut[i] = L * Math.pow(Math.min(1, i / N), g);
+    return lut;
+  }
+
+  // Raw coverage maps of a whole source (for caching across effect changes)
+  function computeCoverage(src, n, unmix) {
+    const a = new Float32Array(src.width * src.height), b = new Float32Array(src.width * src.height);
+    unmixRegion(src, 0, 0, src.width, src.height, sourceLUT(unmix.paperRgb, n),
+      inkAlpha(unmix.inkA, unmix.paperRgb, n, FLOOR), inkAlpha(unmix.inkB, unmix.paperRgb, n, FLOOR), a, b);
+    return { a, b };
+  }
+
+  /* ---------- full pipeline for a region ----------
+     job = { src:{data,width,height}, rect:{x,y,w,h}, scale, model:n,
+             unmix:{paperRgb, inkA, inkB}, target:{inkA, inkB, paperRgb},
+             fx:{paperClean, soften, inkA:{density,limit}, inkB:{...},
+                 grain:{amount,size,seed}, misreg:[{dx,dy},{dx,dy}],
+                 halftone:{amount,cell,angleA,angleB,soft}},
+             mode: result|inkA|inkB|sepA|sepB|residual|coverage, out? }
+     scale = source px per full-resolution px (1 = full res). fx sizes are in full-res px. */
+  function render(job) {
+    const { src, rect, unmix, target } = job;
+    const n = job.model || 2, scale = job.scale || 1, fx = job.fx || {}, mode = job.mode || "result";
+    const w = rect.w, h = rect.h, resid = mode === "residual";
+    const tone = [fx.inkA || {}, fx.inkB || {}];
+    const grain = fx.grain || {}, misreg = fx.misreg || [], ht = fx.halftone || {};
+    const gAmt = resid ? 0 : (grain.amount || 0), gSize = Math.max(1, grain.size || 1), gSeed = (grain.seed | 0) || 1;
+    const htAmt = resid ? 0 : (ht.amount || 0), htCell = Math.max(2, ht.cell || 6);
+    const mA = resid ? { dx: 0, dy: 0 } : (misreg[0] || { dx: 0, dy: 0 }), mB = resid ? { dx: 0, dy: 0 } : (misreg[1] || { dx: 0, dy: 0 });
+    const soften = resid ? 0 : (fx.soften || 0) * scale, clean = resid ? 0 : (fx.paperClean || 0);
+    const shAx = mA.dx * scale, shAy = mA.dy * scale, shBx = mB.dx * scale, shBy = mB.dy * scale;
+    const maxShift = Math.max(Math.abs(shAx), Math.abs(shAy), Math.abs(shBx), Math.abs(shBy));
+    const pad = Math.ceil(maxShift) + Math.ceil(soften * 2.5) + 2;
+    const pw = w + 2 * pad, ph = h + 2 * pad;
+    const covA = new Float32Array(pw * ph), covB = new Float32Array(pw * ph);
+    const Q = sourceLUT(unmix.paperRgb, n);
+    const sA = inkAlpha(unmix.inkA, unmix.paperRgb, n, FLOOR), sB = inkAlpha(unmix.inkB, unmix.paperRgb, n, FLOOR);
+    if (job.cov && job.cov.a && job.cov.a.length === src.width * src.height) {
+      // coverage of the whole source was precomputed (same paper / inks / model)
+      const ca = job.cov.a, cb = job.cov.b, sw0 = src.width, sh0 = src.height;
+      for (let y = 0; y < ph; y++) {
+        const sy = rect.y - pad + y;
+        if (sy < 0 || sy >= sh0) continue;
+        const x0 = Math.max(0, rect.x - pad), x1 = Math.min(sw0, rect.x - pad + pw);
+        if (x1 <= x0) continue;
+        covA.set(ca.subarray(sy * sw0 + x0, sy * sw0 + x1), y * pw + (x0 - (rect.x - pad)));
+        covB.set(cb.subarray(sy * sw0 + x0, sy * sw0 + x1), y * pw + (x0 - (rect.x - pad)));
+      }
+    } else {
+      unmixRegion(src, rect.x - pad, rect.y - pad, pw, ph, Q, sA, sB, covA, covB);
+    }
+
+    if (clean > 0) {   // paper cleanup: fade out tiny total coverage so bare paper prints as pure paper
+      const t1 = clean, t0 = clean * 0.45, inv = 1 / (t1 - t0);
+      for (let i = 0; i < pw * ph; i++) {
+        const s = covA[i] + covB[i];
+        if (s >= t1) continue;
+        if (s <= t0) { covA[i] = 0; covB[i] = 0; continue; }
+        let k = (s - t0) * inv; k = k * k * (3 - 2 * k);
+        covA[i] *= k; covB[i] *= k;
+      }
+    }
+    if (soften > 0.05) { const tmp = new Float32Array(pw * ph); blurMap(covA, pw, ph, soften, tmp); blurMap(covB, pw, ph, soften, tmp); }
+
+    if (mode === "coverage") {
+      const a = new Float32Array(w * h), b = new Float32Array(w * h);
+      for (let y = 0; y < h; y++) { const s0 = (y + pad) * pw + pad; a.set(covA.subarray(s0, s0 + w), y * w); b.set(covB.subarray(s0, s0 + w), y * w); }
+      return { a, b };
+    }
+
+    const out = job.out || new Uint8ClampedArray(w * h * 4);
+    const lutA = toneLUT(tone[0].density, tone[0].limit), lutB = toneLUT(tone[1].density, tone[1].limit);
+    const tA = inkAlpha(target.inkA, target.paperRgb, n, 0), tB = inkAlpha(target.inkB, target.paperRgb, n, 0);
+    const O = outputLUT(target.paperRgb, n), O0 = O[0], O1 = O[1], O2 = O[2];
+    const useA = mode !== "inkB" && mode !== "sepB", useB = mode !== "inkA" && mode !== "sepA";
+    const sep = mode === "sepA" || mode === "sepB";
+    const invScale = 1 / scale;
+    const intA = shAx === Math.round(shAx) && shAy === Math.round(shAy), intB = shBx === Math.round(shBx) && shBy === Math.round(shBy);
+    const ang = [((ht.angleA == null ? 15 : ht.angleA) * Math.PI) / 180, ((ht.angleB == null ? 75 : ht.angleB) * Math.PI) / 180];
+    const csA = Math.cos(ang[0]), snA = Math.sin(ang[0]), csB = Math.cos(ang[1]), snB = Math.sin(ang[1]);
+    const htSoft = Math.max(0.02, (ht.soft == null ? 1.2 : ht.soft) / htCell);
+    const gT = gAmt > 0 ? grainTile(gSize, gSeed) : null, gT2 = gAmt > 0 ? grainTile(gSize, gSeed + 1013) : null;
+    const srcData = src.data, sw = src.width, sh = src.height;
+    const rO = resid ? outputLUT(unmix.paperRgb, n) : null;
+
+    for (let y = 0; y < h; y++) {
+      const yf = (rect.y + y) * invScale, yfi = yf | 0;
+      for (let x = 0; x < w; x++) {
+        const xf = (rect.x + x) * invScale;
+        let a = 0, b = 0;
+        if (useA) {
+          if (intA) a = covA[(y + pad - shAy) * pw + (x + pad - shAx)];
+          else {
+            const px = x + pad - shAx, py = y + pad - shAy, ix = px | 0, iy = py | 0, fx1 = px - ix, fy1 = py - iy, i0 = iy * pw + ix;
+            const v00 = covA[i0], v10 = covA[i0 + 1], v01 = covA[i0 + pw], v11 = covA[i0 + pw + 1];
+            a = (v00 + (v10 - v00) * fx1) * (1 - fy1) + (v01 + (v11 - v01) * fx1) * fy1;
+          }
+        }
+        if (useB) {
+          if (intB) b = covB[(y + pad - shBy) * pw + (x + pad - shBx)];
+          else {
+            const px = x + pad - shBx, py = y + pad - shBy, ix = px | 0, iy = py | 0, fx1 = px - ix, fy1 = py - iy, i0 = iy * pw + ix;
+            const v00 = covB[i0], v10 = covB[i0 + 1], v01 = covB[i0 + pw], v11 = covB[i0 + pw + 1];
+            b = (v00 + (v10 - v00) * fx1) * (1 - fy1) + (v01 + (v11 - v01) * fx1) * fy1;
+          }
+        }
+        if (!resid) {
+          a = lutA[(a * 1024 + 0.5) | 0]; b = lutB[(b * 1024 + 0.5) | 0];
+          if (gAmt > 0) {   // speckle strongest in mid tones; bare paper stays clean
+            const ti = ((yfi & TILE_MASK) << 9) | ((xf | 0) & TILE_MASK);
+            if (useA) { a += gAmt * gT[ti] * a * (1 - 0.6 * a) * 1.6; if (a < 0) a = 0; else if (a > 1.3) a = 1.3; }
+            if (useB) { b += gAmt * gT2[ti] * b * (1 - 0.6 * b) * 1.6; if (b < 0) b = 0; else if (b > 1.3) b = 1.3; }
+          }
+          if (htAmt > 0) {
+            if (useA) { const t = screenThreshold(xf, yf, csA, snA, htCell); let s = (a - t) / htSoft + 0.5; if (s < 0) s = 0; else if (s > 1) s = 1; a += (s * (a > 1 ? a : 1) - a) * htAmt; }
+            if (useB) { const t = screenThreshold(xf + 0.37, yf + 0.61, csB, snB, htCell); let s = (b - t) / htSoft + 0.5; if (s < 0) s = 0; else if (s > 1) s = 1; b += (s * (b > 1 ? b : 1) - b) * htAmt; }
+          }
+        }
+        const o = (y * w + x) << 2;
+        if (sep) {
+          const v = 255 - Math.round(255 * Math.min(1, mode === "sepA" ? a : b));
+          out[o] = v; out[o + 1] = v; out[o + 2] = v; out[o + 3] = 255;
+        } else if (resid) {
+          const sx = rect.x + x, sy = rect.y + y;
+          if (sx < 0 || sy < 0 || sx >= sw || sy >= sh) { out[o] = out[o + 1] = out[o + 2] = 0; out[o + 3] = 255; continue; }
+          const p = (sy * sw + sx) << 2;
+          let emax = 0;
+          for (let c = 0; c < 3; c++) {
+            let v = (1 - a * sA[c]) * (1 - b * sB[c]); if (v < 0) v = 0;
+            const e = Math.abs(rO[c][(v * VN + 0.5) | 0] - srcData[p + c]); if (e > emax) emax = e;
+          }
+          const heat = Math.min(255, Math.max(0, emax - 2) * 5);
+          const g0 = (0.299 * srcData[p] + 0.587 * srcData[p + 1] + 0.114 * srcData[p + 2]) * 0.3;
+          out[o] = Math.min(255, g0 + heat); out[o + 1] = Math.min(255, g0 + heat * 0.25); out[o + 2] = Math.min(255, g0 + heat * 0.55); out[o + 3] = 255;
+        } else {
+          let v0 = (1 - a * tA[0]) * (1 - b * tB[0]), v1 = (1 - a * tA[1]) * (1 - b * tB[1]), v2 = (1 - a * tA[2]) * (1 - b * tB[2]);
+          if (v0 < 0) v0 = 0; if (v1 < 0) v1 = 0; if (v2 < 0) v2 = 0;
+          if (v0 > 1) v0 = 1; if (v1 > 1) v1 = 1; if (v2 > 1) v2 = 1;
+          out[o] = O0[(v0 * VN + 0.5) | 0]; out[o + 1] = O1[(v1 * VN + 0.5) | 0]; out[o + 2] = O2[(v2 * VN + 0.5) | 0]; out[o + 3] = 255;
+        }
+      }
+    }
+    return out;
+  }
+
+  /* ---------- metrics for series calibration ---------- */
+  function textureMetric(a, b, w, h) {
+    let sum = 0, k = 0;
+    const maps = [a, b];
+    for (let m = 0; m < 2; m++) {
+      const c = maps[m];
+      for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+        const i = y * w + x, v = c[i];
+        if (v < 0.08 || v > 0.92) continue;
+        const mean = (c[i - w - 1] + c[i - w] + c[i - w + 1] + c[i - 1] + v + c[i + 1] + c[i + w - 1] + c[i + w] + c[i + w + 1]) / 9;
+        sum += Math.abs(v - mean); k++;
+      }
+    }
+    return { value: k ? (sum / k) * 1000 : 0, samples: k };
+  }
+  function inkWeight(a, b) {
+    let sa = 0, sb = 0, printed = 0; const n = a.length;
+    for (let i = 0; i < n; i++) { const s = a[i] + b[i]; if (s > 0.05) { sa += a[i]; sb += b[i]; printed++; } }
+    return { a: printed ? sa / printed : 0, b: printed ? sb / printed : 0, printed: n ? printed / n : 0 };
+  }
+
+  return {
+    FLOOR, DMAX, S2L, WHITE, hexToRgb, rgbToHex, rgbToLin, linToRgb, luminance, srgb2lin, lin2srgb, lin2byte,
+    inkDensity, inkAlpha, sourceLUT, outputLUT, mixColor, angleBetween, subsample,
+    unmixRegion, detectPaper, detectInks, refineInks, bestModel, assignInks, fitError,
+    computeCoverage, render, textureMetric, inkWeight, hash2, vnoise, grainTile, screenThreshold, blurMap, toneLUT
+  };
+})();
+if (typeof module !== "undefined" && module.exports) module.exports = Riso;
+</script>
+<script>
+/* ============================================================
+   Open Riso — UI (state, image loading, analysis, rendering)
+   ============================================================ */
+(function () {
+"use strict";
+const $ = (id) => document.getElementById(id);
+document.documentElement.lang = "he"; document.documentElement.dir = "rtl";
+
+/* ---------- constants ---------- */
+const RISO_INKS = [
+  ["Yellow", "#FFE800"], ["Fluorescent Yellow", "#FFE900"], ["Sunflower", "#FFB511"], ["Melon", "#FFAE3B"], ["Orange", "#FF6C2F"], ["Fluorescent Orange", "#FF7477"],
+  ["Bright Red", "#F15060"], ["Red", "#FF665E"], ["Scarlet", "#F65058"], ["Marine Red", "#D2515E"], ["Crimson", "#E45D50"], ["Tomato", "#D32E39"], ["Burgundy", "#914E72"],
+  ["Fluorescent Pink", "#FF48B0"], ["Bubble Gum", "#F984CA"], ["Purple", "#765BA7"], ["Violet", "#9D7AD2"],
+  ["Blue", "#0078BF"], ["Medium Blue", "#3255A4"], ["Federal Blue", "#3D5588"], ["Sky Blue", "#4982CF"], ["Cornflower", "#62A8E5"], ["Lake", "#235BA8"], ["Sea Blue", "#0074A2"], ["Teal", "#00838A"], ["Turquoise", "#00AA93"],
+  ["Green", "#00A95C"], ["Kelly Green", "#67B346"], ["Emerald", "#19975D"], ["Hunter Green", "#407060"], ["Fluorescent Green", "#44D62C"], ["Light Lime", "#E3ED55"],
+  ["Brown", "#925F52"], ["Flat Gold", "#BB8B41"], ["Metallic Gold", "#AC936E"], ["Light Gray", "#88898A"], ["Black", "#000000"]
+];
+const DEFAULT_PALETTE = [
+  { name: "אדום", ink: "Bright Red", hex: "#F15060" },
+  { name: "כחול", ink: "Blue", hex: "#0078BF" },
+  { name: "ירוק", ink: "Green", hex: "#00A95C" },
+  { name: "צהוב", ink: "Yellow", hex: "#FFE800" },
+];
+const defaultFx = () => ({ paperClean: 0.06, soften: 0, inkA: { density: 1, limit: 1 }, inkB: { density: 1, limit: 1 },
+  grain: { amount: 0, size: 2, seed: 1 }, misreg: { amount: 0, angle: 25, random: false, both: false }, halftone: { amount: 0, cell: 6, angleA: 15, angleB: 75 } });
+const LS_KEY = "openRiso.project.v1";
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const WHITE = [255, 255, 255];
+
+/* ---------- state ---------- */
+const state = {
+  project: { palette: DEFAULT_PALETTE.map(p => ({ ...p })), paperOut: "#ffffff", dpi: 300, sep: false, defaults: defaultFx(), saved: {} },
+  images: [], sel: -1,
+  view: { mode: "result", zoom: "fit", cx: 0, cy: 0, split: 0.5, loupe: false, eyedrop: null, showOriginal: false },
+  dragging: false, busy: false,
+};
+let nextId = 1;
+const current = () => state.images[state.sel] || null;
+const imgKey = (img) => `${img.name}|${img.W}x${img.H}`;
+
+function newSettings(saved) {
+  const s = { inks: [1, 3], inksAuto: true, paperMode: "auto", paperRgb: [255, 255, 255], srcA: [40, 40, 40], srcB: [200, 200, 200], srcAuto: true, model: 2, modelAuto: true, fx: clone(state.project.defaults) };
+  if (saved) { const c = clone(saved); Object.assign(s, c); s.fx = Object.assign(defaultFx(), c.fx || {}); }
+  return s;
+}
+
+/* ---------- status ---------- */
+function setStatus(text) { $("statusText").textContent = text || "מוכן."; }
+function setProgress(frac) { const p = $("progress"); if (frac == null) { p.classList.remove("on"); return; } p.classList.add("on"); $("progressBar").style.width = Math.round(frac * 100) + "%"; }
+const yieldUI = () => new Promise(r => setTimeout(r, 0));
+
+/* ---------- color helpers ---------- */
+const hexToRgb = Riso.hexToRgb, rgbToHex = Riso.rgbToHex;
+function tgt(img, k) { return hexToRgb(state.project.palette[img.s.inks[k]].hex) || [0, 0, 0]; }
+function paperOf(img) { return img.s.paperMode === "white" ? WHITE : img.s.paperRgb; }
+function fxFor(img) {
+  const s = img.s, m = s.fx.misreg;
+  const ang = ((m.random ? Riso.hash2(img.seed, 7, 99) * 360 : 0) + m.angle) * Math.PI / 180;
+  const dx = Math.cos(ang) * m.amount, dy = Math.sin(ang) * m.amount;
+  const pair = m.both ? [{ dx: -dx / 2, dy: -dy / 2 }, { dx: dx / 2, dy: dy / 2 }] : [{ dx: 0, dy: 0 }, { dx, dy }];
+  return { paperClean: s.fx.paperClean, soften: s.fx.soften, inkA: s.fx.inkA, inkB: s.fx.inkB, grain: s.fx.grain, misreg: pair, halftone: s.fx.halftone };
+}
+function covFor(img, view) {
+  const s = img.s, key = [s.model, paperOf(img).join(), s.srcA.join(), s.srcB.join()].join("|");
+  if (!view.cov || view.cov.key !== key) {
+    const c = Riso.computeCoverage(view.data, s.model, { paperRgb: paperOf(img), inkA: s.srcA, inkB: s.srcB });
+    view.cov = { key, a: c.a, b: c.b };
+  }
+  return view.cov;
+}
+function jobFor(img, view, rect, mode) {
+  const cacheable = view === img.views.hi || view === img.views.lo || view === img.views.th;
+  return { src: view.data, rect, scale: view.scale, model: img.s.model,
+    unmix: { paperRgb: paperOf(img), inkA: img.s.srcA, inkB: img.s.srcB },
+    target: { inkA: tgt(img, 0), inkB: tgt(img, 1), paperRgb: hexToRgb(state.project.paperOut) || WHITE },
+    fx: fxFor(img), mode, cov: cacheable ? covFor(img, view) : undefined };
+}
+function invalidateCov(img) { for (const v of Object.values(img.views)) v.cov = null; if (img.full) img.full.cov = null; }
+
+/* ---------- image loading ---------- */
+function makeView(bmp, maxSide) {
+  const s = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * s)), h = Math.max(1, Math.round(bmp.height * s));
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const cx = c.getContext("2d", { willReadFrequently: true });
+  cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = "high";
+  cx.drawImage(bmp, 0, 0, w, h);
+  return { data: cx.getImageData(0, 0, w, h), scale: w / bmp.width, cov: null, canvas: c };
+}
+function strHash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) % 100000; }
+
+async function addFiles(fileList) {
+  const files = Array.from(fileList).filter(f => f.type.startsWith("image/") || /\.(png|jpe?g|tiff?|webp|bmp|gif)$/i.test(f.name));
+  if (!files.length) return;
+  state.busy = true;
+  let firstNew = -1;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    setStatus(`טוענת ${file.name} (${i + 1}/${files.length})…`); setProgress((i + 0.2) / files.length);
+    await yieldUI();
+    let bmp;
+    try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); }
+    catch (e) { setStatus(`לא הצלחתי לקרוא את ${file.name}`); continue; }
+    const img = { id: nextId++, name: file.name, file, W: bmp.width, H: bmp.height, seed: strHash(file.name), views: {}, s: null, analysis: null, full: null, fullLoading: null, metrics: null };
+    img.views.hi = makeView(bmp, 1200); img.views.lo = makeView(bmp, 600); img.views.th = makeView(bmp, 200);
+    bmp.close && bmp.close();
+    img.s = newSettings(state.project.saved[imgKey(img)]);
+    state.images.push(img);
+    if (firstNew < 0) firstNew = state.images.length - 1;
+    renderList();
+    await yieldUI();
+    analyzeImage(img, { initial: true });
+    if (state.sel < 0) select(state.images.length - 1);
+    updateSheetOne(img); renderList();
+  }
+  setProgress(null); state.busy = false;
+  setStatus(`${state.images.length} איורים בסדרה.`);
+  if (firstNew >= 0 && state.sel < 0) select(firstNew);
+  scheduleMetricsAll(); persist();
+}
+
+/* ---------- analysis ---------- */
+function guessInks(det) {
+  const P = state.project.palette;
+  let best = null;
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    if (i === j) continue;
+    const di = Riso.inkDensity(hexToRgb(P[i].hex) || [0, 0, 0], WHITE), dj = Riso.inkDensity(hexToRgb(P[j].hex) || [0, 0, 0], WHITE);
+    const cost = Riso.angleBetween(det.inks[0].dir, di) + Riso.angleBetween(det.inks[1].dir, dj);
+    if (!best || cost < best.cost) best = { cost, inks: [i, j] };
+  }
+  return best.inks.slice().sort((a, b) => a - b);   // stable order: lower palette slot = A
+}
+function analyzeImage(img, opts = {}) {
+  const s = img.s, src = img.views.hi.data;
+  const pd = Riso.detectPaper(src);
+  if (s.paperMode === "auto") s.paperRgb = pd.rgb;
+  const det = Riso.detectInks(src, paperOf(img));
+  img.analysis = { paper: pd, det, fit: null };
+  if (det) {
+    if (opts.initial && s.inksAuto && !opts.keepInks) s.inks = guessInks(det);
+    if (s.srcAuto) {
+      const [eA, eB] = Riso.assignInks(det.inks, tgt(img, 0), tgt(img, 1));
+      if (s.modelAuto) { const bm = Riso.bestModel(src, paperOf(img), eA.rgb, eB.rgb); s.model = bm.n; s.srcA = bm.inkA; s.srcB = bm.inkB; }
+      else { const r = Riso.refineInks(src, paperOf(img), eA.rgb, eB.rgb, s.model, 3); s.srcA = r.inkA; s.srcB = r.inkB; }
+    } else if (s.modelAuto) {
+      let best = null;
+      for (const n of [1, 1.5, 2, 3, 4.5, 7]) { const fe = Riso.fitError(src, paperOf(img), s.srcA, s.srcB, n, 30000); if (!best || fe.rms < best.rms) best = { n, rms: fe.rms }; }
+      s.model = best.n;
+    }
+  }
+  updateFit(img); invalidateCov(img);
+}
+function updateFit(img) {
+  const fe = Riso.fitError(img.views.hi.data, paperOf(img), img.s.srcA, img.s.srcB, img.s.model, 40000);
+  img.analysis = img.analysis || {}; img.analysis.fit = fe.rms; img.analysis.worst = fe.worst;
+}
+function fitClass(rms) { return rms < 4 ? "ok" : rms < 9 ? "warn" : "err"; }
+function fitPct(rms) { return Math.max(0, Math.min(100, Math.round(100 - rms * 4))); }
+
+/* ---------- full resolution ---------- */
+function fullView(img) {
+  if (img.full) return Promise.resolve(img.full);
+  if (img.fullLoading) return img.fullLoading;
+  img.fullLoading = (async () => {
+    setStatus("טוענת רזולוציה מלאה…");
+    const bmp = await createImageBitmap(img.file, { imageOrientation: "from-image" });
+    const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
+    const cx = c.getContext("2d", { willReadFrequently: true }); cx.drawImage(bmp, 0, 0); bmp.close && bmp.close();
+    const data = cx.getImageData(0, 0, c.width, c.height);
+    img.full = { data, scale: 1, cov: null }; img.fullLoading = null;
+    for (const o of state.images) if (o !== img && o.full) o.full = null;   // keep memory in check
+    setStatus(""); return img.full;
+  })();
+  return img.fullLoading;
+}
+
+/* ---------- canvas drawing ---------- */
+const canvas = $("view"), ctx = canvas.getContext("2d");
+const off = document.createElement("canvas"), offCtx = off.getContext("2d");
+const off2 = document.createElement("canvas"), off2Ctx = off2.getContext("2d");
+let drawQueued = false, drawing = false, drawAgain = false;
+function requestDraw() { if (drawQueued) return; drawQueued = true; requestAnimationFrame(() => { drawQueued = false; draw(); }); }
+async function draw() {
+  if (drawing) { drawAgain = true; return; }
+  drawing = true;
+  try { await drawNow(); } catch (e) { console.error(e); setStatus("שגיאה בציור: " + e.message); }
+  finally { drawing = false; if (drawAgain) { drawAgain = false; requestDraw(); } }
+}
+function fitCanvas() {
+  const wrap = $("canvasWrap"), dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(wrap.clientWidth * dpr)), h = Math.max(1, Math.round(wrap.clientHeight * dpr));
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  return dpr;
+}
+function fitZoom(img) { return Math.min(canvas.width / img.W, canvas.height / img.H); }
+function zoomOf(img, dpr) { return state.view.zoom === "fit" ? fitZoom(img) : state.view.zoom * dpr; }
+function viewport(img, dpr) {
+  const z = zoomOf(img, dpr), vw = canvas.width / z, vh = canvas.height / z;
+  let cx = state.view.cx, cy = state.view.cy;
+  cx = img.W <= vw ? img.W / 2 : Math.min(Math.max(cx, vw / 2), img.W - vw / 2);
+  cy = img.H <= vh ? img.H / 2 : Math.min(Math.max(cy, vh / 2), img.H - vh / 2);
+  state.view.cx = cx; state.view.cy = cy;
+  return { z, x0: cx - vw / 2, y0: cy - vh / 2, vw, vh };
+}
+function cropImageData(src, rect) {
+  const out = new Uint8ClampedArray(rect.w * rect.h * 4), sw = src.width;
+  for (let y = 0; y < rect.h; y++) { const s0 = ((rect.y + y) * sw + rect.x) * 4; out.set(src.data.subarray(s0, s0 + rect.w * 4), y * rect.w * 4); }
+  return new ImageData(out, rect.w, rect.h);
+}
+function renderTo(img, view, rect, mode) {
+  if (mode === "original") return cropImageData(view.data, rect);
+  const out = Riso.render(jobFor(img, view, rect, mode));
+  return new ImageData(out, rect.w, rect.h);
+}
+async function drawNow() {
+  const img = current(), dpr = fitCanvas();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#33363f"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  $("placeholder").style.display = img ? "none" : "";
+  $("canvasWrap").classList.toggle("split", !!img && state.view.mode === "split" && !state.view.showOriginal);
+  if (!img) return;
+  const vp = viewport(img, dpr);
+  let view;
+  if (state.dragging) view = img.views.lo;
+  else if (vp.z <= img.views.hi.scale + 1e-6) view = img.views.hi;
+  else view = await fullView(img);
+  const mode = state.view.showOriginal ? "original" : state.view.mode;
+  const s = view.scale;
+  const rx0 = Math.max(0, Math.floor(vp.x0 * s)), ry0 = Math.max(0, Math.floor(vp.y0 * s));
+  const rx1 = Math.min(view.data.width, Math.ceil((vp.x0 + vp.vw) * s) + 1), ry1 = Math.min(view.data.height, Math.ceil((vp.y0 + vp.vh) * s) + 1);
+  const rect = { x: rx0, y: ry0, w: rx1 - rx0, h: ry1 - ry0 };
+  if (rect.w <= 0 || rect.h <= 0) return;
+  const t0 = performance.now();
+  const imgData = renderTo(img, view, rect, mode === "split" ? "result" : mode);
+  off.width = rect.w; off.height = rect.h; offCtx.putImageData(imgData, 0, 0);
+  const dx = (rect.x / s - vp.x0) * vp.z, dy = (rect.y / s - vp.y0) * vp.z, dw = rect.w / s * vp.z, dh = rect.h / s * vp.z;
+  ctx.imageSmoothingEnabled = vp.z / s < 1.5; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(off, dx, dy, dw, dh);
+  if (mode === "split") {
+    const orig = cropImageData(view.data, rect);
+    off2.width = rect.w; off2.height = rect.h; off2Ctx.putImageData(orig, 0, 0);
+    const sx = canvas.width * state.view.split;
+    ctx.save(); ctx.beginPath(); ctx.rect(sx, 0, canvas.width - sx, canvas.height); ctx.clip(); ctx.drawImage(off2, dx, dy, dw, dh); ctx.restore();
+    $("splitHandle").style.left = (sx / dpr) + "px";
+  }
+  const ms = performance.now() - t0;
+  $("stageHint").textContent = `${img.W}×${img.H} px · זום ${Math.round(vp.z / dpr * 100)}% · ${view === img.full ? "רזולוציה מלאה" : "תצוגה מקדימה"} · ${Math.round(ms)} ms`;
+}
+
+/* ---------- loupe ---------- */
+let loupeTimer = null;
+async function updateLoupe(clientX, clientY) {
+  const img = current(), lp = $("loupe");
+  if (!img || !state.view.loupe || state.view.eyedrop) { lp.style.display = "none"; return; }
+  const wrap = $("canvasWrap"), r = wrap.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const vp = viewport(img, dpr);
+  const fx = vp.x0 + (clientX - r.left) * dpr / vp.z, fy = vp.y0 + (clientY - r.top) * dpr / vp.z;
+  if (fx < 0 || fy < 0 || fx >= img.W || fy >= img.H) { lp.style.display = "none"; return; }
+  lp.style.display = "block";
+  const size = 110, half = size / 2;
+  let lx = clientX - r.left + 24, ly = clientY - r.top + 24;
+  if (lx + 220 > r.width) lx = clientX - r.left - 244; if (ly + 220 > r.height) ly = clientY - r.top - 244;
+  lp.style.left = lx + "px"; lp.style.top = ly + "px";
+  if (!img.full) { lp.querySelector(".tag").textContent = "טוענת…"; fullView(img).then(() => updateLoupe(clientX, clientY)); return; }
+  const rect = { x: Math.round(fx - half), y: Math.round(fy - half), w: size, h: size };
+  const mode = state.view.showOriginal ? "original" : (state.view.mode === "split" ? "result" : state.view.mode);
+  let data;
+  if (mode === "original") {
+    data = new ImageData(size, size);
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      const sx = rect.x + x, sy = rect.y + y, o = (y * size + x) * 4;
+      if (sx < 0 || sy < 0 || sx >= img.W || sy >= img.H) { data.data[o + 3] = 255; continue; }
+      const p = (sy * img.W + sx) * 4; data.data[o] = img.full.data.data[p]; data.data[o + 1] = img.full.data.data[p + 1]; data.data[o + 2] = img.full.data.data[p + 2]; data.data[o + 3] = 255;
+    }
+  } else data = new ImageData(Riso.render(jobFor(img, img.full, rect, mode)), size, size);
+  $("loupeCanvas").getContext("2d").putImageData(data, 0, 0);
+  lp.querySelector(".tag").textContent = "200% · רזולוציה מלאה";
+}
+
+/* ---------- eyedropper ---------- */
+function sampleAt(img, fx, fy) {
+  const v = img.views.hi, d = v.data.data, w = v.data.width, h = v.data.height;
+  const cx = Math.round(fx * v.scale), cy = Math.round(fy * v.scale);
+  const ch = [[], [], []];
+  for (let y = cy - 2; y <= cy + 2; y++) for (let x = cx - 2; x <= cx + 2; x++) {
+    if (x < 0 || y < 0 || x >= w || y >= h) continue;
+    const p = (y * w + x) * 4; ch[0].push(d[p]); ch[1].push(d[p + 1]); ch[2].push(d[p + 2]);
+  }
+  if (!ch[0].length) return null;
+  return ch.map(a => { a.sort((p, q) => p - q); return a[a.length >> 1]; });
+}
+function applyEyedrop(img, rgb) {
+  const s = img.s, which = state.view.eyedrop;
+  if (which === "A") { s.srcA = rgb; s.srcAuto = false; }
+  else if (which === "B") { s.srcB = rgb; s.srcAuto = false; }
+  else if (which === "P") { s.paperRgb = rgb; s.paperMode = "manual"; $("paperWhite").checked = false; }
+  setEyedrop(null);
+  if (s.modelAuto) analyzeImage(img, { keepInks: true }); else { updateFit(img); invalidateCov(img); }
+  afterUnmixChange(img);
+}
+function setEyedrop(which) {
+  state.view.eyedrop = which;
+  for (const k of ["A", "B", "P"]) $("eye" + k).classList.toggle("on", which === k);
+  $("canvasWrap").classList.toggle("eyedrop", !!which);
+  if (which) { setStatus(which === "P" ? "לחצי על אזור נייר ריק באיור." : `לחצי על אזור מלא של דיו ${which} באיור.`); $("loupe").style.display = "none"; }
+}
+
+/* ---------- selection & UI sync ---------- */
+function select(i) {
+  state.sel = i;
+  const img = current();
+  if (img) { state.view.cx = img.W / 2; state.view.cy = img.H / 2; }
+  setEyedrop(null);
+  renderList(); syncPanel(); requestDraw(); updateSheetSel(); renderSeriesTable();
+}
+function afterUnmixChange(img) { syncPanel(); requestDraw(); scheduleMetrics(img); updateSheetOne(img); renderList(); persist(); }
+function afterFxChange(img) { requestDraw(); scheduleMetrics(img); updateSheetOne(img); persist(); }
+
+window.__risoState = state;
+
+/* ---------- palette UI ---------- */
+function buildPalette() {
+  const host = $("palette");
+  host.querySelectorAll(".ink-slot").forEach(e => e.remove());
+  state.project.palette.forEach((slot, i) => {
+    const el = document.createElement("div"); el.className = "ink-slot"; el.dataset.slot = i;
+    el.innerHTML = `<label class="sw" title="בחירת צבע חופשית"><input type="color" value="${slot.hex}"></label><span class="nm">${slot.name}</span><select title="דיו ריזו רשמי · ${slot.hex}"></select>`;
+    const sel = el.querySelector("select");
+    const opt = document.createElement("option"); opt.value = ""; opt.textContent = "מותאם אישית"; sel.appendChild(opt);
+    for (const [name, hex] of RISO_INKS) { const o = document.createElement("option"); o.value = hex; o.textContent = name; sel.appendChild(o); }
+    sel.value = RISO_INKS.some(k => k[1].toLowerCase() === slot.hex.toLowerCase()) ? RISO_INKS.find(k => k[1].toLowerCase() === slot.hex.toLowerCase())[1] : "";
+    const color = el.querySelector("input[type=color]");
+    el.querySelector(".sw").style.background = slot.hex;
+    color.addEventListener("input", () => { setPaletteHex(i, color.value); sel.value = ""; });
+    sel.addEventListener("change", () => { if (sel.value) { slot.ink = sel.selectedOptions[0].textContent; setPaletteHex(i, sel.value); color.value = sel.value; sel.title = "דיו ריזו רשמי · " + sel.value; } });
+    host.appendChild(el);
+  });
+}
+function setPaletteHex(i, hex) {
+  state.project.palette[i].hex = hex.toUpperCase();
+  $("palette").querySelectorAll(".ink-slot")[i].querySelector(".sw").style.background = hex;
+  for (const img of state.images) { if (img.s.inks.includes(i)) { updateSheetOne(img); } }
+  syncPanel(); requestDraw(); renderList(); renderSeriesTable(); persist();
+}
+
+/* ---------- image list ---------- */
+function renderList() {
+  const ul = $("imglist"); ul.innerHTML = "";
+  $("listEmpty").hidden = state.images.length > 0; $("listActions").hidden = state.images.length === 0;
+  state.images.forEach((img, i) => {
+    const li = document.createElement("li"); li.className = "imgitem" + (i === state.sel ? " sel" : "");
+    if (!img.thumbCanvas) { img.thumbCanvas = document.createElement("canvas"); img.thumbCanvas.width = img.views.th.data.width; img.thumbCanvas.height = img.views.th.data.height; img.thumbCanvas.getContext("2d").putImageData(img.views.th.data, 0, 0); }
+    const fit = img.analysis && img.analysis.fit != null ? img.analysis.fit : null;
+    li.appendChild(img.thumbCanvas);
+    const info = document.createElement("div");
+    info.innerHTML = `<div class="nm" title="${img.name}">${img.name}</div><div class="meta"><span class="dots"><span class="dot" style="background:${state.project.palette[img.s.inks[0]].hex}"></span><span class="dot" style="background:${state.project.palette[img.s.inks[1]].hex}"></span></span>${fit == null ? '<span class="badge dim">מנתחת…</span>' : `<span class="badge ${fitClass(fit)}" title="התאמת מודל שני הדיו">${fitPct(fit)}%</span>`}<span class="num">${img.W}×${img.H}</span></div>`;
+    li.appendChild(info);
+    const rm = document.createElement("button"); rm.className = "rm"; rm.title = "הסרה מהסדרה"; rm.textContent = "×";
+    rm.addEventListener("click", (e) => { e.stopPropagation(); removeImage(i); });
+    li.appendChild(rm);
+    li.addEventListener("click", () => select(i));
+    ul.appendChild(li);
+  });
+}
+function removeImage(i) {
+  state.images.splice(i, 1);
+  if (state.sel >= state.images.length) state.sel = state.images.length - 1;
+  else if (i < state.sel) state.sel--;
+  renderList(); syncPanel(); requestDraw(); updateSheetAll(); renderSeriesTable(); persist();
+}
+
+/* ---------- control panel sync ---------- */
+const SLIDERS = [
+  { id: "model", get: s => s.model, set: (s, v) => { s.model = v; s.modelAuto = false; $("modelAuto").checked = false; }, fmt: v => "n = " + v, unmix: true },
+  { id: "paperClean", get: s => s.fx.paperClean, set: (s, v) => s.fx.paperClean = v, fmt: v => v.toFixed(3) },
+  { id: "soften", get: s => s.fx.soften, set: (s, v) => s.fx.soften = v, fmt: v => v.toFixed(1) + " px" },
+  { id: "densA", get: s => s.fx.inkA.density, set: (s, v) => s.fx.inkA.density = v, fmt: v => "×" + v.toFixed(2) },
+  { id: "limA", get: s => s.fx.inkA.limit, set: (s, v) => s.fx.inkA.limit = v, fmt: v => Math.round(v * 100) + "%" },
+  { id: "densB", get: s => s.fx.inkB.density, set: (s, v) => s.fx.inkB.density = v, fmt: v => "×" + v.toFixed(2) },
+  { id: "limB", get: s => s.fx.inkB.limit, set: (s, v) => s.fx.inkB.limit = v, fmt: v => Math.round(v * 100) + "%" },
+  { id: "grainAmt", get: s => s.fx.grain.amount, set: (s, v) => s.fx.grain.amount = v, fmt: v => Math.round(v * 100) + "%" },
+  { id: "grainSize", get: s => s.fx.grain.size, set: (s, v) => s.fx.grain.size = v, fmt: v => v.toFixed(1) + " px" },
+  { id: "misAmt", get: s => s.fx.misreg.amount, set: (s, v) => s.fx.misreg.amount = v, fmt: v => v.toFixed(2) + " px" },
+  { id: "misAng", get: s => s.fx.misreg.angle, set: (s, v) => s.fx.misreg.angle = v, fmt: v => v + "°" },
+  { id: "htAmt", get: s => s.fx.halftone.amount, set: (s, v) => s.fx.halftone.amount = v, fmt: v => Math.round(v * 100) + "%" },
+  { id: "htCell", get: s => s.fx.halftone.cell, set: (s, v) => s.fx.halftone.cell = v, fmt: v => v.toFixed(1) + " px" },
+  { id: "htAngA", get: s => s.fx.halftone.angleA, set: (s, v) => s.fx.halftone.angleA = v, fmt: v => v + "°" },
+  { id: "htAngB", get: s => s.fx.halftone.angleB, set: (s, v) => s.fx.halftone.angleB = v, fmt: v => v + "°" },
+];
+function bindSliders() {
+  for (const sl of SLIDERS) {
+    const el = $(sl.id);
+    el.addEventListener("input", () => {
+      const img = current(); if (!img) return;
+      const v = parseFloat(el.value); sl.set(img.s, v); $(sl.id + "Val").textContent = sl.fmt(v);
+      state.dragging = !sl.unmix;
+      if (sl.unmix) { updateFit(img); invalidateCov(img); syncFit(img); }
+      requestDraw(); if (sl.id === "misAmt") syncMisMm(img);
+    });
+    el.addEventListener("change", () => {
+      const img = current(); if (!img) return;
+      state.dragging = false;
+      if (sl.unmix) afterUnmixChange(img); else afterFxChange(img);
+    });
+  }
+}
+function syncFit(img) {
+  const rms = img.analysis && img.analysis.fit;
+  if (rms == null) { $("fitText").textContent = "—"; $("fitBar").className = "fitbar"; $("fitBar").firstElementChild.style.width = "0"; return; }
+  $("fitText").textContent = `${fitPct(rms)}%  (RMS ${rms.toFixed(1)})`;
+  $("fitBar").className = "fitbar " + fitClass(rms); $("fitBar").firstElementChild.style.width = fitPct(rms) + "%";
+}
+function syncMisMm(img) {
+  const dpi = state.project.dpi || 300, px = img.s.fx.misreg.amount;
+  $("misMm").textContent = `≈ ${(px / dpi * 25.4).toFixed(2)} מ"מ ב-${dpi} DPI · הזזה של דיו ${img.s.fx.misreg.both ? "A ו-B" : "B"}`;
+}
+function syncPanel() {
+  const img = current(), has = !!img;
+  $("panel").querySelectorAll("input, select, button").forEach(el => { if (!["btnLoadProject", "btnSaveProject"].includes(el.id)) el.disabled = !has; });
+  if (!has) { $("tagInks").textContent = ""; $("tagTexture").textContent = ""; renderSeriesTable(); return; }
+  const s = img.s, P = state.project.palette;
+  for (const sl of SLIDERS) { const v = sl.get(s); $(sl.id).value = v; $(sl.id + "Val").textContent = sl.fmt(v); }
+  $("modelAuto").checked = !!s.modelAuto; $("paperWhite").checked = s.paperMode === "white";
+  $("misRandom").checked = !!s.fx.misreg.random; $("misBoth").checked = !!s.fx.misreg.both; $("grainSeed").value = s.fx.grain.seed;
+  $("expSep").checked = !!state.project.sep; $("dpi").value = state.project.dpi;
+  // chips
+  const chips = $("inkChips"); chips.innerHTML = "";
+  P.forEach((slot, i) => {
+    const b = document.createElement("button"); const role = s.inks.indexOf(i);
+    b.className = "chip" + (role >= 0 ? " on" + (role === 1 ? " b" : "") : "");
+    b.innerHTML = `<span class="dot" style="background:${slot.hex}"></span>${slot.name}${role >= 0 ? `<span class="role">${role === 0 ? "A" : "B"}</span>` : ""}`;
+    b.addEventListener("click", () => chooseInk(img, i));
+    chips.appendChild(b);
+  });
+  $("tagInks").textContent = `${P[s.inks[0]].name} + ${P[s.inks[1]].name}`;
+  // source ↔ target swatches
+  const paper = paperOf(img);
+  $("swSrcA").style.background = rgbToHex(s.srcA); $("hexSrcA").value = rgbToHex(s.srcA); $("swTgtA").style.background = P[s.inks[0]].hex;
+  $("swSrcB").style.background = rgbToHex(s.srcB); $("hexSrcB").value = rgbToHex(s.srcB); $("swTgtB").style.background = P[s.inks[1]].hex;
+  $("swSrcP").style.background = rgbToHex(paper); $("hexSrcP").value = rgbToHex(paper); $("swTgtP").style.background = state.project.paperOut;
+  $("hexSrcP").disabled = s.paperMode === "white"; $("eyeP").disabled = s.paperMode === "white";
+  $("dotA").style.background = P[s.inks[0]].hex; $("dotB").style.background = P[s.inks[1]].hex;
+  $("nameA").textContent = "דיו A · " + P[s.inks[0]].name; $("nameB").textContent = "דיו B · " + P[s.inks[1]].name;
+  syncFit(img); syncMisMm(img); syncMetricsText(img);
+  const pd = img.analysis && img.analysis.paper;
+  $("fitHint").innerHTML = (pd && !pd.confident && s.paperMode === "auto") ? `<span class="warnbox" style="display:block">זיהוי הנייר לא בטוח (זוהה ${rgbToHex(pd.rgb)}). אם באיור אין נייר חשוף, סמני "הנייר כבר לבן" או בחרי אותו בטפטפת.</span>` : "ככל שההתאמה גבוהה יותר, האיור מוסבר טוב יותר על ידי שני צבעי דיו בלבד. תצוגת <b>שארית</b> מראה איפה יש צבע שלישי.";
+  const W = img.W, dpi = state.project.dpi || 300;
+  $("printSize").textContent = `${(W / dpi * 2.54).toFixed(1)}×${(img.H / dpi * 2.54).toFixed(1)} ס"מ`;
+}
+function syncMetricsText(img) {
+  const m = img.metrics;
+  $("textureText").textContent = m ? m.texture.toFixed(1) : "—";
+  $("weightText").textContent = m ? `A ${Math.round(m.weightA * 100)}% · B ${Math.round(m.weightB * 100)}% · שטח מודפס ${Math.round(m.printed * 100)}%` : "—";
+  $("tagTexture").textContent = m ? `מדד ${m.texture.toFixed(1)}` : "";
+}
+function chooseInk(img, i) {
+  const s = img.s; const role = s.inks.indexOf(i);
+  if (role >= 0) return;
+  s.inks = [s.inks[1], i]; s.inksAuto = false;   // newest pick becomes B, previous B becomes A
+  if (s.srcAuto) analyzeImage(img, { keepInks: true }); else { updateFit(img); invalidateCov(img); }
+  afterUnmixChange(img);
+}
+function swapInks(img) {
+  const s = img.s; s.inks = [s.inks[1], s.inks[0]]; const t = s.srcA; s.srcA = s.srcB; s.srcB = t; s.inksAuto = false;
+  invalidateCov(img); afterUnmixChange(img);
+}
+function bindHex(id, apply) {
+  const el = $(id);
+  el.addEventListener("change", () => {
+    const img = current(); if (!img) return;
+    const rgb = hexToRgb(el.value); el.classList.toggle("bad", !rgb); if (!rgb) return;
+    apply(img.s, rgb);
+    if (img.s.modelAuto) analyzeImage(img, { keepInks: true }); else { updateFit(img); invalidateCov(img); }
+    afterUnmixChange(img);
+  });
+}
+
+/* ---------- metrics & series ---------- */
+let metricsTimer = null;
+function computeMetrics(img) {
+  const view = img.views.lo, w = view.data.width, h = view.data.height;
+  const cov = Riso.render(jobFor(img, view, { x: 0, y: 0, w, h }, "coverage"));
+  const tm = Riso.textureMetric(cov.a, cov.b, w, h), wt = Riso.inkWeight(cov.a, cov.b);
+  img.metrics = { texture: tm.value, samples: tm.samples, weightA: wt.a, weightB: wt.b, printed: wt.printed };
+  return img.metrics;
+}
+function scheduleMetrics(img) {
+  clearTimeout(metricsTimer);
+  metricsTimer = setTimeout(() => { computeMetrics(img); if (img === current()) syncMetricsText(img); renderSeriesTable(); }, 350);
+}
+function scheduleMetricsAll() {
+  clearTimeout(metricsTimer);
+  metricsTimer = setTimeout(async () => { for (const img of state.images) { computeMetrics(img); await yieldUI(); } const c = current(); if (c) syncMetricsText(c); renderSeriesTable(); }, 350);
+}
+function metricWith(img, grain, soften) {
+  const g = img.s.fx.grain.amount, so = img.s.fx.soften;
+  img.s.fx.grain.amount = grain; img.s.fx.soften = soften;
+  const m = computeMetrics(img).texture;
+  img.s.fx.grain.amount = g; img.s.fx.soften = so;
+  return m;
+}
+function textureTarget() {
+  const sel = $("texTarget").value;
+  if (sel !== "median") { const ref = state.images.find(i => String(i.id) === sel); if (ref) return (ref.metrics || computeMetrics(ref)).texture; }
+  const vals = state.images.map(i => (i.metrics || computeMetrics(i)).texture).filter(v => v > 0).sort((a, b) => a - b);
+  if (!vals.length) return 0;
+  return vals.length % 2 ? vals[(vals.length - 1) / 2] : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
+}
+async function matchTexture(img, target) {
+  const base = metricWith(img, 0, 0);
+  let note;
+  if (Math.abs(base - target) < 0.5) { img.s.fx.grain.amount = 0; img.s.fx.soften = 0; note = "כבר תואם"; }
+  else if (base < target) {
+    let lo = 0, hi = 1.5;
+    if (metricWith(img, hi, 0) < target) lo = hi;
+    else for (let i = 0; i < 9; i++) { const mid = (lo + hi) / 2; if (metricWith(img, mid, 0) < target) lo = mid; else hi = mid; }
+    img.s.fx.grain.amount = Math.round(((lo + hi) / 2) * 100) / 100; img.s.fx.soften = 0;
+    note = `גרעיניות ${Math.round(img.s.fx.grain.amount * 100)}%`;
+  } else {
+    let lo = 0, hi = 3;
+    if (metricWith(img, 0, hi) > target) lo = hi;
+    else for (let i = 0; i < 9; i++) { const mid = (lo + hi) / 2; if (metricWith(img, 0, mid) > target) lo = mid; else hi = mid; }
+    img.s.fx.grain.amount = 0; img.s.fx.soften = Math.round(((lo + hi) / 2) * 20) / 20;
+    note = `ריכוך ${img.s.fx.soften.toFixed(2)} px (גרעיני מהיעד)`;
+  }
+  computeMetrics(img);
+  return note;
+}
+function renderSeriesTable() {
+  const tb = $("seriesTable").querySelector("tbody"); tb.innerHTML = "";
+  const sel = $("texTarget"); const cur = sel.value;
+  sel.innerHTML = '<option value="median">חציון הסדרה</option>';
+  for (const img of state.images) { const o = document.createElement("option"); o.value = img.id; o.textContent = "כמו: " + img.name; sel.appendChild(o); }
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+  const target = state.images.length ? textureTarget() : 0;
+  const maxT = Math.max(1, target * 2, ...state.images.map(i => i.metrics ? i.metrics.texture : 0));
+  $("tagSeries").textContent = state.images.length ? `${state.images.length} איורים · יעד ${target.toFixed(1)}` : "";
+  state.images.forEach((img, i) => {
+    const tr = document.createElement("tr"); if (i === state.sel) tr.className = "sel";
+    const m = img.metrics, P = state.project.palette, fit = img.analysis && img.analysis.fit;
+    tr.innerHTML = `<td class="nm" title="${img.name}">${img.name}</td>
+      <td><span class="dots"><span class="dot" style="background:${P[img.s.inks[0]].hex}"></span><span class="dot" style="background:${P[img.s.inks[1]].hex}"></span></span></td>
+      <td>${fit == null ? "—" : `<span class="badge ${fitClass(fit)}">${fitPct(fit)}%</span>`}</td>
+      <td>${m ? `<span class="tex num"><i><b style="width:${Math.min(100, m.texture / maxT * 100)}%"></b><s style="inset-inline-start:${Math.min(100, target / maxT * 100)}%"></s></i>${m.texture.toFixed(1)}</span>` : "—"}</td>
+      <td class="num">${m ? `${Math.round(m.weightA * 100)}/${Math.round(m.weightB * 100)}` : "—"}</td>`;
+    tr.querySelector(".nm").addEventListener("click", () => select(i));
+    tb.appendChild(tr);
+  });
+}
+function applyToAll(kind) {
+  const src = current(); if (!src) return;
+  for (const img of state.images) {
+    if (img === src) continue;
+    if (kind === "tex") { const f = src.s.fx; img.s.fx.paperClean = f.paperClean; img.s.fx.soften = f.soften; img.s.fx.grain = clone(f.grain); img.s.fx.misreg = clone(f.misreg); img.s.fx.halftone = clone(f.halftone); }
+    else { img.s.fx.inkA = clone(src.s.fx.inkA); img.s.fx.inkB = clone(src.s.fx.inkB); }
+  }
+  state.project.defaults = clone(src.s.fx);
+  updateSheetAll(); scheduleMetricsAll(); persist();
+  setStatus(kind === "tex" ? "הגדרות הטקסטורה הוחלו על כל האיורים." : "צפיפות הדיו הוחלה על כל האיורים.");
+}
+
+/* ---------- contact sheet ---------- */
+function sheetCell(img) {
+  let cell = $("sheet").querySelector(`[data-id="${img.id}"]`);
+  if (!cell) {
+    cell = document.createElement("div"); cell.className = "cell"; cell.dataset.id = img.id;
+    const c = document.createElement("canvas"); c.width = img.views.th.data.width; c.height = img.views.th.data.height;
+    cell.appendChild(c); const sp = document.createElement("span"); sp.textContent = img.name; cell.appendChild(sp);
+    cell.addEventListener("click", () => select(state.images.indexOf(img)));
+    $("sheet").appendChild(cell);
+  }
+  return cell;
+}
+const sheetTimers = new Map();
+function updateSheetOne(img) {
+  clearTimeout(sheetTimers.get(img.id));
+  sheetTimers.set(img.id, setTimeout(() => {
+    if (!state.images.includes(img)) return;
+    const cell = sheetCell(img), v = img.views.th, w = v.data.width, h = v.data.height;
+    const out = Riso.render(jobFor(img, v, { x: 0, y: 0, w, h }, "result"));
+    cell.querySelector("canvas").getContext("2d").putImageData(new ImageData(out, w, h), 0, 0);
+    cell.classList.toggle("sel", img === current());
+  }, 120));
+}
+function updateSheetAll() {
+  const sheet = $("sheet");
+  [...sheet.children].forEach(c => { if (!state.images.some(i => String(i.id) === c.dataset.id)) c.remove(); });
+  for (const img of state.images) updateSheetOne(img);
+}
+function updateSheetSel() { $("sheet").querySelectorAll(".cell").forEach(c => c.classList.toggle("sel", current() && c.dataset.id === String(current().id))); }
+
+/* ---------- export ---------- */
+async function renderFullToPng(img, full, mode, label, progressBase, progressSpan) {
+  const W = img.W, H = img.H, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const cx = c.getContext("2d"), band = Math.max(32, Math.floor(400000 / W));
+  for (let y = 0; y < H; y += band) {
+    const h = Math.min(band, H - y);
+    const out = Riso.render(jobFor(img, full, { x: 0, y, w: W, h }, mode));
+    cx.putImageData(new ImageData(out, W, h), 0, y);
+    setProgress(progressBase + progressSpan * (y + h) / H); setStatus(`מייצאת ${img.name} · ${label} · ${Math.round((y + h) / H * 100)}%`);
+    await yieldUI();
+  }
+  const blob = await new Promise(r => c.toBlob(r, "image/png"));
+  return pngWithDpi(blob, state.project.dpi || 300);
+}
+async function exportImage(img, progressBase, progressSpan) {
+  const full = await fullView(img);
+  const base = img.name.replace(/\.[^.]+$/, ""), P = state.project.palette;
+  const files = [];
+  const n = state.project.sep ? 3 : 1, span = progressSpan / n;
+  files.push({ name: `${base}_riso.png`, blob: await renderFullToPng(img, full, "result", "תוצאה", progressBase, span) });
+  if (state.project.sep) {
+    files.push({ name: `${base}_sep-A-${P[img.s.inks[0]].ink || "A"}.png`, blob: await renderFullToPng(img, full, "sepA", "הפרדה A", progressBase + span, span) });
+    files.push({ name: `${base}_sep-B-${P[img.s.inks[1]].ink || "B"}.png`, blob: await renderFullToPng(img, full, "sepB", "הפרדה B", progressBase + 2 * span, span) });
+  }
+  return files;
+}
+async function exportCurrent() {
+  const img = current(); if (!img || state.busy) return;
+  state.busy = true; setProgress(0);
+  try {
+    const files = await exportImage(img, 0, 1);
+    if (files.length === 1) await saveBlob(files[0].name, files[0].blob);
+    else await saveBlob(`${img.name.replace(/\.[^.]+$/, "")}_riso.zip`, buildZip(files));
+    setStatus(`יוצא: ${files.map(f => f.name).join(", ")}`);
+  } catch (e) { console.error(e); setStatus("הייצוא נכשל: " + e.message); }
+  finally { setProgress(null); state.busy = false; }
+}
+async function exportAll() {
+  if (!state.images.length || state.busy) return;
+  state.busy = true; setProgress(0);
+  try {
+    const all = [];
+    for (let i = 0; i < state.images.length; i++) { const files = await exportImage(state.images[i], i / state.images.length, 1 / state.images.length); all.push(...files); state.images[i].full = null; }
+    setStatus("בונה ZIP…"); await yieldUI();
+    await saveBlob("riso-series.zip", buildZip(all));
+    setStatus(`יוצאו ${all.length} קבצים ב-ZIP.`);
+  } catch (e) { console.error(e); setStatus("הייצוא נכשל: " + e.message); }
+  finally { setProgress(null); state.busy = false; }
+}
+async function saveBlob(name, blob) {
+  if (window.claude && typeof window.claude.use === "function") {
+    try {
+      const dl = await window.claude.use("downloads");
+      if (dl) { await dl.save({ filename: name, data: blob }); return; }
+    } catch (e) { if (e && e.code === "declined") { setStatus("השמירה בוטלה."); return; } console.warn("downloads capability failed, falling back", e); }
+  }
+  const url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+/* ---------- PNG dpi + ZIP (store) ---------- */
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(bytes, crc = 0xFFFFFFFF) { for (let i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8); return crc >>> 0; }
+async function pngWithDpi(blob, dpi) {
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  if (buf.length < 33 || buf[0] !== 0x89 || buf[1] !== 0x50) return blob;
+  const ihdrEnd = 8 + 4 + 4 + 13 + 4;
+  const ppm = Math.round(dpi / 0.0254);
+  const chunk = new Uint8Array(4 + 4 + 9 + 4); const dv = new DataView(chunk.buffer);
+  dv.setUint32(0, 9); chunk.set([0x70, 0x48, 0x59, 0x73], 4); dv.setUint32(8, ppm); dv.setUint32(12, ppm); chunk[16] = 1;
+  dv.setUint32(17, (crc32(chunk.subarray(4, 17)) ^ 0xFFFFFFFF) >>> 0);
+  // drop an existing pHYs chunk if present (scan chunks)
+  const parts = [buf.subarray(0, ihdrEnd), chunk];
+  let p = ihdrEnd;
+  while (p + 8 <= buf.length) {
+    const len = new DataView(buf.buffer, buf.byteOffset + p).getUint32(0), type = String.fromCharCode(buf[p + 4], buf[p + 5], buf[p + 6], buf[p + 7]);
+    const end = p + 12 + len; if (type !== "pHYs") parts.push(buf.subarray(p, end)); p = end;
+  }
+  return new Blob(parts, { type: "image/png" });
+}
+function buildZip(files) {
+  const enc = new TextEncoder(), local = [], central = []; let offset = 0;
+  const now = new Date(), dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1), dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  return (async () => {
+    for (const f of files) {
+      const name = enc.encode(f.name), data = new Uint8Array(await f.blob.arrayBuffer()), crc = (crc32(data) ^ 0xFFFFFFFF) >>> 0;
+      const lh = new Uint8Array(30 + name.length), lv = new DataView(lh.buffer);
+      lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true); lv.setUint16(6, 0x0800, true); lv.setUint16(8, 0, true); lv.setUint16(10, dosTime, true); lv.setUint16(12, dosDate, true);
+      lv.setUint32(14, crc, true); lv.setUint32(18, data.length, true); lv.setUint32(22, data.length, true); lv.setUint16(26, name.length, true); lv.setUint16(28, 0, true); lh.set(name, 30);
+      local.push(lh, data);
+      const ch = new Uint8Array(46 + name.length), cv = new DataView(ch.buffer);
+      cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true); cv.setUint16(8, 0x0800, true); cv.setUint16(10, 0, true); cv.setUint16(12, dosTime, true); cv.setUint16(14, dosDate, true);
+      cv.setUint32(16, crc, true); cv.setUint32(20, data.length, true); cv.setUint32(24, data.length, true); cv.setUint16(28, name.length, true); cv.setUint32(42, offset, true); ch.set(name, 46);
+      central.push(ch); offset += lh.length + data.length;
+    }
+    const cdSize = central.reduce((s, c) => s + c.length, 0), end = new Uint8Array(22), ev = new DataView(end.buffer);
+    ev.setUint32(0, 0x06054b50, true); ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true); ev.setUint32(12, cdSize, true); ev.setUint32(16, offset, true);
+    return new Blob([...local, ...central, end], { type: "application/zip" });
+  })();
+}
+async function saveBlobAsync(name, blobPromise) { return saveBlob(name, await blobPromise); }
+
+/* ---------- project persistence ---------- */
+let persistTimer = null;
+function serializeProject() {
+  const images = { ...state.project.saved };
+  for (const img of state.images) images[imgKey(img)] = clone(img.s);
+  return { version: 1, app: "Open Riso", palette: state.project.palette, paperOut: state.project.paperOut, dpi: state.project.dpi, sep: state.project.sep, defaults: state.project.defaults, images };
+}
+function persist() { clearTimeout(persistTimer); persistTimer = setTimeout(() => { try { localStorage.setItem(LS_KEY, JSON.stringify(serializeProject())); } catch (e) { /* storage unavailable */ } }, 400); }
+function restoreProject(obj) {
+  if (!obj || typeof obj !== "object") return false;
+  if (Array.isArray(obj.palette) && obj.palette.length === 4) state.project.palette = obj.palette.map((p, i) => ({ name: p.name || DEFAULT_PALETTE[i].name, ink: p.ink || "", hex: hexToRgb(p.hex) ? p.hex.toUpperCase() : DEFAULT_PALETTE[i].hex }));
+  if (hexToRgb(obj.paperOut)) state.project.paperOut = obj.paperOut;
+  if (obj.dpi) state.project.dpi = obj.dpi; state.project.sep = !!obj.sep;
+  if (obj.defaults) state.project.defaults = Object.assign(defaultFx(), obj.defaults);
+  state.project.saved = obj.images && typeof obj.images === "object" ? obj.images : {};
+  for (const img of state.images) { const s = state.project.saved[imgKey(img)]; if (s) { img.s = newSettings(s); updateFit(img); invalidateCov(img); } }
+  $("paperOut").value = state.project.paperOut; buildPalette(); syncPanel(); requestDraw(); updateSheetAll(); renderList(); scheduleMetricsAll();
+  return true;
+}
+
+/* ---------- events ---------- */
+function bindEvents() {
+  const dz = $("dropzone"), fi = $("fileInput");
+  dz.addEventListener("click", () => fi.click());
+  fi.addEventListener("change", () => { addFiles(fi.files); fi.value = ""; });
+  for (const el of [dz, $("canvasWrap"), $("imglist")]) {
+    el.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+    el.addEventListener("dragleave", () => dz.classList.remove("drag"));
+    el.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("drag"); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+  }
+  document.addEventListener("paste", e => { const items = [...(e.clipboardData && e.clipboardData.files || [])]; if (items.length) addFiles(items); });
+  $("btnClearAll").addEventListener("click", () => { if (!state.images.length || !confirm("להסיר את כל האיורים מהרשימה? (ההגדרות נשמרות לפי שם הקובץ)")) return; state.images = []; state.sel = -1; renderList(); syncPanel(); requestDraw(); updateSheetAll(); renderSeriesTable(); });
+
+  $("viewModes").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { state.view.mode = b.dataset.mode; $("viewModes").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); requestDraw(); }));
+  $("zoomCtl").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { state.view.zoom = b.dataset.zoom === "fit" ? "fit" : parseFloat(b.dataset.zoom); syncZoomButtons(); requestDraw(); }));
+  $("btnLoupe").addEventListener("click", () => { state.view.loupe = !state.view.loupe; $("btnLoupe").classList.toggle("on", state.view.loupe); if (!state.view.loupe) $("loupe").style.display = "none"; else { const img = current(); if (img) fullView(img); } });
+
+  // pan / zoom / eyedrop / split
+  const wrap = $("canvasWrap"); let pan = null, splitDrag = false;
+  canvas.addEventListener("pointerdown", e => {
+    const img = current(); if (!img) return;
+    if (state.view.eyedrop) {
+      const dpr = window.devicePixelRatio || 1, r = wrap.getBoundingClientRect(), vp = viewport(img, dpr);
+      const fx = vp.x0 + (e.clientX - r.left) * dpr / vp.z, fy = vp.y0 + (e.clientY - r.top) * dpr / vp.z;
+      const rgb = sampleAt(img, fx, fy); if (rgb) applyEyedrop(img, rgb); return;
+    }
+    pan = { x: e.clientX, y: e.clientY, cx: state.view.cx, cy: state.view.cy }; canvas.setPointerCapture(e.pointerId); wrap.classList.add("panning");
+  });
+  canvas.addEventListener("pointermove", e => {
+    const img = current(); if (!img) return;
+    if (pan) { const dpr = window.devicePixelRatio || 1, z = zoomOf(img, dpr); state.view.cx = pan.cx - (e.clientX - pan.x) * dpr / z; state.view.cy = pan.cy - (e.clientY - pan.y) * dpr / z; requestDraw(); }
+    if (state.view.loupe) { clearTimeout(loupeTimer); loupeTimer = setTimeout(() => updateLoupe(e.clientX, e.clientY), 16); }
+  });
+  const endPan = e => { if (pan) { pan = null; wrap.classList.remove("panning"); } };
+  canvas.addEventListener("pointerup", endPan); canvas.addEventListener("pointercancel", endPan);
+  canvas.addEventListener("pointerleave", () => { $("loupe").style.display = "none"; });
+  wrap.addEventListener("wheel", e => {
+    const img = current(); if (!img) return; e.preventDefault();
+    const dpr = window.devicePixelRatio || 1, r = wrap.getBoundingClientRect(), vp = viewport(img, dpr);
+    const fx = vp.x0 + (e.clientX - r.left) * dpr / vp.z, fy = vp.y0 + (e.clientY - r.top) * dpr / vp.z;
+    const zOld = vp.z, factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+    let zNew = Math.min(8 * dpr, Math.max(fitZoom(img) * 0.5, zOld * factor));
+    state.view.zoom = zNew / dpr;
+    state.view.cx = fx - ((e.clientX - r.left) * dpr - canvas.width / 2) / zNew; state.view.cy = fy - ((e.clientY - r.top) * dpr - canvas.height / 2) / zNew;
+    syncZoomButtons(); requestDraw();
+  }, { passive: false });
+  $("splitHandle").addEventListener("pointerdown", e => { splitDrag = true; $("splitHandle").setPointerCapture(e.pointerId); e.stopPropagation(); });
+  $("splitHandle").addEventListener("pointermove", e => { if (!splitDrag) return; const r = wrap.getBoundingClientRect(); state.view.split = Math.min(0.98, Math.max(0.02, (e.clientX - r.left) / r.width)); requestDraw(); });
+  $("splitHandle").addEventListener("pointerup", () => splitDrag = false);
+  document.addEventListener("keydown", e => {
+    if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+    if (e.code === "Space" && !state.view.showOriginal) { state.view.showOriginal = true; requestDraw(); e.preventDefault(); }
+    if (e.key === "Escape") setEyedrop(null);
+  });
+  document.addEventListener("keyup", e => { if (e.code === "Space") { state.view.showOriginal = false; requestDraw(); } });
+  new ResizeObserver(() => requestDraw()).observe(wrap);
+
+  // panel
+  bindSliders();
+  $("modelAuto").addEventListener("change", () => { const img = current(); if (!img) return; img.s.modelAuto = $("modelAuto").checked; if (img.s.modelAuto) analyzeImage(img, { keepInks: true }); afterUnmixChange(img); });
+  $("paperWhite").addEventListener("change", () => { const img = current(); if (!img) return; img.s.paperMode = $("paperWhite").checked ? "white" : "auto"; analyzeImage(img, { keepInks: true }); afterUnmixChange(img); });
+  $("btnSwapInks").addEventListener("click", () => { const img = current(); if (img) swapInks(img); });
+  $("btnRedetect").addEventListener("click", () => { const img = current(); if (!img) return; img.s.srcAuto = true; if (img.s.paperMode === "manual") img.s.paperMode = "auto"; img.s.inksAuto = true; analyzeImage(img, { initial: true }); afterUnmixChange(img); setStatus("הנייר וצבעי הדיו זוהו מחדש."); });
+  for (const k of ["A", "B", "P"]) $("eye" + k).addEventListener("click", () => setEyedrop(state.view.eyedrop === k ? null : k));
+  bindHex("hexSrcA", (s, rgb) => { s.srcA = rgb; s.srcAuto = false; });
+  bindHex("hexSrcB", (s, rgb) => { s.srcB = rgb; s.srcAuto = false; });
+  bindHex("hexSrcP", (s, rgb) => { s.paperRgb = rgb; s.paperMode = "manual"; });
+  $("misRandom").addEventListener("change", () => { const img = current(); if (!img) return; img.s.fx.misreg.random = $("misRandom").checked; afterFxChange(img); });
+  $("misBoth").addEventListener("change", () => { const img = current(); if (!img) return; img.s.fx.misreg.both = $("misBoth").checked; syncMisMm(img); afterFxChange(img); });
+  $("grainSeed").addEventListener("change", () => { const img = current(); if (!img) return; img.s.fx.grain.seed = Math.max(1, parseInt($("grainSeed").value, 10) || 1); afterFxChange(img); });
+  $("btnReseed").addEventListener("click", () => { const img = current(); if (!img) return; img.s.fx.grain.seed = 1 + Math.floor(Math.random() * 99998); $("grainSeed").value = img.s.fx.grain.seed; afterFxChange(img); });
+  $("btnApplyTexAll").addEventListener("click", () => applyToAll("tex"));
+  $("btnApplyDensAll").addEventListener("click", () => applyToAll("dens"));
+  $("texTarget").addEventListener("change", () => renderSeriesTable());
+  $("btnMatchOne").addEventListener("click", async () => { const img = current(); if (!img || state.images.length < 2) { setStatus("צריך לפחות שני איורים כדי להתאים טקסטורה."); return; } const t = textureTarget(); const note = await matchTexture(img, t); syncPanel(); afterFxChange(img); renderSeriesTable(); setStatus(`הותאם ליעד ${t.toFixed(1)}: ${note}`); });
+  $("btnMatchAll").addEventListener("click", async () => {
+    if (state.images.length < 2) { setStatus("צריך לפחות שני איורים כדי להתאים טקסטורה."); return; }
+    const t = textureTarget(), notes = [];
+    for (const img of state.images) { if ($("texTarget").value === String(img.id)) continue; notes.push(`${img.name}: ${await matchTexture(img, t)}`); updateSheetOne(img); await yieldUI(); }
+    syncPanel(); requestDraw(); renderSeriesTable(); persist(); setStatus(`הותאמו ליעד ${t.toFixed(1)} · ` + notes.join(" · "));
+  });
+  $("dpi").addEventListener("change", () => { state.project.dpi = Math.max(72, parseInt($("dpi").value, 10) || 300); $("dpi").value = state.project.dpi; const img = current(); if (img) { syncMisMm(img); syncPanel(); } persist(); });
+  $("expSep").addEventListener("change", () => { state.project.sep = $("expSep").checked; persist(); });
+  $("btnExportOne").addEventListener("click", exportCurrent);
+  $("btnExportAll").addEventListener("click", exportAll);
+  $("paperOut").addEventListener("input", () => { state.project.paperOut = $("paperOut").value; $("swTgtP").style.background = state.project.paperOut; requestDraw(); updateSheetAll(); persist(); });
+  $("btnSaveProject").addEventListener("click", () => saveBlob("open-riso-project.json", new Blob([JSON.stringify(serializeProject(), null, 2)], { type: "application/json" })));
+  $("btnLoadProject").addEventListener("click", () => $("projectFile").click());
+  $("projectFile").addEventListener("change", async () => { const f = $("projectFile").files[0]; $("projectFile").value = ""; if (!f) return; try { restoreProject(JSON.parse(await f.text())); setStatus("הפרויקט נטען."); persist(); } catch (e) { setStatus("קובץ הפרויקט לא תקין."); } });
+}
+function syncZoomButtons() { $("zoomCtl").querySelectorAll("button").forEach(b => b.classList.toggle("on", String(state.view.zoom) === b.dataset.zoom)); }
+
+/* ---------- init ---------- */
+function init() {
+  buildPalette(); bindEvents();
+  try { const raw = localStorage.getItem(LS_KEY); if (raw) restoreProject(JSON.parse(raw)); } catch (e) { /* ignore */ }
+  $("paperOut").value = state.project.paperOut;
+  syncPanel(); requestDraw();
+}
+init();
+window.__riso = { state, addFiles, select, exportImage, computeMetrics, matchTexture, analyzeImage, jobFor, serializeProject, restoreProject, buildZip, pngWithDpi };
+})();
+</script>
+</body>
+</html>

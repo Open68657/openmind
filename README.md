@@ -71,3 +71,10 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Standalone tools (no build step)
+
+Self-contained HTML pages under `public/`, served as-is (e.g. `/riso-unify.html`) or opened directly from disk. Everything runs client-side; no image ever leaves the browser.
+
+- `public/image-resizer.html`: batch image resizer that reads the target size from each filename.
+- `public/riso-unify.html`: **Open Riso**, series calibration for risograph-style illustrations. Separates every illustration into two ink layers on paper (Yule-Nielsen ink model, per-pixel bounded least squares), swaps the detected source inks for the series palette, turns the paper pure white, adds consistent grain / misregistration / optional halftone, measures texture across the series, and exports full-resolution PNGs (plus grayscale ink separations for real riso printing).
