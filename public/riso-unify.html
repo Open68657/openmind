@@ -150,7 +150,7 @@ button:disabled { opacity: .45; cursor: default; }
 .pair .sw.ro { cursor: default; }
 .pair .sw.ro:hover { border-color: rgba(255,255,255,.18); }
 .pair input.hex[readonly] { color: var(--muted); }
-.srcgrid .mono { color: var(--muted); font-size: 11px; }
+.srcgrid .mono, .inline .mono { color: var(--muted); font-size: 11px; }
 .pair .arrow { color: var(--faint); font-size: 12px; }
 .pair input.hex { width: 74px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; }
 .pair input.hex.bad { border-color: var(--err); }
@@ -263,7 +263,8 @@ table.series td.nm { max-width: 90px; white-space: nowrap; overflow: hidden; tex
           <div class="hint">בחרי את שני צבעי הדיו של האיור הזה מתוך פלטת הסדרה. הראשון הוא <b>A</b>, השני <b>B</b>.</div>
           <div class="chips" id="inkChips"></div>
           <div class="inline">
-            <button class="btn xs" id="btnSwapInks" title="החלפה בין A ל-B">⇄ החלפה בין A ל-B</button>
+            <button class="btn xs" id="btnSwapInks" title="מחליף את התפקידים: הצבע שהיה A הופך ל-B וגם צבע המקור שלו. התמונה לא משתנה, רק מי נחשב הדיו העליון (סטיית רישום, אטימות, זווית רסטר)">⇄ החלפת תפקידים A/B</button>
+            <button class="btn xs" id="btnSwapTargets" title="מחליף רק את צבעי היעד: מה שזוהה כדיו A יקבל את צבע B ולהפך. התמונה משתנה">⇄ החלפת צבעי היעד</button>
             <button class="btn xs" id="btnRedetect" title="זיהוי מחדש של הנייר וצבעי הדיו במקור">זיהוי אוטומטי מחדש</button>
           </div>
           <div class="hint">צבעי המקור שזוהו ← הצבע הרצוי. תיקון המקור: טפטפת (לחיצה על האיור), לחיצה על הריבוע השמאלי או הקלדת hex. לחיצה על הריבוע הימני משנה את הצבע הרצוי בפלטת הסדרה.</div>
@@ -278,10 +279,11 @@ table.series td.nm { max-width: 90px; white-space: nowrap; overflow: hidden; tex
             <div class="pair"><label class="sw" id="swSrcP" title="צבע הנייר במקור: לחיצה פותחת בוחר צבע"><input type="color" id="pickSrcP"></label><input class="hex mono" id="hexSrcP" maxlength="7"><span class="arrow">←</span><label class="sw" id="swTgtP" title="צבע הנייר בפלט (לכל הסדרה)"><input type="color" id="pickTgtP"></label></div>
             <button class="iconbtn" id="eyeP" title="טפטפת: לחצי על אזור נייר ריק באיור">💧</button>
             <span class="lab">חפיפה</span>
-            <div class="pair"><span class="sw ro" id="swOverSrc" title="צבע החפיפה שנמדד במקור (פיקסלים שבהם שני הצבעים מלאים)"></span><input class="hex mono" id="hexOverSrc" readonly title="נמדד במקור"><span class="arrow">←</span><span class="sw ro" id="swOverTgt" title="צבע החפיפה בפלט: נובע משני צבעי הפלטה (מכפלה) ומאטימות הדיו העליון"></span></div>
-            <span class="mono" id="hexOverTgt" title="צבע החפיפה בפלט"></span>
+            <div class="pair"><label class="sw" id="swOverSrc" title="צבע החפיפה במקור (שני הצבעים מלאים): נמדד אוטומטית, לחיצה פותחת בוחר צבע"><input type="color" id="pickOverSrc"></label><input class="hex mono" id="hexOverSrc" maxlength="7" title="צבע החפיפה במקור"><span class="arrow">←</span><label class="sw" id="swOverTgt" title="צבע החפיפה הרצוי בפלט: לחיצה פותחת בוחר צבע. נשמר לסדרה לזוג הצבעים הזה"><input type="color" id="pickOverTgt"></label></div>
+            <button class="iconbtn" id="eyeO" title="טפטפת: לחצי על אזור שבו שני הצבעים מלאים">💧</button>
           </div>
-          <div class="hint" id="overNote">החפיפה אינה צבע שבוחרים: היא נובעת משני צבעי הדיו, כמו בהדפסה. כדי לשנות אותה משנים את אחד הצבעים בפלטה או את אטימות הדיו העליון (בבלוק "צפיפות דיו").</div>
+          <div class="inline"><span class="hint" id="overStatus"></span><span class="mono" id="hexOverTgt"></span><button class="btn xs" id="btnOverReset" hidden>↺ חזרה למכפלה</button></div>
+          <div class="hint">החפיפה היא הצבע הרביעי של ההדפסה. ברירת המחדל בפלט היא מכפלת שני הצבעים (דיו שקוף); בחירת צבע לחפיפה נשמרת לסדרה לזוג הצבעים הזה ומחליפה את "אטימות הדיו העליון". במקור, החפיפה שנמדדת מהאיור משמשת לפירוק, כך שאזורי החפיפה יוצאים בדיוק בצבע שבחרת.</div>
           <div class="checkrow"><input type="checkbox" id="paperWhite"><label for="paperWhite">הנייר במקור כבר לבן טהור (בלי נרמול נייר)</label></div>
           <div class="kv">
             <span class="k">התאמת מודל שני הדיו</span><span><span id="fitText" class="num">—</span><div class="fitbar" id="fitBar"><i style="width:0"></i></div></span>
@@ -496,24 +498,46 @@ const Riso = (function () {
     return out;
   }
   // color of ink layers with coverage a (ink A) and b (ink B) on a paper
-  // opacity = how much the top ink (B) hides the bottom ink (A) where they overlap: 0 = ideal transparent overprint
-  function mixColor(inkA, inkB, a, b, paperRgb, n, opacity) {
-    const p = paperRgb || WHITE, aA = inkAlpha(inkA, p, n), aB = inkB ? inkAlpha(inkB, p, n) : [0, 0, 0], out = [0, 0, 0];
-    const ae = a * (1 - (opacity || 0) * Math.min(1, b));
-    for (let c = 0; c < 3; c++) {
-      const v = Math.max(0, (1 - ae * aA[c]) * (1 - b * aB[c]));
-      out[c] = lin2byte(S2L[p[c] | 0] * Math.pow(v, n || 2));
-    }
+  // q-value (YN space) of a solid colour over a paper: used for the overprint primary
+  function overlapQ(rgb, paperRgb, n) {
+    const p = paperRgb || WHITE, inv = 1 / (n || 2), q = new Float32Array(3);
+    for (let c = 0; c < 3; c++) q[c] = Math.pow(Math.min(1, S2L[rgb[c] | 0] / Math.max(S2L[p[c] | 0], 1e-6)), inv);
+    return q;
+  }
+  // The overprint primary (both inks solid): a chosen colour, or the transparent multiply of the two inks
+  // softened by `opacity` = how much the top ink (B) hides the bottom ink (A) where they overlap.
+  function overprintQ(aA, aB, opacity, overlapRgb, paperRgb, n) {
+    if (overlapRgb) return overlapQ(overlapRgb, paperRgb, n);
+    const op = opacity || 0, q = new Float32Array(3);
+    for (let c = 0; c < 3; c++) q[c] = (1 - (1 - op) * aA[c]) * (1 - aB[c]);
+    return q;
+  }
+  // Neugebauer / Demichel mix of the four primaries (paper, A, B, A×B) in YN space
+  function mixQ(a, b, pA, pB, pAB, c) {
+    const ac = a > 1 ? 1 : a, bc = b > 1 ? 1 : b;
+    let v = (1 - ac) * (1 - bc) + ac * (1 - bc) * pA[c] + (1 - ac) * bc * pB[c] + ac * bc * pAB[c];
+    if (a > 1) v *= Math.pow(pA[c], a - 1);
+    if (b > 1) v *= Math.pow(pB[c], b - 1);
+    return v < 0 ? 0 : v > 1 ? 1 : v;
+  }
+  function mixColor(inkA, inkB, a, b, paperRgb, n, opacity, overlapRgb) {
+    const p = paperRgb || WHITE, aA = inkAlpha(inkA, p, n), aB = inkB ? inkAlpha(inkB, p, n) : new Float32Array(3), out = [0, 0, 0];
+    const pA = [1 - aA[0], 1 - aA[1], 1 - aA[2]], pB = [1 - aB[0], 1 - aB[1], 1 - aB[2]], pAB = overprintQ(aA, aB, opacity, overlapRgb, p, n);
+    for (let c = 0; c < 3; c++) out[c] = lin2byte(S2L[p[c] | 0] * Math.pow(mixQ(a, b, pA, pB, pAB, c), n || 2));
     return out;
   }
 
   /* ---------- unmixing: bounded least squares, alternating, warm-started ---------- */
   // Writes coverage of ink A/B for region [x0,y0,w,h] of src into covA/covB (w*h).
   // Q = sourceLUT, alA/alB = inkAlpha of the source inks. Outside pixels = bare paper.
-  function unmixRegion(src, x0, y0, w, h, Q, alA, alB, covA, covB) {
+  function unmixRegion(src, x0, y0, w, h, Q, alA, alB, covA, covB, pAB) {
     const sw = src.width, sh = src.height, data = src.data;
     const Q0 = Q[0], Q1 = Q[1], Q2 = Q[2];
     const A0 = alA[0], A1 = alA[1], A2 = alA[2], B0 = alB[0], B1 = alB[1], B2 = alB[2];
+    const PA0 = 1 - A0, PA1 = 1 - A1, PA2 = 1 - A2, PB0 = 1 - B0, PB1 = 1 - B1, PB2 = 1 - B2;
+    const O0 = pAB ? pAB[0] : PA0 * PB0, O1 = pAB ? pAB[1] : PA1 * PB1, O2 = pAB ? pAB[2] : PA2 * PB2;
+    const dA0 = O0 - PA0, dA1 = O1 - PA1, dA2 = O2 - PA2;   // slope terms for b given a
+    const dB0 = O0 - PB0, dB1 = O1 - PB1, dB2 = O2 - PB2;   // slope terms for a given b
     const AA = A0 * A0 + A1 * A1 + A2 * A2 || 1e-9;
     let a = 0, b = 0;
     for (let y = 0; y < h; y++) {
@@ -524,22 +548,20 @@ const Riso = (function () {
         if (sx < 0 || sx >= sw) { covA[o] = 0; covB[o] = 0; continue; }
         const p = (sy * sw + sx) << 2;
         const q0 = Q0[data[p]], q1 = Q1[data[p + 1]], q2 = Q2[data[p + 2]];
-        // quick exits: bare paper
         if (q0 > 0.995 && q1 > 0.995 && q2 > 0.995) { covA[o] = 0; covB[o] = 0; a = 0; b = 0; continue; }
-        // cold start when the previous pixel is far: single-ink projections
         if (x === 0 || (a === 0 && b === 0)) {
           a = ((1 - q0) * A0 + (1 - q1) * A1 + (1 - q2) * A2) / AA; if (a < 0) a = 0; else if (a > 1) a = 1;
         }
         for (let it = 0; it < 4; it++) {
-          // b given a
-          let s0 = 1 - a * A0, s1 = 1 - a * A1, s2 = 1 - a * A2;
-          let num = (s0 - q0) * B0 * s0 + (s1 - q1) * B1 * s1 + (s2 - q2) * B2 * s2;
-          let den = B0 * B0 * s0 * s0 + B1 * B1 * s1 * s1 + B2 * B2 * s2 * s2;
+          // b given a:  q = (1 - a·α) + b·[ -(1-a)·β + a·(pAB - pA) ]
+          let s0 = -(1 - a) * B0 + a * dA0, s1 = -(1 - a) * B1 + a * dA1, s2 = -(1 - a) * B2 + a * dA2;
+          let num = (q0 - 1 + a * A0) * s0 + (q1 - 1 + a * A1) * s1 + (q2 - 1 + a * A2) * s2;
+          let den = s0 * s0 + s1 * s1 + s2 * s2;
           b = den > 1e-12 ? num / den : 0; if (b < 0) b = 0; else if (b > 1) b = 1;
-          // a given b
-          s0 = 1 - b * B0; s1 = 1 - b * B1; s2 = 1 - b * B2;
-          num = (s0 - q0) * A0 * s0 + (s1 - q1) * A1 * s1 + (s2 - q2) * A2 * s2;
-          den = A0 * A0 * s0 * s0 + A1 * A1 * s1 * s1 + A2 * A2 * s2 * s2;
+          // a given b:  q = (1 - b·β) + a·[ -(1-b)·α + b·(pAB - pB) ]
+          s0 = -(1 - b) * A0 + b * dB0; s1 = -(1 - b) * A1 + b * dB1; s2 = -(1 - b) * A2 + b * dB2;
+          num = (q0 - 1 + b * B0) * s0 + (q1 - 1 + b * B1) * s1 + (q2 - 1 + b * B2) * s2;
+          den = s0 * s0 + s1 * s1 + s2 * s2;
           const na = den > 1e-12 ? num / den : 0;
           const da = na - a;
           a = na; if (a < 0) a = 0; else if (a > 1) a = 1;
@@ -724,20 +746,21 @@ const Riso = (function () {
   }
 
   // RMS reconstruction error (sRGB 0..255) of the 2-ink model with the given source inks
-  function fitError(src, paperRgb, inkA, inkB, n, maxSamples) {
+  function fitError(src, paperRgb, inkA, inkB, n, maxSamples, overlapRgb) {
     const N = src.width * src.height, step = Math.max(1, Math.round(Math.sqrt(N / (maxSamples || 60000))));
     const sub = subsample(src, step);
     const Q = sourceLUT(paperRgb, n), aA = inkAlpha(inkA, paperRgb, n, FLOOR), aB = inkAlpha(inkB, paperRgb, n, FLOOR);
+    const pA = [1 - aA[0], 1 - aA[1], 1 - aA[2]], pB = [1 - aB[0], 1 - aB[1], 1 - aB[2]];
+    const pAB = overlapRgb ? overlapQ(overlapRgb, paperRgb, n) : null, pABm = pAB || [pA[0] * pB[0], pA[1] * pB[1], pA[2] * pB[2]];
     const covA = new Float32Array(sub.width * sub.height), covB = new Float32Array(sub.width * sub.height);
-    unmixRegion(sub, 0, 0, sub.width, sub.height, Q, aA, aB, covA, covB);
+    unmixRegion(sub, 0, 0, sub.width, sub.height, Q, aA, aB, covA, covB, pAB);
     const O = outputLUT(paperRgb, n);
     let se = 0, worst = 0;
     for (let i = 0; i < covA.length; i++) {
       const p = i << 2, a = covA[i], b = covB[i];
       let e2 = 0;
       for (let c = 0; c < 3; c++) {
-        let v = (1 - a * aA[c]) * (1 - b * aB[c]); if (v < 0) v = 0;
-        const e = O[c][(v * VN + 0.5) | 0] - sub.data[p + c]; e2 += e * e; if (Math.abs(e) > worst) worst = Math.abs(e);
+        const e = O[c][(mixQ(a, b, pA, pB, pABm, c) * VN + 0.5) | 0] - sub.data[p + c]; e2 += e * e; if (Math.abs(e) > worst) worst = Math.abs(e);
       }
       se += e2 / 3;
     }
@@ -829,7 +852,8 @@ const Riso = (function () {
   function computeCoverage(src, n, unmix) {
     const a = new Float32Array(src.width * src.height), b = new Float32Array(src.width * src.height);
     unmixRegion(src, 0, 0, src.width, src.height, sourceLUT(unmix.paperRgb, n),
-      inkAlpha(unmix.inkA, unmix.paperRgb, n, FLOOR), inkAlpha(unmix.inkB, unmix.paperRgb, n, FLOOR), a, b);
+      inkAlpha(unmix.inkA, unmix.paperRgb, n, FLOOR), inkAlpha(unmix.inkB, unmix.paperRgb, n, FLOOR), a, b,
+      unmix.overlapRgb ? overlapQ(unmix.overlapRgb, unmix.paperRgb, n) : null);
     return { a, b };
   }
 
@@ -859,6 +883,7 @@ const Riso = (function () {
     const covA = new Float32Array(pw * ph), covB = new Float32Array(pw * ph);
     const Q = sourceLUT(unmix.paperRgb, n);
     const sA = inkAlpha(unmix.inkA, unmix.paperRgb, n, FLOOR), sB = inkAlpha(unmix.inkB, unmix.paperRgb, n, FLOOR);
+    const sPAB = unmix.overlapRgb ? overlapQ(unmix.overlapRgb, unmix.paperRgb, n) : null;
     if (job.cov && job.cov.a && job.cov.a.length === src.width * src.height) {
       // coverage of the whole source was precomputed (same paper / inks / model)
       const ca = job.cov.a, cb = job.cov.b, sw0 = src.width, sh0 = src.height;
@@ -871,7 +896,7 @@ const Riso = (function () {
         covB.set(cb.subarray(sy * sw0 + x0, sy * sw0 + x1), y * pw + (x0 - (rect.x - pad)));
       }
     } else {
-      unmixRegion(src, rect.x - pad, rect.y - pad, pw, ph, Q, sA, sB, covA, covB);
+      unmixRegion(src, rect.x - pad, rect.y - pad, pw, ph, Q, sA, sB, covA, covB, sPAB);
     }
 
     if (clean > 0) {   // paper cleanup: fade out tiny total coverage so bare paper prints as pure paper
@@ -895,6 +920,9 @@ const Riso = (function () {
     const out = job.out || new Uint8ClampedArray(w * h * 4);
     const lutA = toneLUT(tone[0].density, tone[0].limit), lutB = toneLUT(tone[1].density, tone[1].limit);
     const tA = inkAlpha(target.inkA, target.paperRgb, n, 0), tB = inkAlpha(target.inkB, target.paperRgb, n, 0);
+    const tPA = [1 - tA[0], 1 - tA[1], 1 - tA[2]], tPB = [1 - tB[0], 1 - tB[1], 1 - tB[2]];
+    const tPAB = overprintQ(tA, tB, opacity, target.overlapRgb, target.paperRgb, n);
+    const sPA = [1 - sA[0], 1 - sA[1], 1 - sA[2]], sPB = [1 - sB[0], 1 - sB[1], 1 - sB[2]], sPABm = sPAB || [sPA[0] * sPB[0], sPA[1] * sPB[1], sPA[2] * sPB[2]];
     const O = outputLUT(target.paperRgb, n), O0 = O[0], O1 = O[1], O2 = O[2];
     const useA = mode !== "inkB" && mode !== "sepB", useB = mode !== "inkA" && mode !== "sepA";
     const sep = mode === "sepA" || mode === "sepB";
@@ -950,15 +978,18 @@ const Riso = (function () {
           const p = (sy * sw + sx) << 2;
           let emax = 0;
           for (let c = 0; c < 3; c++) {
-            let v = (1 - a * sA[c]) * (1 - b * sB[c]); if (v < 0) v = 0;
-            const e = Math.abs(rO[c][(v * VN + 0.5) | 0] - srcData[p + c]); if (e > emax) emax = e;
+            const e = Math.abs(rO[c][(mixQ(a, b, sPA, sPB, sPABm, c) * VN + 0.5) | 0] - srcData[p + c]); if (e > emax) emax = e;
           }
           const heat = Math.min(255, Math.max(0, emax - 2) * 5);
           const g0 = (0.299 * srcData[p] + 0.587 * srcData[p + 1] + 0.114 * srcData[p + 2]) * 0.3;
           out[o] = Math.min(255, g0 + heat); out[o + 1] = Math.min(255, g0 + heat * 0.25); out[o + 2] = Math.min(255, g0 + heat * 0.55); out[o + 3] = 255;
         } else {
-          if (opacity > 0) a *= 1 - opacity * (b > 1 ? 1 : b);   // the top ink hides part of the bottom ink
-          let v0 = (1 - a * tA[0]) * (1 - b * tB[0]), v1 = (1 - a * tA[1]) * (1 - b * tB[1]), v2 = (1 - a * tA[2]) * (1 - b * tB[2]);
+          // Neugebauer mix of paper / A / B / A×B (the overprint primary carries opacity or a chosen overlap colour)
+          const ac = a > 1 ? 1 : a, bc = b > 1 ? 1 : b;
+          const wP = (1 - ac) * (1 - bc), wA = ac * (1 - bc), wB = (1 - ac) * bc, wAB = ac * bc;
+          let v0 = wP + wA * tPA[0] + wB * tPB[0] + wAB * tPAB[0], v1 = wP + wA * tPA[1] + wB * tPB[1] + wAB * tPAB[1], v2 = wP + wA * tPA[2] + wB * tPB[2] + wAB * tPAB[2];
+          if (a > 1) { const e = a - 1; v0 *= Math.pow(tPA[0], e); v1 *= Math.pow(tPA[1], e); v2 *= Math.pow(tPA[2], e); }
+          if (b > 1) { const e = b - 1; v0 *= Math.pow(tPB[0], e); v1 *= Math.pow(tPB[1], e); v2 *= Math.pow(tPB[2], e); }
           if (v0 < 0) v0 = 0; if (v1 < 0) v1 = 0; if (v2 < 0) v2 = 0;
           if (v0 > 1) v0 = 1; if (v1 > 1) v1 = 1; if (v2 > 1) v2 = 1;
           out[o] = O0[(v0 * VN + 0.5) | 0]; out[o + 1] = O1[(v1 * VN + 0.5) | 0]; out[o + 2] = O2[(v2 * VN + 0.5) | 0]; out[o + 3] = 255;
@@ -1003,7 +1034,7 @@ const Riso = (function () {
 
   return {
     FLOOR, DMAX, S2L, WHITE, hexToRgb, rgbToHex, rgbToLin, linToRgb, luminance, srgb2lin, lin2srgb, lin2byte,
-    inkDensity, inkAlpha, sourceLUT, outputLUT, mixColor, angleBetween, subsample,
+    inkDensity, inkAlpha, sourceLUT, outputLUT, overlapQ, overprintQ, mixQ, mixColor, angleBetween, subsample,
     unmixRegion, detectPaper, detectInks, refineInks, bestModel, assignInks, fitError,
     computeCoverage, measuredOverlap, render, textureMetric, inkWeight, hash2, vnoise, grainTile, screenThreshold, blurMap, toneLUT
   };
@@ -1042,7 +1073,7 @@ const WHITE = [255, 255, 255];
 
 /* ---------- state ---------- */
 const state = {
-  project: { palette: DEFAULT_PALETTE.map(p => ({ ...p })), paperOut: "#ffffff", dpi: 300, sep: false, defaults: defaultFx(), saved: {} },
+  project: { palette: DEFAULT_PALETTE.map(p => ({ ...p })), paperOut: "#ffffff", dpi: 300, sep: false, defaults: defaultFx(), saved: {}, overlaps: {} },
   images: [], sel: -1,
   view: { mode: "result", zoom: "fit", cx: 0, cy: 0, split: 0.5, loupe: false, eyedrop: null, showOriginal: false },
   dragging: false, busy: false,
@@ -1052,7 +1083,7 @@ const current = () => state.images[state.sel] || null;
 const imgKey = (img) => `${img.name}|${img.W}x${img.H}`;
 
 function newSettings(saved) {
-  const s = { inks: [1, 3], inksAuto: true, paperMode: "auto", paperRgb: [255, 255, 255], srcA: [40, 40, 40], srcB: [200, 200, 200], srcAuto: true, model: 2, modelAuto: true, fx: clone(state.project.defaults) };
+  const s = { inks: [1, 3], inksAuto: true, paperMode: "auto", paperRgb: [255, 255, 255], srcA: [40, 40, 40], srcB: [200, 200, 200], srcAuto: true, overlapAuto: true, overlapRgb: null, model: 2, modelAuto: true, fx: clone(state.project.defaults) };
   if (saved) { const c = clone(saved); Object.assign(s, c); s.fx = Object.assign(defaultFx(), c.fx || {}); }
   return s;
 }
@@ -1066,6 +1097,9 @@ const yieldUI = () => new Promise(r => setTimeout(r, 0));
 const hexToRgb = Riso.hexToRgb, rgbToHex = Riso.rgbToHex;
 function tgt(img, k) { return hexToRgb(state.project.palette[img.s.inks[k]].hex) || [0, 0, 0]; }
 function paperOf(img) { return img.s.paperMode === "white" ? WHITE : img.s.paperRgb; }
+function pairKey(img) { return img.s.inks.slice().sort((a, b) => a - b).join("|"); }
+function tgtOverlap(img) { const h = state.project.overlaps[pairKey(img)]; return h ? hexToRgb(h) : null; }
+function srcOverlap(img) { return img.s.overlapRgb || null; }
 function fxFor(img) {
   const s = img.s, m = s.fx.misreg;
   const ang = ((m.random ? Riso.hash2(img.seed, 7, 99) * 360 : 0) + m.angle) * Math.PI / 180;
@@ -1074,9 +1108,9 @@ function fxFor(img) {
   return { paperClean: s.fx.paperClean, soften: s.fx.soften, opacity: s.fx.opacity || 0, inkA: s.fx.inkA, inkB: s.fx.inkB, grain: s.fx.grain, misreg: pair, halftone: s.fx.halftone };
 }
 function covFor(img, view) {
-  const s = img.s, key = [s.model, paperOf(img).join(), s.srcA.join(), s.srcB.join()].join("|");
+  const s = img.s, key = [s.model, paperOf(img).join(), s.srcA.join(), s.srcB.join(), (s.overlapRgb || []).join()].join("|");
   if (!view.cov || view.cov.key !== key) {
-    const c = Riso.computeCoverage(view.data, s.model, { paperRgb: paperOf(img), inkA: s.srcA, inkB: s.srcB });
+    const c = Riso.computeCoverage(view.data, s.model, { paperRgb: paperOf(img), inkA: s.srcA, inkB: s.srcB, overlapRgb: srcOverlap(img) });
     view.cov = { key, a: c.a, b: c.b };
   }
   return view.cov;
@@ -1084,8 +1118,8 @@ function covFor(img, view) {
 function jobFor(img, view, rect, mode) {
   const cacheable = view === img.views.hi || view === img.views.lo || view === img.views.th;
   return { src: view.data, rect, scale: view.scale, model: img.s.model,
-    unmix: { paperRgb: paperOf(img), inkA: img.s.srcA, inkB: img.s.srcB },
-    target: { inkA: tgt(img, 0), inkB: tgt(img, 1), paperRgb: hexToRgb(state.project.paperOut) || WHITE },
+    unmix: { paperRgb: paperOf(img), inkA: img.s.srcA, inkB: img.s.srcB, overlapRgb: srcOverlap(img) },
+    target: { inkA: tgt(img, 0), inkB: tgt(img, 1), paperRgb: hexToRgb(state.project.paperOut) || WHITE, overlapRgb: tgtOverlap(img) },
     fx: fxFor(img), mode, cov: cacheable ? covFor(img, view) : undefined };
 }
 function invalidateCov(img) { for (const v of Object.values(img.views)) v.cov = null; if (img.full) img.full.cov = null; }
@@ -1164,8 +1198,19 @@ function analyzeImage(img, opts = {}) {
   }
   updateFit(img); invalidateCov(img);
 }
+// Measure the source overprint colour: unmix with the transparent model, take the pixels where both inks are solid,
+// then once more with that colour as the overprint primary so the true overlap area lands on (1,1).
+function measureOverlap(img) {
+  const s = img.s; if (!s.overlapAuto) return;
+  const hi = img.views.hi.data, base = { paperRgb: paperOf(img), inkA: s.srcA, inkB: s.srcB, overlapRgb: null };
+  let cov = Riso.computeCoverage(hi, s.model, base);
+  let m = Riso.measuredOverlap(hi, cov.a, cov.b, 60);
+  if (m) { cov = Riso.computeCoverage(hi, s.model, { ...base, overlapRgb: m.rgb }); const m2 = Riso.measuredOverlap(hi, cov.a, cov.b, 60); if (m2) m = m2; }
+  s.overlapRgb = m ? m.rgb : null; img.overlapCount = m ? m.count : 0;
+}
 function updateFit(img) {
-  const fe = Riso.fitError(img.views.hi.data, paperOf(img), img.s.srcA, img.s.srcB, img.s.model, 40000);
+  measureOverlap(img);
+  const fe = Riso.fitError(img.views.hi.data, paperOf(img), img.s.srcA, img.s.srcB, img.s.model, 40000, srcOverlap(img));
   img.analysis = img.analysis || {}; img.analysis.fit = fe.rms; img.analysis.worst = fe.worst;
 }
 function fitClass(rms) { return rms < 4 ? "ok" : rms < 9 ? "warn" : "err"; }
@@ -1308,15 +1353,16 @@ function applyEyedrop(img, rgb) {
   if (which === "A") { s.srcA = rgb; s.srcAuto = false; }
   else if (which === "B") { s.srcB = rgb; s.srcAuto = false; }
   else if (which === "P") { s.paperRgb = rgb; s.paperMode = "manual"; $("paperWhite").checked = false; }
+  else if (which === "O") { s.overlapRgb = rgb; s.overlapAuto = false; }
   setEyedrop(null);
   if (s.modelAuto) analyzeImage(img, { keepInks: true }); else { updateFit(img); invalidateCov(img); }
   afterUnmixChange(img);
 }
 function setEyedrop(which) {
   state.view.eyedrop = which;
-  for (const k of ["A", "B", "P"]) $("eye" + k).classList.toggle("on", which === k);
+  for (const k of ["A", "B", "P", "O"]) $("eye" + k).classList.toggle("on", which === k);
   $("canvasWrap").classList.toggle("eyedrop", !!which);
-  if (which) { setStatus(which === "P" ? "לחצי על אזור נייר ריק באיור." : `לחצי על אזור מלא של דיו ${which} באיור.`); $("loupe").style.display = "none"; }
+  if (which) { setStatus(which === "P" ? "לחצי על אזור נייר ריק באיור." : which === "O" ? "לחצי על אזור שבו שני הצבעים מלאים (חפיפה)." : `לחצי על אזור מלא של דיו ${which} באיור.`); $("loupe").style.display = "none"; }
 }
 
 /* ---------- selection & UI sync ---------- */
@@ -1413,13 +1459,13 @@ function bindSliders() {
       const img = current(); if (!img) return;
       const v = parseFloat(el.value); sl.set(img.s, v); $(sl.id + "Val").textContent = sl.fmt(v);
       state.dragging = !sl.unmix;
-      if (sl.unmix) { updateFit(img); invalidateCov(img); syncFit(img); }
+      if (sl.unmix) invalidateCov(img);
       requestDraw(); if (sl.id === "misAmt") syncMisMm(img); if (sl.id === "opacity") syncOverlap(img);
     });
     el.addEventListener("change", () => {
       const img = current(); if (!img) return;
       state.dragging = false;
-      if (sl.unmix) afterUnmixChange(img); else afterFxChange(img);
+      if (sl.unmix) { updateFit(img); invalidateCov(img); afterUnmixChange(img); } else afterFxChange(img);
     });
   }
 }
@@ -1468,13 +1514,15 @@ function syncPanel() {
   $("printSize").textContent = `${(W / dpi * 2.54).toFixed(1)}×${(img.H / dpi * 2.54).toFixed(1)} ס"מ`;
 }
 function syncOverlap(img) {
-  const s = img.s, P = state.project.palette;
-  const cov = covFor(img, img.views.hi), m = Riso.measuredOverlap(img.views.hi.data, cov.a, cov.b, 40);
-  const srcRgb = m ? m.rgb : Riso.mixColor(s.srcA, s.srcB, 1, 1, paperOf(img), s.model, 0);
-  const tgt = Riso.mixColor(hexToRgb(P[s.inks[0]].hex) || [0, 0, 0], hexToRgb(P[s.inks[1]].hex) || [0, 0, 0], 1, 1, hexToRgb(state.project.paperOut) || WHITE, s.model, s.fx.opacity || 0);
-  $("swOverSrc").style.background = rgbToHex(srcRgb); $("hexOverSrc").value = rgbToHex(srcRgb) + (m ? "" : " ?");
-  $("hexOverSrc").title = m ? `נמדד מ-${m.count} פיקסלים שבהם שני הצבעים מלאים` : "באיור אין אזור שבו שני הצבעים מלאים, לכן זה חיזוי מהמודל";
-  $("swOverTgt").style.background = rgbToHex(tgt); $("hexOverTgt").textContent = rgbToHex(tgt);
+  const s = img.s, P = state.project.palette, setPick = (id, hex) => { const el = $(id); if (el.value.toLowerCase() !== hex.toLowerCase()) el.value = hex; };
+  const src = s.overlapRgb || Riso.mixColor(s.srcA, s.srcB, 1, 1, paperOf(img), s.model, 0);
+  setPick("pickOverSrc", rgbToHex(src)); $("hexOverSrc").value = rgbToHex(src);
+  const custom = tgtOverlap(img);
+  const tgt = Riso.mixColor(hexToRgb(P[s.inks[0]].hex) || [0, 0, 0], hexToRgb(P[s.inks[1]].hex) || [0, 0, 0], 1, 1, hexToRgb(state.project.paperOut) || WHITE, s.model, s.fx.opacity || 0, custom);
+  setPick("pickOverTgt", rgbToHex(tgt)); $("hexOverTgt").textContent = rgbToHex(tgt) + (custom ? " · נבחר" : " · מכפלה");
+  $("overStatus").textContent = !s.overlapAuto ? "חפיפה במקור: ידני" : s.overlapRgb ? `חפיפה במקור: נמדדה מ-${img.overlapCount || 0} פיקסלים` : "חפיפה במקור: אין אזור חפיפה מלא, חיזוי (מכפלה)";
+  $("btnOverReset").hidden = !custom;
+  $("opacity").disabled = !!custom; $("opacity").closest(".row").classList.toggle("disabled", !!custom);
 }
 function syncMetricsText(img) {
   const m = img.metrics;
@@ -1488,6 +1536,10 @@ function chooseInk(img, i) {
   s.inks = [s.inks[1], i]; s.inksAuto = false;   // newest pick becomes B, previous B becomes A
   if (s.srcAuto) analyzeImage(img, { keepInks: true }); else { updateFit(img); invalidateCov(img); }
   afterUnmixChange(img);
+}
+function swapTargets(img) {
+  const s = img.s; s.inks = [s.inks[1], s.inks[0]]; s.inksAuto = false;
+  afterUnmixChange(img);   // coverage is unchanged, only the palette mapping flips
 }
 function swapInks(img) {
   const s = img.s; s.inks = [s.inks[1], s.inks[0]]; const t = s.srcA; s.srcA = s.srcB; s.srcB = t; s.inksAuto = false;
@@ -1726,7 +1778,7 @@ let persistTimer = null;
 function serializeProject() {
   const images = { ...state.project.saved };
   for (const img of state.images) images[imgKey(img)] = clone(img.s);
-  return { version: 1, app: "Open Riso", palette: state.project.palette, paperOut: state.project.paperOut, dpi: state.project.dpi, sep: state.project.sep, defaults: state.project.defaults, images };
+  return { version: 1, app: "Open Riso", palette: state.project.palette, paperOut: state.project.paperOut, dpi: state.project.dpi, sep: state.project.sep, defaults: state.project.defaults, overlaps: state.project.overlaps, images };
 }
 function persist() { clearTimeout(persistTimer); persistTimer = setTimeout(() => { try { localStorage.setItem(LS_KEY, JSON.stringify(serializeProject())); } catch (e) { /* storage unavailable */ } }, 400); }
 function restoreProject(obj) {
@@ -1736,6 +1788,7 @@ function restoreProject(obj) {
   if (obj.dpi) state.project.dpi = obj.dpi; state.project.sep = !!obj.sep;
   if (obj.defaults) state.project.defaults = Object.assign(defaultFx(), obj.defaults);
   state.project.saved = obj.images && typeof obj.images === "object" ? obj.images : {};
+  state.project.overlaps = {}; if (obj.overlaps && typeof obj.overlaps === "object") for (const [k, v] of Object.entries(obj.overlaps)) if (hexToRgb(v)) state.project.overlaps[k] = v.toUpperCase();
   for (const img of state.images) { const s = state.project.saved[imgKey(img)]; if (s) { img.s = newSettings(s); updateFit(img); invalidateCov(img); } }
   $("paperOut").value = state.project.paperOut; buildPalette(); syncPanel(); requestDraw(); updateSheetAll(); renderList(); scheduleMetricsAll();
   return true;
@@ -1807,13 +1860,14 @@ function bindEvents() {
   bindSliders();
   $("modelAuto").addEventListener("change", () => { const img = current(); if (!img) return; img.s.modelAuto = $("modelAuto").checked; if (img.s.modelAuto) analyzeImage(img, { keepInks: true }); afterUnmixChange(img); });
   $("paperWhite").addEventListener("change", () => { const img = current(); if (!img) return; img.s.paperMode = $("paperWhite").checked ? "white" : "auto"; analyzeImage(img, { keepInks: true }); afterUnmixChange(img); });
-  $("btnSwapInks").addEventListener("click", () => { const img = current(); if (img) swapInks(img); });
-  $("btnRedetect").addEventListener("click", () => { const img = current(); if (!img) return; img.s.srcAuto = true; if (img.s.paperMode === "manual") img.s.paperMode = "auto"; img.s.inksAuto = true; analyzeImage(img, { initial: true }); afterUnmixChange(img); setStatus("הנייר וצבעי הדיו זוהו מחדש."); });
+  $("btnSwapInks").addEventListener("click", () => { const img = current(); if (img) { swapInks(img); setStatus("התפקידים הוחלפו: הצבע שהיה A הוא עכשיו B. התמונה זהה, רק הדיו העליון השתנה."); } });
+  $("btnSwapTargets").addEventListener("click", () => { const img = current(); if (img) { swapTargets(img); setStatus("צבעי היעד הוחלפו בין שני צבעי המקור."); } });
+  $("btnRedetect").addEventListener("click", () => { const img = current(); if (!img) return; img.s.srcAuto = true; img.s.overlapAuto = true; if (img.s.paperMode === "manual") img.s.paperMode = "auto"; img.s.inksAuto = true; analyzeImage(img, { initial: true }); afterUnmixChange(img); setStatus("הנייר, צבעי הדיו והחפיפה זוהו מחדש."); });
   for (const k of ["A", "B", "P"]) $("eye" + k).addEventListener("click", () => setEyedrop(state.view.eyedrop === k ? null : k));
   // colour pickers: source side (manual override) and target side (series palette / output paper)
   const bindSrcPick = (id, apply) => {
     const el = $(id);
-    el.addEventListener("input", () => { const img = current(); const rgb = hexToRgb(el.value); if (!img || !rgb) return; apply(img.s, rgb); invalidateCov(img); $("hexSrc" + id.slice(-1)).value = el.value; requestDraw(); });
+    el.addEventListener("input", () => { const img = current(); const rgb = hexToRgb(el.value); if (!img || !rgb) return; apply(img.s, rgb); invalidateCov(img); $(id.replace("pick", "hex")).value = el.value; requestDraw(); });
     el.addEventListener("change", () => { const img = current(); if (!img) return; if (img.s.modelAuto) analyzeImage(img, { keepInks: true }); else updateFit(img); afterUnmixChange(img); });
   };
   bindSrcPick("pickSrcA", (s, rgb) => { s.srcA = rgb; s.srcAuto = false; });
@@ -1822,6 +1876,12 @@ function bindEvents() {
   $("pickTgtA").addEventListener("input", () => { const img = current(); if (img) setPaletteHex(img.s.inks[0], $("pickTgtA").value); });
   $("pickTgtB").addEventListener("input", () => { const img = current(); if (img) setPaletteHex(img.s.inks[1], $("pickTgtB").value); });
   $("pickTgtP").addEventListener("input", () => { state.project.paperOut = $("pickTgtP").value; $("paperOut").value = state.project.paperOut; requestDraw(); updateSheetAll(); persist(); });
+  bindSrcPick("pickOverSrc", (s, rgb) => { s.overlapRgb = rgb; s.overlapAuto = false; });
+  bindHex("hexOverSrc", (s, rgb) => { s.overlapRgb = rgb; s.overlapAuto = false; });
+  $("eyeO").addEventListener("click", () => setEyedrop(state.view.eyedrop === "O" ? null : "O"));
+  const setTgtOverlap = (hex) => { const img = current(); if (!img) return; if (hex) state.project.overlaps[pairKey(img)] = hex.toUpperCase(); else delete state.project.overlaps[pairKey(img)]; syncOverlap(img); requestDraw(); updateSheetAll(); persist(); };
+  $("pickOverTgt").addEventListener("input", () => setTgtOverlap($("pickOverTgt").value));
+  $("btnOverReset").addEventListener("click", () => setTgtOverlap(null));
   bindHex("hexSrcA", (s, rgb) => { s.srcA = rgb; s.srcAuto = false; });
   bindHex("hexSrcB", (s, rgb) => { s.srcB = rgb; s.srcAuto = false; });
   bindHex("hexSrcP", (s, rgb) => { s.paperRgb = rgb; s.paperMode = "manual"; });
@@ -1868,7 +1928,8 @@ function init() {
   syncPanel(); requestDraw();
 }
 init();
-window.__riso = { state, addFiles, select, exportImage, computeMetrics, matchTexture, analyzeImage, jobFor, serializeProject, restoreProject, buildZip, pngWithDpi };
+window.__riso = { state, addFiles, select, exportImage, computeMetrics, matchTexture, analyzeImage, jobFor, serializeProject, restoreProject, buildZip, pngWithDpi,
+  imgToClient: (fx, fy) => { const img = current(), dpr = window.devicePixelRatio || 1, r = $("canvasWrap").getBoundingClientRect(), vp = viewport(img, dpr); return { x: r.left + (fx - vp.x0) * vp.z / dpr, y: r.top + (fy - vp.y0) * vp.z / dpr }; } };
 })();
 </script>
 </body>
