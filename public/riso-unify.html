@@ -182,6 +182,14 @@ table.series td.nm { max-width: 90px; white-space: nowrap; overflow: hidden; tex
   .rail { order: 2; } .panel { order: 3; } .stage { order: 1; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ---------- focus mode: the illustration gets the whole window ---------- */
+.app.focus .topbar, .app.focus .rail, .app.focus .panel, .app.focus .statusbar { display: none; }
+.app.focus .work { grid-template-columns: 1fr; }
+.app.focus .stage-toolbar { background: rgba(0,0,0,.35); }
+.app.sheet-hidden .sheet { display: none; }
+.stage-toolbar .btn.on { border-color: var(--accent); color: #fff; background: rgba(255,77,157,.14); }
+:fullscreen .app, .app:fullscreen { background: var(--stage); }
 </style>
 </head>
 <body>
@@ -228,6 +236,8 @@ table.series td.nm { max-width: 90px; white-space: nowrap; overflow: hidden; tex
           <button data-zoom="2">200%</button>
         </div>
         <button class="btn sm" id="btnLoupe" title="זכוכית מגדלת ברזולוציה מלאה מתחת לסמן">🔍 מגדלת</button>
+        <button class="btn sm" id="btnFocus" title="תצוגה גדולה: מסתיר את הפאנלים ונותן לאיור את כל החלון (מקש F, יציאה ב-Esc)">⛶ מסך מלא</button>
+        <button class="btn sm" id="btnSheet" title="הצגה או הסתרה של גיליון הקונטקט של הסדרה">▦ גיליון</button>
         <span class="spacer"></span>
         <span class="hint" id="stageHint">רווח = הצגת המקור · גלגלת = זום · גרירה = הזזה</span>
       </div>
@@ -1700,6 +1710,10 @@ function bindEvents() {
 
   $("viewModes").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { state.view.mode = b.dataset.mode; $("viewModes").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); requestDraw(); }));
   $("zoomCtl").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { state.view.zoom = b.dataset.zoom === "fit" ? "fit" : parseFloat(b.dataset.zoom); syncZoomButtons(); requestDraw(); }));
+  $("btnFocus").addEventListener("click", () => toggleFocus());
+  $("btnSheet").addEventListener("click", () => { const app = $("app"); app.classList.toggle("sheet-hidden"); $("btnSheet").classList.toggle("on", !app.classList.contains("sheet-hidden")); requestDraw(); });
+  $("btnSheet").classList.add("on");
+  document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && $("app").classList.contains("focus")) toggleFocus(false); });
   $("btnLoupe").addEventListener("click", () => { state.view.loupe = !state.view.loupe; $("btnLoupe").classList.toggle("on", state.view.loupe); if (!state.view.loupe) $("loupe").style.display = "none"; else { const img = current(); if (img) fullView(img); } });
 
   // pan / zoom / eyedrop / split
@@ -1737,7 +1751,8 @@ function bindEvents() {
   document.addEventListener("keydown", e => {
     if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
     if (e.code === "Space" && !state.view.showOriginal) { state.view.showOriginal = true; requestDraw(); e.preventDefault(); }
-    if (e.key === "Escape") setEyedrop(null);
+    if (e.key === "Escape") { setEyedrop(null); if ($("app").classList.contains("focus")) toggleFocus(false); }
+    if ((e.key === "f" || e.key === "F" || e.key === "כ") && !e.ctrlKey && !e.metaKey) toggleFocus();
   });
   document.addEventListener("keyup", e => { if (e.code === "Space") { state.view.showOriginal = false; requestDraw(); } });
   new ResizeObserver(() => requestDraw()).observe(wrap);
@@ -1774,6 +1789,16 @@ function bindEvents() {
   $("btnSaveProject").addEventListener("click", () => saveBlob("open-riso-project.json", new Blob([JSON.stringify(serializeProject(), null, 2)], { type: "application/json" })));
   $("btnLoadProject").addEventListener("click", () => $("projectFile").click());
   $("projectFile").addEventListener("change", async () => { const f = $("projectFile").files[0]; $("projectFile").value = ""; if (!f) return; try { restoreProject(JSON.parse(await f.text())); setStatus("הפרויקט נטען."); persist(); } catch (e) { setStatus("קובץ הפרויקט לא תקין."); } });
+}
+function toggleFocus(force) {
+  const app = $("app"), on = force == null ? !app.classList.contains("focus") : !!force;
+  app.classList.toggle("focus", on); $("btnFocus").classList.toggle("on", on);
+  $("btnFocus").textContent = on ? "✕ יציאה ממסך מלא" : "⛶ מסך מלא";
+  try {
+    if (on && document.fullscreenEnabled && !document.fullscreenElement) app.requestFullscreen().catch(() => {});
+    else if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  } catch (e) { /* fullscreen not allowed here; the in-page focus mode still applies */ }
+  state.view.zoom = "fit"; syncZoomButtons(); requestDraw();
 }
 function syncZoomButtons() { $("zoomCtl").querySelectorAll("button").forEach(b => b.classList.toggle("on", String(state.view.zoom) === b.dataset.zoom)); }
 
