@@ -342,8 +342,20 @@ table.series td.nm { max-width: 90px; white-space: nowrap; overflow: hidden; tex
       <details open>
         <summary>טקסטורה <span class="tag" id="tagTexture"></span></summary>
         <div class="body">
+          <div class="kv"><span class="k">זיהוי טקסטורה</span><span id="texTypeText">—</span></div>
+          <div class="inline">
+            <button class="btn xs" id="btnDetectTex" title="מנתח את שכבות הדיו: שיא תקופתי בספקטרום = רסטר, חורים זעירים בשטח מלא = כתמים, רעש רחב = גרעין">זיהוי מחדש</button>
+            <button class="btn xs" id="btnAutoNorm" title="מגדיר את הסרת הרסטר או מילוי הכתמים לפי מה שזוהה">נרמול אוטומטי לפי הזיהוי</button>
+          </div>
+          <h4 style="margin:4px 0 0;font-size:12px">נרמול: הסרת הטקסטורה המקורית</h4>
+          <div class="row"><label for="dsAmt">הסרת רסטר</label><span class="val num" id="dsAmtVal"></span><input type="range" id="dsAmt" min="0" max="1" step="0.05" value="0"><span class="sub">מחליף נקודות רסטר בגוון הרציף שלהן, רק איפה שיש נקודות. צורות מלאות ונייר חשוף לא נוגעים בהם, ולכן הקצוות שלהם נשארים חדים.</span></div>
+          <div class="row"><label for="dsCell">גודל תא הרסטר</label><span class="val num" id="dsCellVal"></span><input type="range" id="dsCell" min="2" max="24" step="0.5" value="6"><span class="sub">px במקור. מזוהה אוטומטית; אם ההסרה משאירה שאריות, הגדילי מעט.</span></div>
+          <div class="row"><label for="dspR">מילוי כתמים</label><span class="val num" id="dspRVal"></span><input type="range" id="dspR" min="0" max="3" step="1" value="0"><span class="sub">ממלא חורים זעירים בדיו ומסיר נקודות דיו זעירות על הנייר. קווים רחבים מהרדיוס נשמרים. 1 px מספיק בדרך כלל.</span></div>
+          <h4 style="margin:4px 0 0;font-size:12px">טקסטורה מתווספת (המתכון של הסדרה)</h4>
           <div class="row"><label for="grainAmt">גרעיניות</label><span class="val num" id="grainAmtVal"></span><input type="range" id="grainAmt" min="0" max="1.5" step="0.02" value="0"></div>
           <div class="row"><label for="grainSize">גודל גרעין</label><span class="val num" id="grainSizeVal"></span><input type="range" id="grainSize" min="1" max="8" step="0.5" value="2"><span class="sub">בפיקסלים של הקובץ המקורי. הגרעין נוסף לכל דיו בנפרד, בעיקר בגווני הביניים; הנייר נשאר נקי.</span></div>
+          <div class="row"><label for="spAmt">כתמי דילוג דיו</label><span class="val num" id="spAmtVal"></span><input type="range" id="spAmt" min="0" max="1" step="0.02" value="0"><span class="sub">נקודות נייר זעירות בתוך שטחי הדיו, כמו באיור עם הרקע הכחול.</span></div>
+          <div class="row"><label for="spSize">גודל כתם</label><span class="val num" id="spSizeVal"></span><input type="range" id="spSize" min="1" max="4" step="0.25" value="2"></div>
           <div class="inline"><span class="hint">זרע אקראיות</span><input type="number" id="grainSeed" min="1" max="99999" value="1"><button class="btn xs" id="btnReseed">🎲 חדש</button></div>
           <div class="kv"><span class="k">מדד טקסטורה</span><span class="num" id="textureText">—</span></div>
         </div>
@@ -378,14 +390,21 @@ table.series td.nm { max-width: 90px; white-space: nowrap; overflow: hidden; tex
             <button class="btn sm" id="btnApplyTexAll" title="מעתיק ניקוי נייר, ריכוך, גרעיניות, סטיית רישום ורסטר מהאיור הנוכחי לכל האיורים">החלת הטקסטורה על כולם</button>
             <button class="btn sm" id="btnApplyDensAll" title="מעתיק צפיפות וגבול דיו מהאיור הנוכחי לכל האיורים">החלת צפיפות על כולם</button>
           </div>
+          <h4 style="margin:2px 0 0;font-size:12px">מתכון הטקסטורה של הסדרה</h4>
+          <div class="row"><label for="rcGrainSize">גודל גרעין</label><span class="val num" id="rcGrainSizeVal"></span><input type="range" id="rcGrainSize" min="1" max="8" step="0.5" value="2"></div>
+          <div class="row"><label for="rcSpAmt">כתמי דילוג דיו</label><span class="val num" id="rcSpAmtVal"></span><input type="range" id="rcSpAmt" min="0" max="1" step="0.02" value="0"></div>
+          <div class="row"><label for="rcSpSize">גודל כתם</label><span class="val num" id="rcSpSizeVal"></span><input type="range" id="rcSpSize" min="1" max="4" step="0.25" value="2"></div>
           <div class="inline">
             <span class="hint">יעד טקסטורה</span>
-            <select id="texTarget"><option value="median">חציון הסדרה</option></select>
-            <button class="btn sm" id="btnMatchOne">התאמת האיור הנוכחי</button>
-            <button class="btn sm" id="btnMatchAll">התאמת כולם</button>
+            <select id="texTarget"><option value="max">הגרעיני ביותר (רק הוספה, בלי ריכוך)</option><option value="median">חציון הסדרה</option></select>
           </div>
-          <div class="hint">ההתאמה מוסיפה גרעיניות לאיור חלק מדי; לאיור גרעיני מדי היא מפעילה ריכוך קל (שמוותר על מעט פרטים) ומדווחת על כך.</div>
-          <div style="overflow-x:auto"><table class="series" id="seriesTable"><thead><tr><th>איור</th><th>דיו</th><th>התאמה</th><th>טקסטורה</th><th>משקל A/B</th></tr></thead><tbody></tbody></table></div>
+          <button class="btn primary" id="btnUnify" title="לכל איור: זיהוי סוג הטקסטורה, נרמול (הסרת רסטר או מילוי כתמים לפי הצורך), החלת המתכון, וכיול הגרעיניות ליעד">איחוד הטקסטורה בכל הסדרה</button>
+          <div class="hint">האיחוד עובד בשני שלבים: קודם מסירים מכל איור את הטקסטורה המקורית שלו ככל שאפשר (רסטר, כתמים), ואז מוסיפים לכולם את אותה טקסטורה ומכיילים את הכמות ליעד. עם היעד "הגרעיני ביותר" שום איור לא מרוכך, רק מוסיפים.</div>
+          <div class="inline">
+            <button class="btn sm" id="btnMatchOne">התאמת האיור הנוכחי ליעד</button>
+            <button class="btn sm" id="btnMatchAll">התאמת כולם ליעד</button>
+          </div>
+          <div style="overflow-x:auto"><table class="series" id="seriesTable"><thead><tr><th>איור</th><th>דיו</th><th>התאמה</th><th>סוג</th><th>טקסטורה</th><th>משקל A/B</th></tr></thead><tbody></tbody></table></div>
         </div>
       </details>
 
@@ -842,6 +861,129 @@ const Riso = (function () {
     }
   }
 
+  /* ---------- box blur (separable, O(n)) on a float map ---------- */
+  function boxBlurMap(src, dst, w, h, r, tmp) {
+    const win = 2 * r + 1;
+    for (let y = 0; y < h; y++) {
+      const row = y * w; let acc = 0;
+      for (let i = -r; i <= r; i++) acc += src[row + Math.min(w - 1, Math.max(0, i))];
+      for (let x = 0; x < w; x++) {
+        tmp[row + x] = acc / win;
+        const xin = Math.min(w - 1, x + r + 1), xout = Math.max(0, x - r);
+        acc += src[row + xin] - src[row + xout];
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      let acc = 0;
+      for (let i = -r; i <= r; i++) acc += tmp[Math.min(h - 1, Math.max(0, i)) * w + x];
+      for (let y = 0; y < h; y++) {
+        dst[y * w + x] = acc / win;
+        const yin = Math.min(h - 1, y + r + 1), yout = Math.max(0, y - r);
+        acc += tmp[yin * w + x] - tmp[yout * w + x];
+      }
+    }
+  }
+
+  /* ---------- despeckle: conditional median, only where a pixel is far from its neighbourhood ---------- */
+  // Fills tiny holes in ink and removes tiny ink specks; lines wider than the radius survive.
+  function despeckleMap(map, w, h, r, tmp, tmp2) {
+    if (r < 1) return;
+    boxBlurMap(map, tmp, w, h, r, tmp2);
+    const win = new Float32Array((2 * r + 1) * (2 * r + 1)), src = Float32Array.from(map);
+    const mid = win.length >> 1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (Math.abs(src[i] - tmp[i]) < 0.3) continue;
+      let k = 0;
+      for (let dy = -r; dy <= r; dy++) { const yy = Math.min(h - 1, Math.max(0, y + dy)) * w; for (let dx = -r; dx <= r; dx++) win[k++] = src[yy + Math.min(w - 1, Math.max(0, x + dx))]; }
+      // insertion sort (window is small)
+      for (let a = 1; a < k; a++) { const v = win[a]; let b = a - 1; while (b >= 0 && win[b] > v) { win[b + 1] = win[b]; b--; } win[b + 1] = v; }
+      map[i] = win[mid];
+    }
+  }
+
+  /* ---------- adaptive descreen: replace halftone dots by the local tint, only where dots are present ---------- */
+  // cell = screen cell size in map pixels; strength 0..1. Solid shapes and bare paper are left alone,
+  // so their edges keep their sharpness; inside dot fields the tint is the cell-sized local mean.
+  // gaussian approximation by three box blurs (O(n), independent of sigma)
+  function gaussApprox(map, w, h, sigma, tmp, tmp2) {
+    const r = Math.max(1, Math.round(Math.sqrt(sigma * sigma + 0.25) - 0.5));
+    for (let i = 0; i < 3; i++) { boxBlurMap(map, tmp2, w, h, r, tmp); map.set(tmp2); }
+  }
+  function descreenMap(map, w, h, cell, strength, tmp, tmp2, tmp3) {
+    if (strength <= 0 || cell < 1.5) return;
+    const sig = Math.max(0.8, cell * 0.55);
+    const scratch = new Float32Array(w * h);
+    tmp.set(map); gaussApprox(tmp, w, h, sig, tmp2, scratch);       // tmp = local tint (M)
+    for (let i = 0; i < w * h; i++) tmp3[i] = Math.abs(map[i] - tmp[i]);   // dot residual
+    gaussApprox(tmp3, w, h, Math.max(1, cell * 0.8), tmp2, scratch);   // tmp3 = local dot energy envelope
+    const e0 = 0.05, e1 = 0.15, inv = 1 / (e1 - e0);
+    for (let i = 0; i < w * h; i++) {
+      let k = (tmp3[i] - e0) * inv; if (k <= 0) continue; if (k > 1) k = 1;
+      k = k * k * (3 - 2 * k) * strength;
+      map[i] += k * (tmp[i] - map[i]);
+    }
+  }
+
+  /* ---------- normalization of coverage maps (in place): paper cleanup, despeckle, descreen, soften ---------- */
+  // opts: {clean, despeckleR (map px, int), descreenCell (map px), descreenAmt, soften (map px sigma)}
+  function normalizeMaps(covA, covB, w, h, o) {
+    if (o.clean > 0) {
+      const t1 = o.clean, t0 = o.clean * 0.45, inv = 1 / (t1 - t0);
+      for (let i = 0; i < w * h; i++) {
+        const s = covA[i] + covB[i];
+        if (s >= t1) continue;
+        if (s <= t0) { covA[i] = 0; covB[i] = 0; continue; }
+        let k = (s - t0) * inv; k = k * k * (3 - 2 * k);
+        covA[i] *= k; covB[i] *= k;
+      }
+    }
+    if (o.despeckleR > 0 || o.descreenAmt > 0 || o.soften > 0.05) {
+      const t1 = new Float32Array(w * h), t2 = new Float32Array(w * h), t3 = o.descreenAmt > 0 ? new Float32Array(w * h) : null;
+      if (o.despeckleR > 0) { despeckleMap(covA, w, h, o.despeckleR, t1, t2); despeckleMap(covB, w, h, o.despeckleR, t1, t2); }
+      if (o.descreenAmt > 0) { descreenMap(covA, w, h, o.descreenCell, o.descreenAmt, t1, t2, t3); descreenMap(covB, w, h, o.descreenCell, o.descreenAmt, t1, t2, t3); }
+      if (o.soften > 0.05) { blurMap(covA, w, h, o.soften, t1); blurMap(covB, w, h, o.soften, t1); }
+    }
+  }
+  function normOptions(fx, scale) {
+    const ds = fx.descreen || {}, dsp = fx.despeckle || {}, r = dsp.radius || 0;
+    return { clean: fx.paperClean || 0, despeckleR: r > 0 ? Math.max(1, Math.round(r * scale)) : 0,
+      descreenCell: Math.max(1.5, (ds.cell || 6) * scale), descreenAmt: ds.amount || 0, soften: (fx.soften || 0) * scale };
+  }
+  // Normalized copy of whole-source coverage (for caching in the UI)
+  function normalizeCoverage(cov, w, h, scale, fx) {
+    const a = Float32Array.from(cov.a), b = Float32Array.from(cov.b);
+    normalizeMaps(a, b, w, h, normOptions(fx, scale));
+    return { a, b };
+  }
+
+  /* ---------- speck tile: sparse paper "ink skips" (value 0..1 = hole depth) ---------- */
+  function speckTile(amount, size, seed) {
+    const key = "spk|" + amount.toFixed(3) + "|" + size.toFixed(2) + "|" + (seed | 0);
+    let t = tileCache.get(key);
+    if (t) return t;
+    t = new Float32Array(TILE * TILE);
+    const g = Math.max(3, Math.round(size * 3.2)), cells = Math.max(1, Math.round(TILE / g)), gs = TILE / cells;
+    for (let cy = 0; cy < cells; cy++) for (let cx = 0; cx < cells; cx++) {
+      if (hash2(cx, cy, seed) > amount * 0.7) continue;
+      const px = (cx + hash2(cx, cy, seed + 11)) * gs, py = (cy + hash2(cx, cy, seed + 23)) * gs;
+      const rad = size * (0.55 + 0.9 * hash2(cx, cy, seed + 37)), depth = 0.65 + 0.35 * hash2(cx, cy, seed + 41);
+      const ex = 0.7 + 0.6 * hash2(cx, cy, seed + 53);   // slight ellipse
+      const R = Math.ceil(rad + 1);
+      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        const x = Math.round(px) + dx, y = Math.round(py) + dy;
+        const d = Math.hypot((x - px) * ex, (y - py) / ex) / rad;
+        if (d >= 1.15) continue;
+        let v = 1 - (d - 0.6) / 0.55; if (v > 1) v = 1; if (v < 0) v = 0;
+        const i = ((y & TILE_MASK) << 9) | (x & TILE_MASK);
+        if (v * depth > t[i]) t[i] = v * depth;
+      }
+    }
+    if (tileCache.size > 12) tileCache.delete(tileCache.keys().next().value);
+    tileCache.set(key, t);
+    return t;
+  }
+
   function toneLUT(density, limit) {
     const N = 1024, lut = new Float32Array(N + 2), g = 1 / Math.max(0.2, density || 1), L = limit == null ? 1 : limit;
     for (let i = 0; i <= N + 1; i++) lut[i] = L * Math.pow(Math.min(1, i / N), g);
@@ -873,12 +1015,17 @@ const Riso = (function () {
     const grain = fx.grain || {}, misreg = fx.misreg || [], ht = fx.halftone || {};
     const gAmt = resid ? 0 : (grain.amount || 0), gSize = Math.max(1, grain.size || 1), gSeed = (grain.seed | 0) || 1;
     const htAmt = resid ? 0 : (ht.amount || 0), htCell = Math.max(2, ht.cell || 6);
-    const mA = resid ? { dx: 0, dy: 0 } : (misreg[0] || { dx: 0, dy: 0 }), mB = resid ? { dx: 0, dy: 0 } : (misreg[1] || { dx: 0, dy: 0 });
-    const soften = resid ? 0 : (fx.soften || 0) * scale, clean = resid ? 0 : (fx.paperClean || 0);
+    const covMode = mode === "coverage";
+    const mA = resid || covMode ? { dx: 0, dy: 0 } : (misreg[0] || { dx: 0, dy: 0 }), mB = resid || covMode ? { dx: 0, dy: 0 } : (misreg[1] || { dx: 0, dy: 0 });
+    const normed = !!(job.cov && job.covNormalized);   // coverage already normalized by the caller
+    const nopt = normOptions(fx, scale);
+    const soften = resid || normed ? 0 : nopt.soften, clean = resid || normed ? 0 : nopt.clean;
     const opacity = resid ? 0 : Math.min(1, Math.max(0, fx.opacity || 0));
+    const dsAmt = resid || normed ? 0 : nopt.descreenAmt, dsCell = nopt.descreenCell, dspR = resid || normed ? 0 : nopt.despeckleR;
+    const specks = fx.specks || {}, spAmt = resid ? 0 : (specks.amount || 0), spSize = Math.max(0.6, specks.size || 2), spSeed = ((specks.seed | 0) || 1) + 500;
     const shAx = mA.dx * scale, shAy = mA.dy * scale, shBx = mB.dx * scale, shBy = mB.dy * scale;
     const maxShift = Math.max(Math.abs(shAx), Math.abs(shAy), Math.abs(shBx), Math.abs(shBy));
-    const pad = Math.ceil(maxShift) + Math.ceil(soften * 2.5) + 2;
+    const pad = Math.ceil(maxShift) + Math.ceil(soften * 2.5) + (dsAmt > 0 ? Math.ceil(dsCell * 3) : 0) + dspR + 2;
     const pw = w + 2 * pad, ph = h + 2 * pad;
     const covA = new Float32Array(pw * ph), covB = new Float32Array(pw * ph);
     const Q = sourceLUT(unmix.paperRgb, n);
@@ -899,25 +1046,10 @@ const Riso = (function () {
       unmixRegion(src, rect.x - pad, rect.y - pad, pw, ph, Q, sA, sB, covA, covB, sPAB);
     }
 
-    if (clean > 0) {   // paper cleanup: fade out tiny total coverage so bare paper prints as pure paper
-      const t1 = clean, t0 = clean * 0.45, inv = 1 / (t1 - t0);
-      for (let i = 0; i < pw * ph; i++) {
-        const s = covA[i] + covB[i];
-        if (s >= t1) continue;
-        if (s <= t0) { covA[i] = 0; covB[i] = 0; continue; }
-        let k = (s - t0) * inv; k = k * k * (3 - 2 * k);
-        covA[i] *= k; covB[i] *= k;
-      }
-    }
-    if (soften > 0.05) { const tmp = new Float32Array(pw * ph); blurMap(covA, pw, ph, soften, tmp); blurMap(covB, pw, ph, soften, tmp); }
+    if (!normed && !resid) normalizeMaps(covA, covB, pw, ph, { clean, despeckleR: dspR, descreenCell: dsCell, descreenAmt: dsAmt, soften });
 
-    if (mode === "coverage") {
-      const a = new Float32Array(w * h), b = new Float32Array(w * h);
-      for (let y = 0; y < h; y++) { const s0 = (y + pad) * pw + pad; a.set(covA.subarray(s0, s0 + w), y * w); b.set(covB.subarray(s0, s0 + w), y * w); }
-      return { a, b };
-    }
-
-    const out = job.out || new Uint8ClampedArray(w * h * 4);
+    const covOut = covMode ? { a: new Float32Array(w * h), b: new Float32Array(w * h) } : null;
+    const out = covMode ? null : (job.out || new Uint8ClampedArray(w * h * 4));
     const lutA = toneLUT(tone[0].density, tone[0].limit), lutB = toneLUT(tone[1].density, tone[1].limit);
     const tA = inkAlpha(target.inkA, target.paperRgb, n, 0), tB = inkAlpha(target.inkB, target.paperRgb, n, 0);
     const tPA = [1 - tA[0], 1 - tA[1], 1 - tA[2]], tPB = [1 - tB[0], 1 - tB[1], 1 - tB[2]];
@@ -932,6 +1064,7 @@ const Riso = (function () {
     const csA = Math.cos(ang[0]), snA = Math.sin(ang[0]), csB = Math.cos(ang[1]), snB = Math.sin(ang[1]);
     const htSoft = Math.max(0.02, (ht.soft == null ? 1.2 : ht.soft) / htCell);
     const gT = gAmt > 0 ? grainTile(gSize, gSeed) : null, gT2 = gAmt > 0 ? grainTile(gSize, gSeed + 1013) : null;
+    const sT = spAmt > 0 ? speckTile(spAmt, spSize, spSeed) : null, sT2 = spAmt > 0 ? speckTile(spAmt, spSize, spSeed + 7) : null;
     const srcData = src.data, sw = src.width, sh = src.height;
     const rO = resid ? outputLUT(unmix.paperRgb, n) : null;
 
@@ -963,11 +1096,17 @@ const Riso = (function () {
             if (useA) { a += gAmt * gT[ti] * a * (1 - 0.6 * a) * 1.6; if (a < 0) a = 0; else if (a > 1.3) a = 1.3; }
             if (useB) { b += gAmt * gT2[ti] * b * (1 - 0.6 * b) * 1.6; if (b < 0) b = 0; else if (b > 1.3) b = 1.3; }
           }
+          if (spAmt > 0) {   // ink skips: small paper holes, only where there is ink
+            const ti = ((yfi & TILE_MASK) << 9) | ((xf | 0) & TILE_MASK);
+            if (useA) { const d = sT[ti]; if (d > 0) a *= 1 - d * (a > 0.25 ? 1 : a * 4); }
+            if (useB) { const d = sT2[ti]; if (d > 0) b *= 1 - d * (b > 0.25 ? 1 : b * 4); }
+          }
           if (htAmt > 0) {
             if (useA) { const t = screenThreshold(xf, yf, csA, snA, htCell); let s = (a - t) / htSoft + 0.5; if (s < 0) s = 0; else if (s > 1) s = 1; a += (s * (a > 1 ? a : 1) - a) * htAmt; }
             if (useB) { const t = screenThreshold(xf + 0.37, yf + 0.61, csB, snB, htCell); let s = (b - t) / htSoft + 0.5; if (s < 0) s = 0; else if (s > 1) s = 1; b += (s * (b > 1 ? b : 1) - b) * htAmt; }
           }
         }
+        if (covOut) { covOut.a[y * w + x] = a; covOut.b[y * w + x] = b; continue; }
         const o = (y * w + x) << 2;
         if (sep) {
           const v = 255 - Math.round(255 * Math.min(1, mode === "sepA" ? a : b));
@@ -996,7 +1135,7 @@ const Riso = (function () {
         }
       }
     }
-    return out;
+    return covMode ? covOut : out;
   }
 
   // Measured overprint colour: median of source pixels where both inks are (nearly) solid
@@ -1009,6 +1148,118 @@ const Riso = (function () {
     }
     if (k < (minCount || 40)) return null;
     return { rgb: [percentileFromHist(h[0], k, 0.5), percentileFromHist(h[1], k, 0.5), percentileFromHist(h[2], k, 0.5)], count: k };
+  }
+
+  /* ---------- texture analysis ---------- */
+  // in-place iterative radix-2 complex FFT (re, im arrays of length n, n power of 2)
+  function fft1d(re, im, n, inverse) {
+    for (let i = 1, j = 0; i < n; i++) {
+      let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+      if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = (inverse ? 2 : -2) * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < n; i += len) {
+        let cr = 1, ci = 0;
+        for (let k = 0; k < len / 2; k++) {
+          const a = i + k, b = a + len / 2;
+          const tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+          re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+          const ncr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = ncr;
+        }
+      }
+    }
+  }
+  // power spectrum of an N×N window (Hann-windowed, mean removed)
+  function powerSpectrum(map, w, x0, y0, N) {
+    const re = new Float32Array(N * N), im = new Float32Array(N * N);
+    let mean = 0;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) mean += map[(y0 + y) * w + x0 + x];
+    mean /= N * N;
+    for (let y = 0; y < N; y++) {
+      const wy = 0.5 - 0.5 * Math.cos(2 * Math.PI * y / N);
+      for (let x = 0; x < N; x++) { const wx = 0.5 - 0.5 * Math.cos(2 * Math.PI * x / N); re[y * N + x] = (map[(y0 + y) * w + x0 + x] - mean) * wx * wy; }
+    }
+    const rr = new Float32Array(N), ii = new Float32Array(N);
+    for (let y = 0; y < N; y++) { rr.set(re.subarray(y * N, y * N + N)); ii.set(im.subarray(y * N, y * N + N)); fft1d(rr, ii, N, false); re.set(rr, y * N); im.set(ii, y * N); }
+    for (let x = 0; x < N; x++) {
+      for (let y = 0; y < N; y++) { rr[y] = re[y * N + x]; ii[y] = im[y * N + x]; }
+      fft1d(rr, ii, N, false);
+      for (let y = 0; y < N; y++) { re[y * N + x] = rr[y]; im[y * N + x] = ii[y]; }
+    }
+    const P = new Float32Array(N * N);
+    for (let i = 0; i < N * N; i++) P[i] = re[i] * re[i] + im[i] * im[i];
+    return P;
+  }
+  // radial profile of a power spectrum; returns {profile, angleOfMax per radius}
+  function radialProfile(P, N) {
+    const half = N >> 1, sum = new Float64Array(half + 1), cnt = new Uint32Array(half + 1), best = new Float32Array(half + 1), bestAng = new Float32Array(half + 1);
+    for (let y = 0; y < N; y++) {
+      const fy = y < half ? y : y - N;
+      for (let x = 0; x < N; x++) {
+        const fx = x < half ? x : x - N, r = Math.round(Math.hypot(fx, fy));
+        if (r > half) continue;
+        const p = P[y * N + x]; sum[r] += p; cnt[r]++;
+        if (p > best[r]) { best[r] = p; bestAng[r] = Math.atan2(fy, fx); }
+      }
+    }
+    const profile = new Float64Array(half + 1);
+    for (let r = 0; r <= half; r++) profile[r] = cnt[r] ? sum[r] / cnt[r] : 0;
+    return { profile, bestAng };
+  }
+  // Detect a halftone screen in a coverage map. Returns null or {cell (map px), angle (deg), ratio}
+  function detectScreen(map, w, h) {
+    const N = 256; if (w < N || h < N) return null;
+    // candidate windows: 32px blocks with mid-tone mean and high variance (dot fields), spread out
+    const bs = 32, bw = Math.floor(w / bs), bh = Math.floor(h / bs), cand = [];
+    for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) {
+      let s1 = 0, s2 = 0;
+      for (let y = 0; y < bs; y++) for (let x = 0; x < bs; x++) { const v = map[(by * bs + y) * w + bx * bs + x]; s1 += v; s2 += v * v; }
+      const m = s1 / (bs * bs), v = s2 / (bs * bs) - m * m;
+      if (m > 0.1 && m < 0.9 && v > 0.03) cand.push({ bx, by, v });
+    }
+    if (!cand.length) return null;
+    cand.sort((p, q) => q.v - p.v);
+    const picked = [];
+    for (const c of cand) { if (picked.every(p => Math.abs(p.bx - c.bx) + Math.abs(p.by - c.by) > 6)) picked.push(c); if (picked.length >= 4) break; }
+    let bestHit = null;
+    for (const c of picked) {
+      const x0 = Math.min(w - N, Math.max(0, c.bx * bs + bs / 2 - N / 2)), y0 = Math.min(h - N, Math.max(0, c.by * bs + bs / 2 - N / 2));
+      const { profile, bestAng } = radialProfile(powerSpectrum(map, w, x0, y0, N), N);
+      const rMin = Math.ceil(N / 20), rMax = Math.floor(N / 2.2);
+      let pr = -1, pv = 0;
+      for (let r = rMin; r <= rMax; r++) if (profile[r] > pv) { pv = profile[r]; pr = r; }
+      if (pr < 0) continue;
+      let nb = 0, nk = 0;
+      for (let r = Math.round(pr * 0.65); r <= Math.round(pr * 1.4); r++) { if (r < 1 || r > N / 2 || Math.abs(r - pr) <= Math.max(1, pr * 0.12)) continue; nb += profile[r]; nk++; }
+      const ratio = nk ? pv / (nb / nk) : 0;
+      if (ratio > 6 && (!bestHit || ratio > bestHit.ratio)) {
+        let ang = bestAng[pr] * 180 / Math.PI; ang = ((ang % 90) + 90) % 90;
+        bestHit = { cell: N / pr, angle: Math.round(ang), ratio };
+      }
+    }
+    return bestHit;
+  }
+  // holes: fraction of solid-ink pixels that are tiny paper holes (speckle look)
+  function holeFraction(map, w, h) {
+    const mean = new Float32Array(w * h), tmp = new Float32Array(w * h);
+    boxBlurMap(map, mean, w, h, 3, tmp);
+    let solid = 0, holes = 0;
+    for (let i = 0; i < w * h; i++) { if (mean[i] > 0.8) { solid++; if (map[i] < 0.35) holes++; } }
+    return { fraction: solid ? holes / solid : 0, solid: solid / (w * h) };
+  }
+  // Full texture classification of a coverage pair (raw, before effects). scale = map px per full-res px.
+  function detectTexture(cov, w, h, scale) {
+    const scrA = detectScreen(cov.a, w, h), scrB = detectScreen(cov.b, w, h);
+    const scr = scrA && scrB ? (scrA.ratio >= scrB.ratio ? scrA : scrB) : (scrA || scrB);
+    const hA = holeFraction(cov.a, w, h), hB = holeFraction(cov.b, w, h);
+    const holes = Math.max(hA.fraction, hB.fraction);
+    const tm = textureMetric(cov.a, cov.b, w, h).value;
+    let type = "smooth";
+    if (scr) type = "halftone";
+    else if (holes > 0.004) type = "speckle";
+    else if (tm > 14) type = "grain";
+    return { type, cell: scr ? scr.cell / scale : 0, angle: scr ? scr.angle : 0, ratio: scr ? scr.ratio : 0, holes, grain: tm };
   }
 
   /* ---------- metrics for series calibration ---------- */
@@ -1036,7 +1287,7 @@ const Riso = (function () {
     FLOOR, DMAX, S2L, WHITE, hexToRgb, rgbToHex, rgbToLin, linToRgb, luminance, srgb2lin, lin2srgb, lin2byte,
     inkDensity, inkAlpha, sourceLUT, outputLUT, overlapQ, overprintQ, mixQ, mixColor, angleBetween, subsample,
     unmixRegion, detectPaper, detectInks, refineInks, bestModel, assignInks, fitError,
-    computeCoverage, measuredOverlap, render, textureMetric, inkWeight, hash2, vnoise, grainTile, screenThreshold, blurMap, toneLUT
+    computeCoverage, normalizeCoverage, normalizeMaps, normOptions, measuredOverlap, render, textureMetric, inkWeight, boxBlurMap, despeckleMap, descreenMap, speckTile, detectScreen, detectTexture, holeFraction, hash2, vnoise, grainTile, screenThreshold, blurMap, toneLUT
   };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = Riso;
@@ -1066,14 +1317,16 @@ const DEFAULT_PALETTE = [
   { name: "צהוב", ink: "Yellow", hex: "#FFE800" },
 ];
 const defaultFx = () => ({ paperClean: 0.06, soften: 0, opacity: 0, inkA: { density: 1, limit: 1 }, inkB: { density: 1, limit: 1 },
+  descreen: { amount: 0, cell: 6 }, despeckle: { radius: 0 }, specks: { amount: 0, size: 2, seed: 1 },
   grain: { amount: 0, size: 2, seed: 1 }, misreg: { amount: 0, angle: 25, random: false, both: false }, halftone: { amount: 0, cell: 6, angleA: 15, angleB: 75 } });
+const TEX_NAMES = { halftone: "רסטר", speckle: "כתמים לבנים", grain: "גרעין", smooth: "חלק" };
 const LS_KEY = "openRiso.project.v1";
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const WHITE = [255, 255, 255];
 
 /* ---------- state ---------- */
 const state = {
-  project: { palette: DEFAULT_PALETTE.map(p => ({ ...p })), paperOut: "#ffffff", dpi: 300, sep: false, defaults: defaultFx(), saved: {}, overlaps: {} },
+  project: { palette: DEFAULT_PALETTE.map(p => ({ ...p })), paperOut: "#ffffff", dpi: 300, sep: false, defaults: defaultFx(), saved: {}, overlaps: {}, recipe: { grainSize: 2, specksAmount: 0, specksSize: 2 } },
   images: [], sel: -1,
   view: { mode: "result", zoom: "fit", cx: 0, cy: 0, split: 0.5, loupe: false, eyedrop: null, showOriginal: false },
   dragging: false, busy: false,
@@ -1084,7 +1337,7 @@ const imgKey = (img) => `${img.name}|${img.W}x${img.H}`;
 
 function newSettings(saved) {
   const s = { inks: [1, 3], inksAuto: true, paperMode: "auto", paperRgb: [255, 255, 255], srcA: [40, 40, 40], srcB: [200, 200, 200], srcAuto: true, overlapAuto: true, overlapRgb: null, model: 2, modelAuto: true, fx: clone(state.project.defaults) };
-  if (saved) { const c = clone(saved); Object.assign(s, c); s.fx = Object.assign(defaultFx(), c.fx || {}); }
+  if (saved) { const c = clone(saved); Object.assign(s, c); const d = defaultFx(); s.fx = Object.assign(d, c.fx || {}); for (const k of ["descreen", "despeckle", "specks", "grain", "misreg", "halftone", "inkA", "inkB"]) s.fx[k] = Object.assign(defaultFx()[k], s.fx[k] || {}); }
   return s;
 }
 
@@ -1105,7 +1358,8 @@ function fxFor(img) {
   const ang = ((m.random ? Riso.hash2(img.seed, 7, 99) * 360 : 0) + m.angle) * Math.PI / 180;
   const dx = Math.cos(ang) * m.amount, dy = Math.sin(ang) * m.amount;
   const pair = m.both ? [{ dx: -dx / 2, dy: -dy / 2 }, { dx: dx / 2, dy: dy / 2 }] : [{ dx: 0, dy: 0 }, { dx, dy }];
-  return { paperClean: s.fx.paperClean, soften: s.fx.soften, opacity: s.fx.opacity || 0, inkA: s.fx.inkA, inkB: s.fx.inkB, grain: s.fx.grain, misreg: pair, halftone: s.fx.halftone };
+  return { paperClean: s.fx.paperClean, soften: s.fx.soften, opacity: s.fx.opacity || 0, inkA: s.fx.inkA, inkB: s.fx.inkB, grain: s.fx.grain, misreg: pair, halftone: s.fx.halftone,
+    descreen: s.fx.descreen, despeckle: s.fx.despeckle, specks: s.fx.specks };
 }
 function covFor(img, view) {
   const s = img.s, key = [s.model, paperOf(img).join(), s.srcA.join(), s.srcB.join(), (s.overlapRgb || []).join()].join("|");
@@ -1115,14 +1369,44 @@ function covFor(img, view) {
   }
   return view.cov;
 }
+// normalized coverage (paper cleanup, despeckle, descreen, soften) cached per view
+function normFor(img, view) {
+  const raw = covFor(img, view), f = img.s.fx;
+  const key = raw.key + "|" + [f.paperClean, f.soften, f.descreen.amount, f.descreen.cell, f.despeckle.radius].join("|");
+  if (!view.norm || view.norm.key !== key) {
+    const n = Riso.normalizeCoverage(raw, view.data.width, view.data.height, view.scale, fxFor(img));
+    view.norm = { key, a: n.a, b: n.b };
+  }
+  return view.norm;
+}
 function jobFor(img, view, rect, mode) {
   const cacheable = view === img.views.hi || view === img.views.lo || view === img.views.th;
   return { src: view.data, rect, scale: view.scale, model: img.s.model,
     unmix: { paperRgb: paperOf(img), inkA: img.s.srcA, inkB: img.s.srcB, overlapRgb: srcOverlap(img) },
     target: { inkA: tgt(img, 0), inkB: tgt(img, 1), paperRgb: hexToRgb(state.project.paperOut) || WHITE, overlapRgb: tgtOverlap(img) },
-    fx: fxFor(img), mode, cov: cacheable ? covFor(img, view) : undefined };
+    fx: fxFor(img), mode, cov: cacheable && mode !== "residual" ? normFor(img, view) : undefined, covNormalized: cacheable && mode !== "residual" };
 }
-function invalidateCov(img) { for (const v of Object.values(img.views)) v.cov = null; if (img.full) img.full.cov = null; }
+function invalidateCov(img) { for (const v of Object.values(img.views)) { v.cov = null; v.norm = null; } if (img.full) img.full.cov = null; }
+
+/* ---------- texture type detection & auto normalization ---------- */
+function detectTextureFor(img) {
+  const v = img.views.hi, cov = covFor(img, v);
+  img.texture = Riso.detectTexture(cov, v.data.width, v.data.height, v.scale);
+  return img.texture;
+}
+function textureLabel(img) {
+  const t = img.texture; if (!t) return "טרם זוהה";
+  if (t.type === "halftone") return `רסטר · תא ≈ ${t.cell.toFixed(1)} px · ${t.angle}°`;
+  if (t.type === "speckle") return `כתמים לבנים · ${(t.holes * 100).toFixed(1)}% מהשטח המלא`;
+  if (t.type === "grain") return `גרעין · מדד ${t.grain.toFixed(0)}`;
+  return "חלק";
+}
+function applyAutoNormalization(img) {
+  const t = img.texture || detectTextureFor(img), f = img.s.fx;
+  f.descreen.amount = t.type === "halftone" ? 1 : 0;
+  if (t.type === "halftone") f.descreen.cell = Math.max(2, Math.min(24, Math.round(t.cell * 2) / 2));
+  f.despeckle.radius = t.type === "speckle" ? 1 : 0;
+}
 
 /* ---------- image loading ---------- */
 function makeView(bmp, maxSide) {
@@ -1159,6 +1443,9 @@ async function addFiles(fileList) {
     analyzeImage(img, { initial: true });
     if (state.sel < 0) select(state.images.length - 1);
     updateSheetOne(img); renderList();
+    await yieldUI();
+    try { detectTextureFor(img); } catch (e) { console.warn("texture detection failed", e); }
+    if (img === current()) syncPanel();
   }
   setProgress(null); state.busy = false;
   setStatus(`${state.images.length} איורים בסדרה.`);
@@ -1443,6 +1730,11 @@ const SLIDERS = [
   { id: "limA", get: s => s.fx.inkA.limit, set: (s, v) => s.fx.inkA.limit = v, fmt: v => Math.round(v * 100) + "%" },
   { id: "densB", get: s => s.fx.inkB.density, set: (s, v) => s.fx.inkB.density = v, fmt: v => "×" + v.toFixed(2) },
   { id: "limB", get: s => s.fx.inkB.limit, set: (s, v) => s.fx.inkB.limit = v, fmt: v => Math.round(v * 100) + "%" },
+  { id: "dsAmt", get: s => s.fx.descreen.amount, set: (s, v) => s.fx.descreen.amount = v, fmt: v => Math.round(v * 100) + "%" },
+  { id: "dsCell", get: s => s.fx.descreen.cell, set: (s, v) => s.fx.descreen.cell = v, fmt: v => v.toFixed(1) + " px" },
+  { id: "dspR", get: s => s.fx.despeckle.radius, set: (s, v) => s.fx.despeckle.radius = v, fmt: v => v + " px" },
+  { id: "spAmt", get: s => s.fx.specks.amount, set: (s, v) => s.fx.specks.amount = v, fmt: v => Math.round(v * 100) + "%" },
+  { id: "spSize", get: s => s.fx.specks.size, set: (s, v) => s.fx.specks.size = v, fmt: v => v.toFixed(2) + " px" },
   { id: "grainAmt", get: s => s.fx.grain.amount, set: (s, v) => s.fx.grain.amount = v, fmt: v => Math.round(v * 100) + "%" },
   { id: "grainSize", get: s => s.fx.grain.size, set: (s, v) => s.fx.grain.size = v, fmt: v => v.toFixed(1) + " px" },
   { id: "misAmt", get: s => s.fx.misreg.amount, set: (s, v) => s.fx.misreg.amount = v, fmt: v => v.toFixed(2) + " px" },
@@ -1508,6 +1800,8 @@ function syncPanel() {
   $("dotA").style.background = P[s.inks[0]].hex; $("dotB").style.background = P[s.inks[1]].hex;
   $("nameA").textContent = "דיו A · " + P[s.inks[0]].name; $("nameB").textContent = "דיו B · " + P[s.inks[1]].name;
   syncFit(img); syncMisMm(img); syncMetricsText(img); syncOverlap(img);
+  $("texTypeText").textContent = textureLabel(img);
+  syncRecipe();
   const pd = img.analysis && img.analysis.paper;
   $("fitHint").innerHTML = (pd && !pd.confident && s.paperMode === "auto") ? `<span class="warnbox" style="display:block">זיהוי הנייר לא בטוח (זוהה ${rgbToHex(pd.rgb)}). אם באיור אין נייר חשוף, סמני "הנייר כבר לבן" או בחרי אותו בטפטפת.</span>` : "ככל שההתאמה גבוהה יותר, האיור מוסבר טוב יותר על ידי שני צבעי דיו בלבד. תצוגת <b>שארית</b> מראה איפה יש צבע שלישי.";
   const W = img.W, dpi = state.project.dpi || 300;
@@ -1523,6 +1817,13 @@ function syncOverlap(img) {
   $("overStatus").textContent = !s.overlapAuto ? "חפיפה במקור: ידני" : s.overlapRgb ? `חפיפה במקור: נמדדה מ-${img.overlapCount || 0} פיקסלים` : "חפיפה במקור: אין אזור חפיפה מלא, חיזוי (מכפלה)";
   $("btnOverReset").hidden = !custom;
   $("opacity").disabled = !!custom; $("opacity").closest(".row").classList.toggle("disabled", !!custom);
+}
+function syncRecipe() {
+  const r = state.project.recipe;
+  $("rcGrainSize").value = r.grainSize; $("rcGrainSizeVal").textContent = r.grainSize.toFixed(1) + " px";
+  $("rcSpAmt").value = r.specksAmount; $("rcSpAmtVal").textContent = Math.round(r.specksAmount * 100) + "%";
+  $("rcSpSize").value = r.specksSize; $("rcSpSizeVal").textContent = r.specksSize.toFixed(2) + " px";
+  for (const id of ["rcGrainSize", "rcSpAmt", "rcSpSize", "btnUnify", "texTarget"]) $(id).disabled = state.images.length === 0;
 }
 function syncMetricsText(img) {
   const m = img.metrics;
@@ -1580,12 +1881,40 @@ function metricWith(img, grain, soften) {
   img.s.fx.grain.amount = g; img.s.fx.soften = so;
   return m;
 }
-function textureTarget() {
+function textureTarget(values) {
   const sel = $("texTarget").value;
-  if (sel !== "median") { const ref = state.images.find(i => String(i.id) === sel); if (ref) return (ref.metrics || computeMetrics(ref)).texture; }
-  const vals = state.images.map(i => (i.metrics || computeMetrics(i)).texture).filter(v => v > 0).sort((a, b) => a - b);
+  if (sel !== "median" && sel !== "max") { const ref = state.images.find(i => String(i.id) === sel); if (ref) return values ? values.get(ref) : (ref.metrics || computeMetrics(ref)).texture; }
+  const vals = state.images.map(i => values ? values.get(i) : (i.metrics || computeMetrics(i)).texture).filter(v => v > 0).sort((a, b) => a - b);
   if (!vals.length) return 0;
+  if (sel === "max") return vals[vals.length - 1];
   return vals.length % 2 ? vals[(vals.length - 1) / 2] : (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2;
+}
+// One click for the whole series: detect → normalize → shared recipe → calibrate amount to the target
+async function unifySeries() {
+  if (!state.images.length || state.busy) return;
+  state.busy = true; setProgress(0);
+  try {
+    const r = state.project.recipe, bases = new Map();
+    for (let i = 0; i < state.images.length; i++) {
+      const img = state.images[i];
+      setStatus(`מנתחת ${img.name}…`); setProgress((i + 0.3) / (state.images.length * 2)); await yieldUI();
+      if (!img.texture) detectTextureFor(img);
+      applyAutoNormalization(img);
+      img.s.fx.grain.size = r.grainSize; img.s.fx.specks.amount = r.specksAmount; img.s.fx.specks.size = r.specksSize;
+      img.s.fx.grain.amount = 0; img.s.fx.soften = 0;
+      bases.set(img, computeMetrics(img).texture);
+    }
+    const target = textureTarget(bases), notes = [];
+    for (let i = 0; i < state.images.length; i++) {
+      const img = state.images[i];
+      setStatus(`מכיילת ${img.name}…`); setProgress(0.5 + (i + 0.5) / (state.images.length * 2)); await yieldUI();
+      notes.push(`${img.name}: ${TEX_NAMES[(img.texture || {}).type] || "?"}${img.s.fx.descreen.amount > 0 ? " (רסטר הוסר)" : img.s.fx.despeckle.radius > 0 ? " (כתמים מולאו)" : ""} → ${await matchTexture(img, target)}`);
+      updateSheetOne(img);
+    }
+    syncPanel(); requestDraw(); renderSeriesTable(); renderList(); persist();
+    setStatus(`הטקסטורה אוחדה ליעד ${target.toFixed(1)} · ` + notes.join(" · "));
+  } catch (e) { console.error(e); setStatus("האיחוד נכשל: " + e.message); }
+  finally { setProgress(null); state.busy = false; }
 }
 async function matchTexture(img, target) {
   const base = metricWith(img, 0, 0);
@@ -1609,8 +1938,8 @@ async function matchTexture(img, target) {
 }
 function renderSeriesTable() {
   const tb = $("seriesTable").querySelector("tbody"); tb.innerHTML = "";
-  const sel = $("texTarget"); const cur = sel.value;
-  sel.innerHTML = '<option value="median">חציון הסדרה</option>';
+  const sel = $("texTarget"); const cur = sel.value || "max";
+  sel.innerHTML = '<option value="max">הגרעיני ביותר (רק הוספה, בלי ריכוך)</option><option value="median">חציון הסדרה</option>';
   for (const img of state.images) { const o = document.createElement("option"); o.value = img.id; o.textContent = "כמו: " + img.name; sel.appendChild(o); }
   if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
   const target = state.images.length ? textureTarget() : 0;
@@ -1619,9 +1948,11 @@ function renderSeriesTable() {
   state.images.forEach((img, i) => {
     const tr = document.createElement("tr"); if (i === state.sel) tr.className = "sel";
     const m = img.metrics, P = state.project.palette, fit = img.analysis && img.analysis.fit;
+    const tx = img.texture, norm = img.s.fx.descreen.amount > 0 ? " · הוסר" : img.s.fx.despeckle.radius > 0 ? " · מולא" : "";
     tr.innerHTML = `<td class="nm" title="${img.name}">${img.name}</td>
       <td><span class="dots"><span class="dot" style="background:${P[img.s.inks[0]].hex}"></span><span class="dot" style="background:${P[img.s.inks[1]].hex}"></span></span></td>
       <td>${fit == null ? "—" : `<span class="badge ${fitClass(fit)}">${fitPct(fit)}%</span>`}</td>
+      <td title="${tx ? textureLabel(img) : ""}"><span class="badge ${tx && (tx.type === "halftone" || tx.type === "speckle") ? "warn" : "dim"}">${tx ? TEX_NAMES[tx.type] + norm : "…"}</span></td>
       <td>${m ? `<span class="tex num"><i><b style="width:${Math.min(100, m.texture / maxT * 100)}%"></b><s style="inset-inline-start:${Math.min(100, target / maxT * 100)}%"></s></i>${m.texture.toFixed(1)}</span>` : "—"}</td>
       <td class="num">${m ? `${Math.round(m.weightA * 100)}/${Math.round(m.weightB * 100)}` : "—"}</td>`;
     tr.querySelector(".nm").addEventListener("click", () => select(i));
@@ -1632,7 +1963,7 @@ function applyToAll(kind) {
   const src = current(); if (!src) return;
   for (const img of state.images) {
     if (img === src) continue;
-    if (kind === "tex") { const f = src.s.fx; img.s.fx.paperClean = f.paperClean; img.s.fx.soften = f.soften; img.s.fx.grain = clone(f.grain); img.s.fx.misreg = clone(f.misreg); img.s.fx.halftone = clone(f.halftone); }
+    if (kind === "tex") { const f = src.s.fx; img.s.fx.paperClean = f.paperClean; img.s.fx.soften = f.soften; img.s.fx.grain = clone(f.grain); img.s.fx.specks = clone(f.specks); img.s.fx.misreg = clone(f.misreg); img.s.fx.halftone = clone(f.halftone); }
     else { img.s.fx.inkA = clone(src.s.fx.inkA); img.s.fx.inkB = clone(src.s.fx.inkB); img.s.fx.opacity = src.s.fx.opacity || 0; }
   }
   state.project.defaults = clone(src.s.fx);
@@ -1778,7 +2109,7 @@ let persistTimer = null;
 function serializeProject() {
   const images = { ...state.project.saved };
   for (const img of state.images) images[imgKey(img)] = clone(img.s);
-  return { version: 1, app: "Open Riso", palette: state.project.palette, paperOut: state.project.paperOut, dpi: state.project.dpi, sep: state.project.sep, defaults: state.project.defaults, overlaps: state.project.overlaps, images };
+  return { version: 1, app: "Open Riso", palette: state.project.palette, paperOut: state.project.paperOut, dpi: state.project.dpi, sep: state.project.sep, defaults: state.project.defaults, overlaps: state.project.overlaps, recipe: state.project.recipe, images };
 }
 function persist() { clearTimeout(persistTimer); persistTimer = setTimeout(() => { try { localStorage.setItem(LS_KEY, JSON.stringify(serializeProject())); } catch (e) { /* storage unavailable */ } }, 400); }
 function restoreProject(obj) {
@@ -1789,6 +2120,7 @@ function restoreProject(obj) {
   if (obj.defaults) state.project.defaults = Object.assign(defaultFx(), obj.defaults);
   state.project.saved = obj.images && typeof obj.images === "object" ? obj.images : {};
   state.project.overlaps = {}; if (obj.overlaps && typeof obj.overlaps === "object") for (const [k, v] of Object.entries(obj.overlaps)) if (hexToRgb(v)) state.project.overlaps[k] = v.toUpperCase();
+  if (obj.recipe && typeof obj.recipe === "object") state.project.recipe = Object.assign({ grainSize: 2, specksAmount: 0, specksSize: 2 }, obj.recipe);
   for (const img of state.images) { const s = state.project.saved[imgKey(img)]; if (s) { img.s = newSettings(s); updateFit(img); invalidateCov(img); } }
   $("paperOut").value = state.project.paperOut; buildPalette(); syncPanel(); requestDraw(); updateSheetAll(); renderList(); scheduleMetricsAll();
   return true;
@@ -1889,6 +2221,11 @@ function bindEvents() {
   $("misBoth").addEventListener("change", () => { const img = current(); if (!img) return; img.s.fx.misreg.both = $("misBoth").checked; syncMisMm(img); afterFxChange(img); });
   $("grainSeed").addEventListener("change", () => { const img = current(); if (!img) return; img.s.fx.grain.seed = Math.max(1, parseInt($("grainSeed").value, 10) || 1); afterFxChange(img); });
   $("btnReseed").addEventListener("click", () => { const img = current(); if (!img) return; img.s.fx.grain.seed = 1 + Math.floor(Math.random() * 99998); $("grainSeed").value = img.s.fx.grain.seed; afterFxChange(img); });
+  $("btnDetectTex").addEventListener("click", () => { const img = current(); if (!img) return; detectTextureFor(img); syncPanel(); renderSeriesTable(); setStatus("זיהוי טקסטורה: " + textureLabel(img)); });
+  $("btnAutoNorm").addEventListener("click", () => { const img = current(); if (!img) return; applyAutoNormalization(img); syncPanel(); afterFxChange(img); renderSeriesTable(); setStatus(img.s.fx.descreen.amount > 0 ? `הסרת רסטר הופעלה (תא ${img.s.fx.descreen.cell} px).` : img.s.fx.despeckle.radius > 0 ? "מילוי כתמים הופעל (1 px)." : "לא זוהתה טקסטורה להסרה; הנרמול כבוי."); });
+  const bindRecipe = (id, key, fmt) => { const el = $(id); el.addEventListener("input", () => { state.project.recipe[key] = parseFloat(el.value); $(id + "Val").textContent = fmt(parseFloat(el.value)); }); el.addEventListener("change", persist); };
+  bindRecipe("rcGrainSize", "grainSize", v => v.toFixed(1) + " px"); bindRecipe("rcSpAmt", "specksAmount", v => Math.round(v * 100) + "%"); bindRecipe("rcSpSize", "specksSize", v => v.toFixed(2) + " px");
+  $("btnUnify").addEventListener("click", unifySeries);
   $("btnApplyTexAll").addEventListener("click", () => applyToAll("tex"));
   $("btnApplyDensAll").addEventListener("click", () => applyToAll("dens"));
   $("texTarget").addEventListener("change", () => renderSeriesTable());
@@ -1928,7 +2265,7 @@ function init() {
   syncPanel(); requestDraw();
 }
 init();
-window.__riso = { state, addFiles, select, exportImage, computeMetrics, matchTexture, analyzeImage, jobFor, serializeProject, restoreProject, buildZip, pngWithDpi,
+window.__riso = { state, addFiles, select, exportImage, computeMetrics, matchTexture, analyzeImage, jobFor, serializeProject, restoreProject, buildZip, pngWithDpi, unifySeries, detectTextureFor,
   imgToClient: (fx, fy) => { const img = current(), dpr = window.devicePixelRatio || 1, r = $("canvasWrap").getBoundingClientRect(), vp = viewport(img, dpr); return { x: r.left + (fx - vp.x0) * vp.z / dpr, y: r.top + (fy - vp.y0) * vp.z / dpr }; } };
 })();
 </script>
