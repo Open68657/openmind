@@ -147,6 +147,10 @@ button:disabled { opacity: .45; cursor: default; }
 .pair .sw { width: 26px; height: 26px; border-radius: 6px; border: 1px solid rgba(255,255,255,.18); overflow: hidden; display: inline-block; cursor: pointer; flex: 0 0 auto; }
 .pair .sw input[type=color] { width: 40px; height: 40px; margin: -8px; border: 0; padding: 0; background: none; cursor: pointer; display: block; }
 .pair .sw:hover { border-color: #fff; }
+.pair .sw.ro { cursor: default; }
+.pair .sw.ro:hover { border-color: rgba(255,255,255,.18); }
+.pair input.hex[readonly] { color: var(--muted); }
+.srcgrid .mono { color: var(--muted); font-size: 11px; }
 .pair .arrow { color: var(--faint); font-size: 12px; }
 .pair input.hex { width: 74px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; }
 .pair input.hex.bad { border-color: var(--err); }
@@ -273,7 +277,11 @@ table.series td.nm { max-width: 90px; white-space: nowrap; overflow: hidden; tex
             <span class="lab">נייר</span>
             <div class="pair"><label class="sw" id="swSrcP" title="צבע הנייר במקור: לחיצה פותחת בוחר צבע"><input type="color" id="pickSrcP"></label><input class="hex mono" id="hexSrcP" maxlength="7"><span class="arrow">←</span><label class="sw" id="swTgtP" title="צבע הנייר בפלט (לכל הסדרה)"><input type="color" id="pickTgtP"></label></div>
             <button class="iconbtn" id="eyeP" title="טפטפת: לחצי על אזור נייר ריק באיור">💧</button>
+            <span class="lab">חפיפה</span>
+            <div class="pair"><span class="sw ro" id="swOverSrc" title="צבע החפיפה שנמדד במקור (פיקסלים שבהם שני הצבעים מלאים)"></span><input class="hex mono" id="hexOverSrc" readonly title="נמדד במקור"><span class="arrow">←</span><span class="sw ro" id="swOverTgt" title="צבע החפיפה בפלט: נובע משני צבעי הפלטה (מכפלה) ומאטימות הדיו העליון"></span></div>
+            <span class="mono" id="hexOverTgt" title="צבע החפיפה בפלט"></span>
           </div>
+          <div class="hint" id="overNote">החפיפה אינה צבע שבוחרים: היא נובעת משני צבעי הדיו, כמו בהדפסה. כדי לשנות אותה משנים את אחד הצבעים בפלטה או את אטימות הדיו העליון (בבלוק "צפיפות דיו").</div>
           <div class="checkrow"><input type="checkbox" id="paperWhite"><label for="paperWhite">הנייר במקור כבר לבן טהור (בלי נרמול נייר)</label></div>
           <div class="kv">
             <span class="k">התאמת מודל שני הדיו</span><span><span id="fitText" class="num">—</span><div class="fitbar" id="fitBar"><i style="width:0"></i></div></span>
@@ -320,6 +328,11 @@ table.series td.nm { max-width: 90px; white-space: nowrap; overflow: hidden; tex
             </div>
           </div>
           <div class="hint"><b>צפיפות</b> מעבה או מדללת את גווני הביניים (כמו dot gain). <b>גבול דיו</b> מגביל את הכיסוי המקסימלי; מעל 1 = הדפסה כפולה כהה יותר.</div>
+          <div class="row">
+            <label for="opacity">אטימות הדיו העליון (B)</label><span class="val num" id="opacityVal"></span>
+            <input type="range" id="opacity" min="0" max="0.6" step="0.02" value="0">
+            <span class="sub">קובע את צבע החפיפה. 0 = דיו שקוף לגמרי (מכפלה, ריזו אידיאלי). גבוה = B מסתיר חלק מ-A והחפיפה מתקרבת לצבע B, כמו בהדפסה אמיתית.</span>
+          </div>
           <div class="kv"><span class="k">משקל דיו באיור</span><span class="num" id="weightText">—</span></div>
         </div>
       </details>
@@ -483,10 +496,12 @@ const Riso = (function () {
     return out;
   }
   // color of ink layers with coverage a (ink A) and b (ink B) on a paper
-  function mixColor(inkA, inkB, a, b, paperRgb, n) {
+  // opacity = how much the top ink (B) hides the bottom ink (A) where they overlap: 0 = ideal transparent overprint
+  function mixColor(inkA, inkB, a, b, paperRgb, n, opacity) {
     const p = paperRgb || WHITE, aA = inkAlpha(inkA, p, n), aB = inkB ? inkAlpha(inkB, p, n) : [0, 0, 0], out = [0, 0, 0];
+    const ae = a * (1 - (opacity || 0) * Math.min(1, b));
     for (let c = 0; c < 3; c++) {
-      const v = Math.max(0, (1 - a * aA[c]) * (1 - b * aB[c]));
+      const v = Math.max(0, (1 - ae * aA[c]) * (1 - b * aB[c]));
       out[c] = lin2byte(S2L[p[c] | 0] * Math.pow(v, n || 2));
     }
     return out;
@@ -836,6 +851,7 @@ const Riso = (function () {
     const htAmt = resid ? 0 : (ht.amount || 0), htCell = Math.max(2, ht.cell || 6);
     const mA = resid ? { dx: 0, dy: 0 } : (misreg[0] || { dx: 0, dy: 0 }), mB = resid ? { dx: 0, dy: 0 } : (misreg[1] || { dx: 0, dy: 0 });
     const soften = resid ? 0 : (fx.soften || 0) * scale, clean = resid ? 0 : (fx.paperClean || 0);
+    const opacity = resid ? 0 : Math.min(1, Math.max(0, fx.opacity || 0));
     const shAx = mA.dx * scale, shAy = mA.dy * scale, shBx = mB.dx * scale, shBy = mB.dy * scale;
     const maxShift = Math.max(Math.abs(shAx), Math.abs(shAy), Math.abs(shBx), Math.abs(shBy));
     const pad = Math.ceil(maxShift) + Math.ceil(soften * 2.5) + 2;
@@ -941,6 +957,7 @@ const Riso = (function () {
           const g0 = (0.299 * srcData[p] + 0.587 * srcData[p + 1] + 0.114 * srcData[p + 2]) * 0.3;
           out[o] = Math.min(255, g0 + heat); out[o + 1] = Math.min(255, g0 + heat * 0.25); out[o + 2] = Math.min(255, g0 + heat * 0.55); out[o + 3] = 255;
         } else {
+          if (opacity > 0) a *= 1 - opacity * (b > 1 ? 1 : b);   // the top ink hides part of the bottom ink
           let v0 = (1 - a * tA[0]) * (1 - b * tB[0]), v1 = (1 - a * tA[1]) * (1 - b * tB[1]), v2 = (1 - a * tA[2]) * (1 - b * tB[2]);
           if (v0 < 0) v0 = 0; if (v1 < 0) v1 = 0; if (v2 < 0) v2 = 0;
           if (v0 > 1) v0 = 1; if (v1 > 1) v1 = 1; if (v2 > 1) v2 = 1;
@@ -949,6 +966,18 @@ const Riso = (function () {
       }
     }
     return out;
+  }
+
+  // Measured overprint colour: median of source pixels where both inks are (nearly) solid
+  function measuredOverlap(src, covA, covB, minCount) {
+    const h = [new Uint32Array(256), new Uint32Array(256), new Uint32Array(256)]; let k = 0;
+    const n = covA.length, step = n > 300000 ? 2 : 1;
+    for (let i = 0; i < n; i += step) {
+      if (covA[i] < 0.88 || covB[i] < 0.88) continue;
+      const p = i << 2; h[0][src.data[p]]++; h[1][src.data[p + 1]]++; h[2][src.data[p + 2]]++; k++;
+    }
+    if (k < (minCount || 40)) return null;
+    return { rgb: [percentileFromHist(h[0], k, 0.5), percentileFromHist(h[1], k, 0.5), percentileFromHist(h[2], k, 0.5)], count: k };
   }
 
   /* ---------- metrics for series calibration ---------- */
@@ -976,7 +1005,7 @@ const Riso = (function () {
     FLOOR, DMAX, S2L, WHITE, hexToRgb, rgbToHex, rgbToLin, linToRgb, luminance, srgb2lin, lin2srgb, lin2byte,
     inkDensity, inkAlpha, sourceLUT, outputLUT, mixColor, angleBetween, subsample,
     unmixRegion, detectPaper, detectInks, refineInks, bestModel, assignInks, fitError,
-    computeCoverage, render, textureMetric, inkWeight, hash2, vnoise, grainTile, screenThreshold, blurMap, toneLUT
+    computeCoverage, measuredOverlap, render, textureMetric, inkWeight, hash2, vnoise, grainTile, screenThreshold, blurMap, toneLUT
   };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = Riso;
@@ -1005,7 +1034,7 @@ const DEFAULT_PALETTE = [
   { name: "ירוק", ink: "Green", hex: "#00A95C" },
   { name: "צהוב", ink: "Yellow", hex: "#FFE800" },
 ];
-const defaultFx = () => ({ paperClean: 0.06, soften: 0, inkA: { density: 1, limit: 1 }, inkB: { density: 1, limit: 1 },
+const defaultFx = () => ({ paperClean: 0.06, soften: 0, opacity: 0, inkA: { density: 1, limit: 1 }, inkB: { density: 1, limit: 1 },
   grain: { amount: 0, size: 2, seed: 1 }, misreg: { amount: 0, angle: 25, random: false, both: false }, halftone: { amount: 0, cell: 6, angleA: 15, angleB: 75 } });
 const LS_KEY = "openRiso.project.v1";
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -1042,7 +1071,7 @@ function fxFor(img) {
   const ang = ((m.random ? Riso.hash2(img.seed, 7, 99) * 360 : 0) + m.angle) * Math.PI / 180;
   const dx = Math.cos(ang) * m.amount, dy = Math.sin(ang) * m.amount;
   const pair = m.both ? [{ dx: -dx / 2, dy: -dy / 2 }, { dx: dx / 2, dy: dy / 2 }] : [{ dx: 0, dy: 0 }, { dx, dy }];
-  return { paperClean: s.fx.paperClean, soften: s.fx.soften, inkA: s.fx.inkA, inkB: s.fx.inkB, grain: s.fx.grain, misreg: pair, halftone: s.fx.halftone };
+  return { paperClean: s.fx.paperClean, soften: s.fx.soften, opacity: s.fx.opacity || 0, inkA: s.fx.inkA, inkB: s.fx.inkB, grain: s.fx.grain, misreg: pair, halftone: s.fx.halftone };
 }
 function covFor(img, view) {
   const s = img.s, key = [s.model, paperOf(img).join(), s.srcA.join(), s.srcB.join()].join("|");
@@ -1363,6 +1392,7 @@ const SLIDERS = [
   { id: "model", get: s => s.model, set: (s, v) => { s.model = v; s.modelAuto = false; $("modelAuto").checked = false; }, fmt: v => "n = " + v, unmix: true },
   { id: "paperClean", get: s => s.fx.paperClean, set: (s, v) => s.fx.paperClean = v, fmt: v => v.toFixed(3) },
   { id: "soften", get: s => s.fx.soften, set: (s, v) => s.fx.soften = v, fmt: v => v.toFixed(1) + " px" },
+  { id: "opacity", get: s => s.fx.opacity || 0, set: (s, v) => s.fx.opacity = v, fmt: v => Math.round(v * 100) + "%" },
   { id: "densA", get: s => s.fx.inkA.density, set: (s, v) => s.fx.inkA.density = v, fmt: v => "×" + v.toFixed(2) },
   { id: "limA", get: s => s.fx.inkA.limit, set: (s, v) => s.fx.inkA.limit = v, fmt: v => Math.round(v * 100) + "%" },
   { id: "densB", get: s => s.fx.inkB.density, set: (s, v) => s.fx.inkB.density = v, fmt: v => "×" + v.toFixed(2) },
@@ -1384,7 +1414,7 @@ function bindSliders() {
       const v = parseFloat(el.value); sl.set(img.s, v); $(sl.id + "Val").textContent = sl.fmt(v);
       state.dragging = !sl.unmix;
       if (sl.unmix) { updateFit(img); invalidateCov(img); syncFit(img); }
-      requestDraw(); if (sl.id === "misAmt") syncMisMm(img);
+      requestDraw(); if (sl.id === "misAmt") syncMisMm(img); if (sl.id === "opacity") syncOverlap(img);
     });
     el.addEventListener("change", () => {
       const img = current(); if (!img) return;
@@ -1431,11 +1461,20 @@ function syncPanel() {
   $("hexSrcP").disabled = s.paperMode === "white"; $("eyeP").disabled = s.paperMode === "white"; $("pickSrcP").disabled = s.paperMode === "white";
   $("dotA").style.background = P[s.inks[0]].hex; $("dotB").style.background = P[s.inks[1]].hex;
   $("nameA").textContent = "דיו A · " + P[s.inks[0]].name; $("nameB").textContent = "דיו B · " + P[s.inks[1]].name;
-  syncFit(img); syncMisMm(img); syncMetricsText(img);
+  syncFit(img); syncMisMm(img); syncMetricsText(img); syncOverlap(img);
   const pd = img.analysis && img.analysis.paper;
   $("fitHint").innerHTML = (pd && !pd.confident && s.paperMode === "auto") ? `<span class="warnbox" style="display:block">זיהוי הנייר לא בטוח (זוהה ${rgbToHex(pd.rgb)}). אם באיור אין נייר חשוף, סמני "הנייר כבר לבן" או בחרי אותו בטפטפת.</span>` : "ככל שההתאמה גבוהה יותר, האיור מוסבר טוב יותר על ידי שני צבעי דיו בלבד. תצוגת <b>שארית</b> מראה איפה יש צבע שלישי.";
   const W = img.W, dpi = state.project.dpi || 300;
   $("printSize").textContent = `${(W / dpi * 2.54).toFixed(1)}×${(img.H / dpi * 2.54).toFixed(1)} ס"מ`;
+}
+function syncOverlap(img) {
+  const s = img.s, P = state.project.palette;
+  const cov = covFor(img, img.views.hi), m = Riso.measuredOverlap(img.views.hi.data, cov.a, cov.b, 40);
+  const srcRgb = m ? m.rgb : Riso.mixColor(s.srcA, s.srcB, 1, 1, paperOf(img), s.model, 0);
+  const tgt = Riso.mixColor(hexToRgb(P[s.inks[0]].hex) || [0, 0, 0], hexToRgb(P[s.inks[1]].hex) || [0, 0, 0], 1, 1, hexToRgb(state.project.paperOut) || WHITE, s.model, s.fx.opacity || 0);
+  $("swOverSrc").style.background = rgbToHex(srcRgb); $("hexOverSrc").value = rgbToHex(srcRgb) + (m ? "" : " ?");
+  $("hexOverSrc").title = m ? `נמדד מ-${m.count} פיקסלים שבהם שני הצבעים מלאים` : "באיור אין אזור שבו שני הצבעים מלאים, לכן זה חיזוי מהמודל";
+  $("swOverTgt").style.background = rgbToHex(tgt); $("hexOverTgt").textContent = rgbToHex(tgt);
 }
 function syncMetricsText(img) {
   const m = img.metrics;
@@ -1542,7 +1581,7 @@ function applyToAll(kind) {
   for (const img of state.images) {
     if (img === src) continue;
     if (kind === "tex") { const f = src.s.fx; img.s.fx.paperClean = f.paperClean; img.s.fx.soften = f.soften; img.s.fx.grain = clone(f.grain); img.s.fx.misreg = clone(f.misreg); img.s.fx.halftone = clone(f.halftone); }
-    else { img.s.fx.inkA = clone(src.s.fx.inkA); img.s.fx.inkB = clone(src.s.fx.inkB); }
+    else { img.s.fx.inkA = clone(src.s.fx.inkA); img.s.fx.inkB = clone(src.s.fx.inkB); img.s.fx.opacity = src.s.fx.opacity || 0; }
   }
   state.project.defaults = clone(src.s.fx);
   updateSheetAll(); scheduleMetricsAll(); persist();
