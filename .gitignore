@@ -27,3 +27,4 @@ dist-ssr
 deck/assets/
 deck/*.pptx
 deck/*.zip
+deck/*.pdf
