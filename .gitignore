@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# CEO deck: internal visuals and built files stay local (public repo)
+deck/assets/
+deck/*.pptx
+deck/*.zip
