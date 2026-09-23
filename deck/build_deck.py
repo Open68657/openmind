@@ -5,7 +5,8 @@ V | 2026-2027 Executive Social Strategy: 7-slide CEO deck (16:9, dark mode).
     python build_deck.py            -> V_Social_Strategy_CEO.pptx
 
 Speaker notes (voiceover + tough question + answer) are embedded in every slide.
-Visuals are crops from the "Social Plan" and "Social Workshop" decks, stored in ./assets.
+Visuals are crops from the "Social Plan" and "Social Workshop" decks, stored in ./assets
+(kept out of git: this repo is public).
 A missing asset renders as a labeled placeholder, so the deck always builds.
 """
 from pathlib import Path
@@ -165,15 +166,16 @@ def notes(s, say, question, answer):
 # 1. COVER
 # ======================================================================
 s = new_slide()
-image(s, Inches(7.0), Inches(0.55), Inches(5.9), Inches(6.4), "ig_launch_9grid", fit="contain")
-txt(s, M, Inches(1.2), Inches(6), Inches(0.3), "V  |  EXECUTIVE SOCIAL STRATEGY 2026-2027", 12, GOLD,
+s.background.fill.fore_color.rgb = RGBColor(0, 0, 0)  # pure black so the phone mockup blends in
+txt(s, M, Inches(0.6), Inches(8), Inches(0.3), "V  |  EXECUTIVE SOCIAL STRATEGY 2026-2027", 12, GOLD,
     bold=True, tracking=300)
-txt(s, M, Inches(1.75), Inches(6.2), Inches(2.9), "BEYOND\nTHE BIG\nSCREEN.", 60, WHITE, font=HEAD,
-    line_spacing=0.9)
-box(s, M, Inches(4.85), Inches(1.2), Inches(0.07), fill=GOLD)
-txt(s, M, Inches(5.1), Inches(5.9), Inches(0.7),
+txt(s, M, Inches(0.95), Inches(8), Inches(1.6), "BEYOND THE\nBIG SCREEN.", 54, WHITE, font=HEAD, line_spacing=0.9)
+txt(s, M, Inches(2.8), Inches(7.8), Inches(0.4),
     "From the OS inside 400+ TV brands to the brand inside every living room.", 16, GREY)
-pills(s, M, Inches(6.05), ["400+ TV BRANDS", "POWERED BY HISENSE"], size=10)
+image(s, M, Inches(3.4), Inches(7.8), Inches(3.15), "cover_living_room", fit="cover")
+box(s, M, Inches(6.55), Inches(7.8), Inches(0.06), fill=GOLD)
+pills(s, M, Inches(6.8), ["400+ TV BRANDS", "POWERED BY HISENSE"], size=10)
+image(s, Inches(9.15), Inches(0.55), Inches(3.45), Inches(6.45), "cover_phone", fit="contain")
 notes(s,
       "V already runs inside more than 400 TV brands, yet almost nobody outside the industry knows our name. "
       "In five minutes I'll show how social turns that invisible scale into market authority and consumer love.",
@@ -189,12 +191,19 @@ frame(s, 2, "The strategic shift", "From Hardware Specs to Living Room Culture."
 top, ch = Inches(2.5), Inches(3.4)
 cw = Inches(5.5)
 rx = SW - M - cw
-for x, asset, tag, name, line, hi in [
-    (M, "bench_tizen", "THE TRAP", "Tizen & webOS", "AI chips, processors, spec sheets. The OS stays invisible.", False),
-    (rx, "bench_roku_strip", "THE PLAY", "Roku City", "A screen saver fans want to move into, now the brand's visual language.", True),
-]:
+for x, hi in [(M, False), (rx, True)]:
     card(s, x, top, cw, ch, fill=CARD_HI if hi else CARD, line=GOLD if hi else None)
-    image(s, x + Inches(0.25), top + Inches(0.25), cw - Inches(0.5), Inches(1.95), asset, fit="contain")
+# The trap: two clean spec-sheet cutouts (Samsung / LG)
+iw, ih = Inches(1.85), Inches(1.95)
+ix = M + (cw - 2 * iw - Inches(0.2)) / 2
+image(s, ix, top + Inches(0.25), iw, ih, "trap_samsung", fit="cover")
+image(s, ix + iw + Inches(0.2), top + Inches(0.25), iw, ih, "trap_lg", fit="cover")
+# The play: Roku City
+image(s, rx + Inches(0.25), top + Inches(0.25), cw - Inches(0.5), Inches(1.95), "bench_roku_strip", fit="contain")
+for x, tag, name, line, hi in [
+    (M, "THE TRAP", "Tizen & webOS", "AI chips, processors, spec sheets. The OS stays invisible.", False),
+    (rx, "THE PLAY", "Roku City", "A screen saver fans want to move into, now the brand's visual language.", True),
+]:
     txt(s, x + Inches(0.35), top + Inches(2.4), Inches(2), Inches(0.3), tag, 11, GOLD if hi else DIM,
         bold=True, tracking=300)
     txt(s, x + Inches(2.0), top + Inches(2.3), cw - Inches(2.3), Inches(0.4), name, 20, WHITE if hi else GREY,
@@ -235,11 +244,11 @@ box(s, SW / 2 - hub / 2, top + Inches(0.9), hub, hub, fill=GOLD, line=BG, shape=
 txt(s, SW / 2 - hub / 2, top + Inches(0.9), hub, hub, "V", 28, INK, font=HEAD, align=PP_ALIGN.CENTER,
     anchor=MSO_ANCHOR.MIDDLE)
 txt(s, M, Inches(6.15), Inches(2.2), Inches(0.4), "POWERED BY", 10, DIM, bold=True, tracking=300, anchor=MSO_ANCHOR.MIDDLE)
-pills(s, M + Inches(1.6), Inches(6.15), ["YOUTUBE MASTERCLASS", "V AMBASSADORS", "MONTHLY SHOOT DAYS"],
+pills(s, M + Inches(1.6), Inches(6.15), ["YOUTUBE MASTERCLASS", "SHORT-FORM VIDEO HUBS", "IN-HOUSE PRODUCTION DAYS"],
       size=10, fg=WHITE, outline=GOLD)
 notes(s,
       "Two engines with two clear jobs: LinkedIn, already at 13K followers, builds authority with OEMs, partners and advertisers, while Instagram, dormant since March 2025, relaunches in December to win the people on the sofa. "
-      "YouTube tutorials and our V Ambassadors feed both engines with content.",
+      "A YouTube masterclass library and short-form video hubs, shot on our own in-house production days, feed both engines.",
       "Why not TikTok and everything else too?",
       "Focus: two engines done brilliantly beat six done averagely.")
 
@@ -249,19 +258,31 @@ notes(s,
 s = new_slide()
 frame(s, 4, "B2B channel  |  LinkedIn", "Turning Scale Into Industry Authority.",
       "400+ TV brands give V data and access no rival OS can match.")
-top, ih, gap = Inches(2.5), Inches(3.05), Inches(0.35)
-w3 = (CW - 2 * gap) / 3
-items = [("li_second_screen", "01  Viewing Data", "Second-screen and viewing-habit insights"),
-         ("li_partners", "02  Partnerships", "OpenAI, Teads, Hisense integrations"),
-         ("li_exec_posts", "03  Executive Voice", "Guy Edri & Denis Ostir, in first person")]
-for i, (asset, head, sub) in enumerate(items):
-    x = M + i * (w3 + gap)
-    card(s, x, top, w3, ih)
-    image(s, x + Inches(0.15), top + Inches(0.15), w3 - Inches(0.3), ih - Inches(0.3), asset, fit="contain")
-    caption(s, x, top + ih + Inches(0.2), w3, head, sub)
+top, ch, gap = Inches(2.45), Inches(3.35), Inches(0.3)
+sw_ = Inches(3.35)
+ew = CW - 2 * sw_ - 2 * gap
+cols = [M, M + sw_ + gap, M + 2 * (sw_ + gap)]
+for x, w, asset, head, sub in [
+    (cols[0], sw_, "li_second_screen", "01  Viewing Data", "Second-screen and viewing-habit insights"),
+    (cols[1], sw_, "li_partners", "02  Partnerships", "OpenAI, Teads, Hisense integrations"),
+]:
+    card(s, x, top, w, ch)
+    image(s, x + Inches(0.15), top + Inches(0.15), w - Inches(0.3), ch - Inches(0.3), asset, fit="contain")
+    caption(s, x, top + ch + Inches(0.15), w, head, sub)
+# Executive voice: Guy Edri front and center
+ex = cols[2]
+card(s, ex, top, ew, ch, fill=CARD_HI, line=GOLD)
+image(s, ex + Inches(0.15), top + Inches(0.15), Inches(2.0), ch - Inches(0.3), "li_guy_post", fit="contain")
+rx = ex + Inches(2.3)
+rw = ew - Inches(2.45)
+image(s, rx, top + Inches(0.15), rw, Inches(1.25), "li_guy_teads", fit="contain")
+txt(s, rx, top + Inches(1.65), rw, Inches(0.4), "GUY EDRI", 20, WHITE, font=HEAD)
+txt(s, rx, top + Inches(2.05), rw, Inches(0.3), "CEO, VIDAA", 12, GOLD, bold=True, tracking=200)
+pill(s, rx, top + Inches(2.6), "+ DENIS OSTIR", size=10, fg=WHITE, outline=GOLD, h=Inches(0.36))
+caption(s, ex, top + ch + Inches(0.15), ew, "03  Executive Voice", "First-person posts that put V next to Hisense")
 notes(s,
-      "LinkedIn is where we sell what only V has: insight from more than 400 TV brands, partnerships like OpenAI, Teads and Hisense, and the first-person voices of you and Denis. "
-      "When an OEM or media buyer thinks about the future of TV, we want V to be the first name in their feed.",
+      "LinkedIn is where we sell what only V has: insight from more than 400 TV brands, partnerships like OpenAI, Teads and Hisense, and above all your own voice, backed by Denis. "
+      "Your post on getting close to number one with Hisense and 400 brands is exactly the tone that makes OEMs and media buyers call us first.",
       "Do I have to post personally?",
       "Twice a month, fully drafted for you; ten minutes, and it's our strongest B2B reach.")
 
@@ -271,45 +292,79 @@ notes(s,
 s = new_slide()
 frame(s, 5, "B2C channel  |  Instagram", "Home Comes to Life.",
       "The relaunch turns the profile itself into one living room.")
-top, ih = Inches(2.5), Inches(3.5)
-lw = Inches(5.2)
-card(s, M, top, lw, ih)
-image(s, M + Inches(0.15), top + Inches(0.15), lw - Inches(0.3), ih - Inches(0.3), "ig_launch_9grid", fit="contain")
-caption(s, M, top + ih + Inches(0.2), lw, "The 9-Grid Relaunch", '"Where Moments Come Alive"')
-rx = M + lw + Inches(0.35)
+top = Inches(2.45)
+t, g = Inches(1.14), Inches(0.05)
+gw = 3 * t + 2 * g
+gx = M
+# Row 1: one panorama across three tiles
+image(s, gx, top, gw, t, "grid_row1", fit="cover")
+for k in (1, 2):
+    box(s, gx + k * t + (k - 1) * g, top, g, t, fill=BG)
+# Row 2: typography in its own tile, photo across the other two
+r2 = top + t + g
+box(s, gx, r2, t, t, fill=GOLD)
+txt(s, gx + Inches(0.1), r2, t - Inches(0.1), t, "WHERE\nMOMENTS\nCOME\nALIVE", 12, INK, font=HEAD,
+    anchor=MSO_ANCHOR.MIDDLE, line_spacing=0.9)
+image(s, gx + t + g, r2, 2 * t + g, t, "grid_room", fit="cover")
+box(s, gx + 2 * t + g, r2, g, t, fill=BG)
+# Row 3: people, the V mark, welcome
+r3 = r2 + t + g
+image(s, gx, r3, t, t, "grid_girl", fit="cover")
+box(s, gx + t + g, r3, t, t, fill=RGBColor(0x05, 0x05, 0x05))
+image(s, gx + t + g + Inches(0.3), r3 + Inches(0.3), t - Inches(0.6), t - Inches(0.6), "v_logo", fit="contain")
+box(s, gx + 2 * (t + g), r3, t, t, fill=RGBColor(0x05, 0x05, 0x05))
+txt(s, gx + 2 * (t + g), r3, t, t, "Welcome\nHome", 12, WHITE, font=HEAD, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+caption(s, gx, top + gw + Inches(0.15), gw, "The 9-Grid Relaunch", "One living room across nine tiles")
+# Right: always-on formats
+rx = gx + gw + Inches(0.4)
 rw = SW - M - rx
-card(s, rx, top, rw, ih)
-image(s, rx + Inches(0.15), top + Inches(0.15), rw - Inches(0.3), ih - Inches(0.3), "ig_family", fit="contain")
-caption(s, rx, top + ih + Inches(0.2), rw, "Always-On Living Room",
-        "Family moments, quick feature tips, gaming, AI & smart home")
+card(s, rx, top, rw, gw)
+pw = Inches(1.95)
+for i, asset in enumerate(["ig_room_1", "ig_room_2"]):
+    image(s, rx + Inches(0.2) + i * (pw + Inches(0.15)), top + Inches(0.2), pw, gw - Inches(0.4), asset, fit="cover")
+tx = rx + Inches(0.2) + 2 * pw + Inches(0.45)
+txt(s, tx, top + Inches(0.3), SW - M - tx - Inches(0.2), Inches(0.3), "ALWAYS-ON FORMATS", 11, GOLD, bold=True, tracking=300)
+for i, label in enumerate(["FAMILY & HOME MOMENTS", "FEATURE SPOTLIGHT & TIPS", "AI  |  SMART HOME", "HOW IT'S MADE", "COMMUNITY & USERS"]):
+    pill(s, tx, top + Inches(0.8) + i * Inches(0.5), label, size=9, fg=WHITE, outline=GOLD, h=Inches(0.36))
+caption(s, rx, top + gw + Inches(0.15), rw, "Always-On Living Room", "Binge nights, gaming, family time and the smart home")
 notes(s,
-      "We relaunch the dormant account with one panoramic living room split across nine tiles, Where Moments Come Alive, so the launch itself is the statement. "
-      "Then we stay always-on with short, real living-room moments: binge nights, gaming, quick feature tips and the smart home.",
+      "We relaunch the dormant account with one living room spread across nine tiles, Where Moments Come Alive, so the launch itself is the statement. "
+      "Then we stay always-on with real living-room moments, quick feature tips and the smart home, so the product is always the hero of the feed.",
       "Will a dormant account really come back?",
       "The 9-grid is the reset button; the formats are built to earn the follow.")
 
 # ======================================================================
-# 6. V AMBASSADORS
+# 6. PRODUCT IN ACTION
 # ======================================================================
 s = new_slide()
-frame(s, 6, "Creator strategy", "V Ambassadors: Real People, Zero Filters.",
-      "Employees and everyday users become our most trusted creators.")
-top, ih, gap = Inches(2.5), Inches(3.05), Inches(0.35)
-w3 = (CW - 2 * gap) / 3
+frame(s, 6, "Product in action", "15-Second TV Hacks & Features.",
+      "Making speed, AI and smart home connectivity approachable through snackable video.")
+top, ph = Inches(2.45), Inches(3.4)
+colw = CW / 3
+pw = Inches(2.35)
 for i, (asset, head, sub) in enumerate([
-    ("amb_ritual", "My Ritual", "Each ambassador's personal viewing ritual"),
-    ("amb_real_room", "The Real Living Room", "No tidying, no filters, just the couch view"),
-    ("amb_hack", "Hack My Living Room", "Quick hacks from busy mornings to bedtime"),
+    ("prod_smart_home", "Fast Navigation & Smart Home", "UI in action, AI and device integrations"),
+    ("prod_hack", "15-Second TV Life Hacks", "Quick shortcuts, finding content instantly"),
+    ("prod_binge", "Binge & Gaming Modes", "Low latency, sports and cinema picture modes"),
 ]):
-    x = M + i * (w3 + gap)
-    card(s, x, top, w3, ih)
-    image(s, x + Inches(0.15), top + Inches(0.15), w3 - Inches(0.3), ih - Inches(0.3), asset, fit="contain")
-    caption(s, x, top + ih + Inches(0.2), w3, head, sub)
+    cx = M + i * colw
+    px = cx + (colw - pw) / 2
+    box(s, px - Inches(0.07), top - Inches(0.07), pw + Inches(0.14), ph + Inches(0.14), fill=BG, line=DIM,
+        shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.08, lw=1.5)
+    image(s, px, top, pw, ph, asset, fit="cover")
+    pill(s, px + Inches(0.12), top + Inches(0.12), "15s", size=10, fg=INK, fill=GOLD, h=Inches(0.32))
+    d = Inches(0.55)
+    box(s, px + pw / 2 - d / 2, top + ph - d - Inches(0.2), d, d, fill=GOLD, shape=MSO_SHAPE.OVAL)
+    tri = box(s, px + pw / 2 - Inches(0.1), top + ph - d / 2 - Inches(0.2) - Inches(0.11), Inches(0.24), Inches(0.22),
+              fill=INK, shape=MSO_SHAPE.ISOSCELES_TRIANGLE)
+    tri.rotation = 90
+    txt(s, cx, top + ph + Inches(0.2), colw, Inches(0.3), f"0{i + 1}  {head}", 14, WHITE, font=HEAD, align=PP_ALIGN.CENTER)
+    txt(s, cx, top + ph + Inches(0.55), colw, Inches(0.3), sub, 11, GREY, align=PP_ALIGN.CENTER)
 notes(s,
-      "Like Gap, Starbucks and Apple, we hand the camera to real employees and users and let them film their own living rooms, with no tidying and no filters. "
-      "In return they get early access, exposure on our channels and living-room gear, and we get content people actually trust, at a fraction of production cost.",
-      "How do we protect the brand if it's unfiltered?",
-      "Clear playbook, light approval, and we only boost what's on-brand.")
+      "This is where the product becomes the star: 15-second videos that show how fast V is, how it connects the smart home, and the one shortcut that saves you time tonight. "
+      "Every clip sells a real capability, from finding content instantly to low-latency gaming and sports picture modes, in the time it takes to scroll.",
+      "Why would anyone watch a video about an operating system?",
+      "Because it's 15 seconds and solves a real problem on their couch.")
 
 # ======================================================================
 # 7. ROADMAP
@@ -323,7 +378,7 @@ box(s, M, ly - Inches(0.03), CW * 0.5, Inches(0.06), fill=GOLD)
 w3 = CW / 3
 stages = [
     ("DEC 2026", "Relaunch", "Instagram 9-grid launch\nCES teasers on LinkedIn", False),
-    ("JAN 2027", "CES Las Vegas", "Live executive coverage\nCreator living-room takeovers", True),
+    ("JAN 2027", "CES Las Vegas", "Live executive coverage\nBehind the scenes from the booth", True),
     ("2027", "Always-On Growth", "CTV Summit, StreamTV, IFA,\nDisruptTV, Black Friday", False),
 ]
 for i, (when, name, what, hero) in enumerate(stages):
@@ -341,10 +396,10 @@ pill(s, M + w3 + w3 / 2 - Inches(0.67), ly - Inches(0.85), "THE ANCHOR", size=10
 box(s, M, Inches(5.95), CW, Inches(0.6), fill=GOLD, shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.2)
 txt(s, M, Inches(5.95), CW, Inches(0.6), "DECISION TODAY:  GREENLIGHT THE DECEMBER RELAUNCH + CES 2027 ACTIVATION", 15, INK,
     font=HEAD, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
-txt(s, M, Inches(6.65), CW, Inches(0.3), "ENGINE:  MONTHLY CONTENT CALENDAR  /  BI-MONTHLY SHOOT DAYS  /  MONTHLY PERFORMANCE REVIEW",
+txt(s, M, Inches(6.65), CW, Inches(0.3), "ENGINE:  MONTHLY CONTENT CALENDAR  /  IN-HOUSE PRODUCTION DAYS  /  MONTHLY PERFORMANCE REVIEW",
     9, GREY, bold=True, align=PP_ALIGN.CENTER, tracking=150)
 notes(s,
-      "We relaunch Instagram in December with CES teasers, peak at CES Las Vegas in January with live executive coverage and creator takeovers, then ride the 2027 event calendar from CTV Summit London to IFA and Black Friday. "
+      "We relaunch Instagram in December with CES teasers, peak at CES Las Vegas in January with live executive coverage from the booth, then ride the 2027 event calendar from CTV Summit London to IFA and Black Friday. "
       "All I need today is your green light for the December relaunch and the CES activation.",
       "What will I see before CES to know it's working?",
       "A monthly performance review, starting with the first month.")
