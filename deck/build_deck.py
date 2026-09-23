@@ -1,5 +1,5 @@
 """
-V | 2026-2027 Executive Social Strategy: 7-slide CEO deck (16:9, dark mode).
+V | 2026-2027 Executive Social Strategy: 8-slide CEO deck (16:9, dark mode).
 
     pip install python-pptx
     python build_deck.py            -> V_Social_Strategy_CEO.pptx
@@ -117,7 +117,7 @@ def frame(s, n, kicker, title, takeaway):
     txt(s, M, Inches(1.8), CW, Inches(0.45), takeaway, 17, GREY)
     txt(s, M, SH - Inches(0.5), Inches(6), Inches(0.25), "V  |  SOCIAL STRATEGY 2026-2027", 9, DIM,
         bold=True, tracking=200)
-    txt(s, SW - M - Inches(1), SH - Inches(0.5), Inches(1), Inches(0.25), f"{n:02d} / 07", 9, DIM,
+    txt(s, SW - M - Inches(1), SH - Inches(0.5), Inches(1), Inches(0.25), f"{n:02d} / 08", 9, DIM,
         bold=True, align=PP_ALIGN.RIGHT, tracking=200)
 
 
@@ -183,37 +183,36 @@ notes(s,
       "Because OEMs, advertisers and buyers all check us there first, and today they find almost nothing.")
 
 # ======================================================================
-# 2. THE STRATEGIC SHIFT
+# 2. THE COMPETITIVE LANDSCAPE
 # ======================================================================
 s = new_slide()
-frame(s, 2, "The strategic shift", "From Hardware Specs to Living Room Culture.",
+frame(s, 2, "The competitive landscape", "From Hardware Specs to Living Room Culture.",
       "People don't follow processors. They follow culture.")
-top, ch = Inches(2.5), Inches(3.4)
-cw = Inches(5.5)
-rx = SW - M - cw
-for x, hi in [(M, False), (rx, True)]:
-    card(s, x, top, cw, ch, fill=CARD_HI if hi else CARD, line=GOLD if hi else None)
-# The trap: two clean spec-sheet cutouts (Samsung / LG)
-iw, ih = Inches(1.85), Inches(1.95)
-ix = M + (cw - 2 * iw - Inches(0.2)) / 2
-image(s, ix, top + Inches(0.25), iw, ih, "trap_samsung", fit="cover")
-image(s, ix + iw + Inches(0.2), top + Inches(0.25), iw, ih, "trap_lg", fit="cover")
-# The play: Roku City
-image(s, rx + Inches(0.25), top + Inches(0.25), cw - Inches(0.5), Inches(1.95), "bench_roku_strip", fit="contain")
-for x, tag, name, line, hi in [
-    (M, "THE TRAP", "Tizen & webOS", "AI chips, processors, spec sheets. The OS stays invisible.", False),
-    (rx, "THE PLAY", "Roku City", "A screen saver fans want to move into, now the brand's visual language.", True),
-]:
-    txt(s, x + Inches(0.35), top + Inches(2.4), Inches(2), Inches(0.3), tag, 11, GOLD if hi else DIM,
-        bold=True, tracking=300)
-    txt(s, x + Inches(2.0), top + Inches(2.3), cw - Inches(2.3), Inches(0.4), name, 20, WHITE if hi else GREY,
-        font=HEAD, align=PP_ALIGN.RIGHT)
-    txt(s, x + Inches(0.35), top + Inches(2.8), cw - Inches(0.7), Inches(0.5), line, 12, WHITE if hi else DIM)
-box(s, SW / 2 - Inches(0.3), top + ch / 2 - Inches(0.3), Inches(0.6), Inches(0.6), fill=GOLD, shape=MSO_SHAPE.RIGHT_ARROW)
-pills(s, M, Inches(6.2), ["ROKU ON LINKEDIN: 623K", "TIZEN ON LINKEDIN: 184K", "3.4x THE AUDIENCE"], size=10)
+top, ch, gap = Inches(2.4), Inches(3.75), Inches(0.3)
+cw = (CW - 2 * gap) / 3
+iw, ih = Inches(1.6), Inches(2.25)
+comps = [
+    ("samsung", "THE SPEC SHEET", "Samsung", "Sells AI chips and picture modes. Tizen stays invisible.", DIM, GREY, None),
+    ("amazon", "THE VIEWING HABIT", "Amazon Fire TV", "Rides live moments and quick hacks: red cards, movie nights, tips.", GREY, WHITE, None),
+    ("roku", "THE CULTURE", "Roku", "Roku City: a screen saver fans want to move into.", GOLD, WHITE, GOLD),
+]
+for i, (key, tag, name, line, tag_c, name_c, outline) in enumerate(comps):
+    x = M + i * (cw + gap)
+    card(s, x, top, cw, ch, fill=CARD_HI if outline else CARD, line=outline)
+    ix = x + (cw - 2 * iw - Inches(0.15)) / 2
+    for j in range(2):
+        image(s, ix + j * (iw + Inches(0.15)), top + Inches(0.2), iw, ih, f"comp_{key}_{j + 1}", fit="cover")
+    txt(s, x + Inches(0.3), top + Inches(2.62), cw - Inches(0.6), Inches(0.3), tag, 10, tag_c, bold=True, tracking=300)
+    txt(s, x + Inches(0.3), top + Inches(2.9), cw - Inches(0.6), Inches(0.4), name, 18, name_c, font=HEAD)
+    txt(s, x + Inches(0.3), top + Inches(3.28), cw - Inches(0.6), Inches(0.45), line, 11, name_c if outline else GREY)
+# specs -> culture spectrum between the cards
+for i in range(2):
+    ax = M + (i + 1) * cw + i * gap + Inches(0.02)
+    box(s, ax, top + Inches(1.15), gap - Inches(0.04), Inches(0.3), fill=GOLD, shape=MSO_SHAPE.RIGHT_ARROW)
+pills(s, M, Inches(6.35), ["ROKU ON LINKEDIN: 623K", "TIZEN ON LINKEDIN: 184K", "3.4x THE AUDIENCE"], size=10)
 notes(s,
-      "Samsung and LG sell chips and processors, and the operating system disappears behind the TV. "
-      "Roku turned a screen saver into a cult icon and now has 3.4 times Tizen's LinkedIn audience, proof that the category rewards culture.",
+      "Samsung sells chips and picture modes and the OS disappears; Amazon Fire TV gets closer by riding real viewing moments and quick hacks; Roku owns culture with Roku City. "
+      "The further a brand moves from specs to culture, the bigger its audience: Roku has 3.4 times Tizen's LinkedIn following, and that's the direction we take.",
       "Isn't Roku a consumer device brand, unlike us?",
       "So is every TV we power; we win the living room the same way.")
 
@@ -367,39 +366,94 @@ notes(s,
       "Because it's 15 seconds and solves a real problem on their couch.")
 
 # ======================================================================
-# 7. ROADMAP
+# 7. EVENTS PLAYBOOK
 # ======================================================================
 s = new_slide()
-frame(s, 7, "Roadmap", "The Road to CES 2027 & Beyond.",
-      "Launch in December, peak in Vegas, then an event-driven drumbeat all year.")
-ly = Inches(3.15)
-box(s, M, ly - Inches(0.03), CW, Inches(0.06), fill=LINE)
-box(s, M, ly - Inches(0.03), CW * 0.5, Inches(0.06), fill=GOLD)
-w3 = CW / 3
-stages = [
-    ("DEC 2026", "Relaunch", "Instagram 9-grid launch\nCES teasers on LinkedIn", False),
-    ("JAN 2027", "CES Las Vegas", "Live executive coverage\nBehind the scenes from the booth", True),
-    ("2027", "Always-On Growth", "CTV Summit, StreamTV, IFA,\nDisruptTV, Black Friday", False),
-]
-for i, (when, name, what, hero) in enumerate(stages):
-    cx = M + w3 * i + w3 / 2
-    d = Inches(0.55) if hero else Inches(0.32)
-    box(s, cx - d / 2, ly - d / 2, d, d, fill=GOLD if i < 2 else BG, line=GOLD, shape=MSO_SHAPE.OVAL, lw=2.5)
-    cy = ly + Inches(0.5)
-    if hero:
-        card(s, cx - w3 / 2 + Inches(0.1), cy, w3 - Inches(0.2), Inches(2.05), fill=CARD_HI, line=GOLD)
-    txt(s, cx - w3 / 2, cy + Inches(0.25), w3, Inches(0.3), when, 12, GOLD, bold=True, align=PP_ALIGN.CENTER, tracking=300)
-    txt(s, cx - w3 / 2, cy + Inches(0.6), w3, Inches(0.5), name, 22, WHITE, font=HEAD, align=PP_ALIGN.CENTER)
-    txt(s, cx - w3 / 2 + Inches(0.3), cy + Inches(1.2), w3 - Inches(0.6), Inches(0.8), what, 13, GREY,
-        align=PP_ALIGN.CENTER)
-pill(s, M + w3 + w3 / 2 - Inches(0.67), ly - Inches(0.85), "THE ANCHOR", size=10, fg=INK, fill=GOLD)
-box(s, M, Inches(5.95), CW, Inches(0.6), fill=GOLD, shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.2)
-txt(s, M, Inches(5.95), CW, Inches(0.6), "DECISION TODAY:  GREENLIGHT THE DECEMBER RELAUNCH + CES 2027 ACTIVATION", 15, INK,
-    font=HEAD, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
-txt(s, M, Inches(6.65), CW, Inches(0.3), "ENGINE:  MONTHLY CONTENT CALENDAR  /  IN-HOUSE PRODUCTION DAYS  /  MONTHLY PERFORMANCE REVIEW",
-    9, GREY, bold=True, align=PP_ALIGN.CENTER, tracking=150)
+frame(s, 7, "Events playbook", "Every Event Becomes a Month of Content.",
+      "CES Las Vegas, January 2027, is the template for the whole year.")
+# 2027 event calendar strip
+events = [("DEC '26", "IG launch +\nCES teasers"), ("JAN", "CES\nLas Vegas"), ("APR", "ASEAN\nevent"),
+          ("MAY", "CTV Summit\nLondon"), ("JUN", "StreamTV\nLisbon & Denver"), ("SEP", "IFA\nBerlin"),
+          ("OCT", "DisruptTV +\nCanton Fair"), ("NOV", "Black\nFriday")]
+eg = Inches(0.08)
+ew = (CW - 7 * eg) / 8
+ey = Inches(2.35)
+for i, (mon, name) in enumerate(events):
+    x = M + i * (ew + eg)
+    hero = i == 1
+    box(s, x, ey, ew, Inches(0.72), fill=GOLD if hero else CARD, shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.12)
+    txt(s, x + Inches(0.1), ey + Inches(0.06), ew - Inches(0.2), Inches(0.2), mon, 9, INK if hero else GOLD,
+        bold=True, tracking=150)
+    txt(s, x + Inches(0.1), ey + Inches(0.26), ew - Inches(0.2), Inches(0.45), name, 9, INK if hero else WHITE,
+        bold=True, line_spacing=0.95)
+# CES month table
+tx, ty = M, Inches(3.3)
+lw = Inches(1.35)
+cg = Inches(0.08)
+cw4 = (CW - lw - 4 * cg) / 4
+hh, rh = Inches(0.5), Inches(1.12)
+weeks = ["WEEK 1  |  TEASE", "WEEK 2  |  LIVE", "WEEK 3  |  BRING IT HOME", "WEEK 4  |  BACK TO ROUTINE"]
+cells = {
+    "INSTAGRAM": [("Packing the Living Room", "Teaser reel: living-room essentials + CES badges"),
+                  ("3 CES Features for Tonight", "Feature spotlight straight from Vegas"),
+                  ("Vegas Was Fun, But This Is Perfect", "Cozy reel back to the living room"),
+                  ("Your Toxic Viewing Trait", "Relatable carousel built for tags & shares")],
+    "LINKEDIN": [("What to Expect at CES 2027", "Denis on TVOS & smart-home trends"),
+                 ("Live From the Booth", "Updates, team photos, new partnerships"),
+                 ("The CEO's Vision", "Guy Edri's top CES takeaways for 2027"),
+                 ("Partner & Team Spotlight", "A CES partner or a team insight")],
+}
+for j, wk in enumerate(weeks):
+    x = tx + lw + cg + j * (cw4 + cg)
+    live = j == 1
+    box(s, x, ty, cw4, hh, fill=GOLD if live else CARD_HI, shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.15)
+    txt(s, x, ty, cw4, hh, wk, 10, INK if live else GOLD, bold=True, align=PP_ALIGN.CENTER,
+        anchor=MSO_ANCHOR.MIDDLE, tracking=100)
+for r, (chan, row) in enumerate(cells.items()):
+    y = ty + hh + cg + r * (rh + cg)
+    txt(s, tx, y, lw - Inches(0.1), rh, chan, 11, WHITE, font=HEAD, anchor=MSO_ANCHOR.MIDDLE)
+    for j, (head, sub) in enumerate(row):
+        x = tx + lw + cg + j * (cw4 + cg)
+        card(s, x, y, cw4, rh, fill=CARD, line=GOLD if j == 1 else None)
+        txt(s, x + Inches(0.18), y + Inches(0.14), cw4 - Inches(0.36), Inches(0.5), head, 12, WHITE, bold=True)
+        txt(s, x + Inches(0.18), y + Inches(0.62), cw4 - Inches(0.36), Inches(0.45), sub, 10, GREY)
+txt(s, M, Inches(6.6), CW, Inches(0.3), "+ DAILY STORIES ALL MONTH:  POLLS  /  BEHIND THE SCENES  /  EVENT TAKEOVERS",
+    9, GREY, bold=True, tracking=150)
 notes(s,
-      "We relaunch Instagram in December with CES teasers, peak at CES Las Vegas in January with live executive coverage from the booth, then ride the 2027 event calendar from CTV Summit London to IFA and Black Friday. "
+      "Every industry event gets the same four-week playbook: tease it, go live, bring it back home to the living room, then return to routine, with Instagram and LinkedIn each playing their own role. "
+      "CES in January is the template, and we repeat it for ASEAN, CTV Summit London, StreamTV, IFA, DisruptTV and Black Friday.",
+      "Isn't this a lot of content around one trade show?",
+      "One shoot at the booth feeds a full month on both channels.")
+
+# ======================================================================
+# 8. HOW WE WORK + DECISION
+# ======================================================================
+s = new_slide()
+frame(s, 8, "How we work", "One Monthly Rhythm. Zero Guesswork.",
+      "Plan weekly, shoot in batches, optimize every month.")
+top, ch, gap = Inches(2.4), Inches(3.05), Inches(0.55)
+cw = (CW - 2 * gap) / 3
+steps = [("01", "Monthly Content\nCalendar", "WEEKLY PLANNING", "A monthly Gantt for both channels, with ongoing feed management."),
+         ("02", "Content Bank\nShoots", "BI-MONTHLY", "Concentrated production days that capture every visual asset."),
+         ("03", "Performance\nReview", "MONTHLY", "An analytics wrap-up that tunes next month's content.")]
+for i, (num, head, cadence, line) in enumerate(steps):
+    x = M + i * (cw + gap)
+    card(s, x, top, cw, ch)
+    box(s, x, top, cw, Inches(0.07), fill=GOLD)
+    txt(s, x + Inches(0.35), top + Inches(0.35), Inches(1.5), Inches(0.7), num, 36, GOLD, font=HEAD)
+    txt(s, x + Inches(0.35), top + Inches(1.1), cw - Inches(0.7), Inches(0.8), head, 18, WHITE, font=HEAD, line_spacing=0.95)
+    pill(s, x + Inches(0.35), top + Inches(1.95), cadence, size=9, fg=WHITE, outline=GOLD, h=Inches(0.34))
+    txt(s, x + Inches(0.35), top + Inches(2.42), cw - Inches(0.7), Inches(0.6), line, 12, GREY)
+    if i < 2:
+        box(s, x + cw + Inches(0.1), top + ch / 2 - Inches(0.22), gap - Inches(0.2), Inches(0.44), fill=GOLD,
+            shape=MSO_SHAPE.RIGHT_ARROW)
+txt(s, M, Inches(5.6), CW, Inches(0.3), "REPEAT EVERY MONTH  /  RESULTS REPORTED MONTHLY", 10, DIM, bold=True,
+    align=PP_ALIGN.CENTER, tracking=250)
+box(s, M, Inches(6.05), CW, Inches(0.6), fill=GOLD, shape=MSO_SHAPE.ROUNDED_RECTANGLE, radius=0.2)
+txt(s, M, Inches(6.05), CW, Inches(0.6), "DECISION TODAY:  GREENLIGHT THE DECEMBER RELAUNCH + CES 2027 ACTIVATION", 15, INK,
+    font=HEAD, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+notes(s,
+      "The engine behind all of this is simple: a monthly content calendar planned week by week, batch production days every two months, and a monthly performance review that sharpens what comes next. "
       "All I need today is your green light for the December relaunch and the CES activation.",
       "What will I see before CES to know it's working?",
       "A monthly performance review, starting with the first month.")
